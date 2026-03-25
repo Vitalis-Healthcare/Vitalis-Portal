@@ -37,3 +37,25 @@ body {
   pointer-events: none;
   height: 0;
 }
+
+/* ── P&P Policy viewer — scoped styles for rendered HTML content ── */
+.pp-policy-content {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #1A2E44;
+}
+.pp-policy-content h1, .pp-policy-content h2, .pp-policy-content h3 { color: #1A2E44; }
+.pp-policy-content table { width: 100%; border-collapse: collapse; }
+.pp-policy-content th, .pp-policy-content td { padding: 10px 14px; border: 1px solid #E2E8F0; font-size: 14px; }
+.pp-policy-content th { background: #F8FAFB; font-weight: 700; }
+.pp-policy-content a { color: #0B6B5C; }
+.pp-policy-content ul, .pp-policy-content ol { padding-left: 22px; line-height: 1.9; }
+/* Hide the document's own nav/header since we wrap it in the portal header */
+.pp-policy-content nav, .pp-policy-content header, .pp-policy-content .page-header { display: none !important; }
+/* Show the main content area properly */
+.pp-policy-content .content-body, .pp-policy-content article, .pp-policy-content section { padding: 0 !important; }
+/* Keep the acknowledgment button hidden — we have our own */
+.pp-policy-content #ack-btn, .pp-policy-content .banner-btn { display: none !important; }
+@media print {
+  aside, nav, .topbar, .sidebar { display: none !important; }
+  .pp-policy-content { padding: 0; }
+}
