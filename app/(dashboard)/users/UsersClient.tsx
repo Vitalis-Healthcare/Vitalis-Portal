@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -130,6 +131,25 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
     hire_date: profile.hire_date || '',
     status: profile.status,
   })
+  const [newPassword, setNewPassword] = React.useState('')
+  const [confirmPassword, setConfirmPassword] = React.useState('')
+  const [pwSaving, setPwSaving] = React.useState(false)
+  const [pwMsg, setPwMsg] = React.useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  const handleSetPassword = async () => {
+    if (newPassword.length < 8) { setPwMsg({ type: 'err', text: 'Password must be at least 8 characters.' }); return }
+    if (newPassword !== confirmPassword) { setPwMsg({ type: 'err', text: 'Passwords do not match.' }); return }
+    setPwSaving(true); setPwMsg(null)
+    const res = await fetch('/api/admin/set-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: profile.id, password: newPassword })
+    })
+    const json = await res.json()
+    if (json.success) { setPwMsg({ type: 'ok', text: 'Password updated successfully.' }); setNewPassword(''); setConfirmPassword('') }
+    else { setPwMsg({ type: 'err', text: json.error || 'Failed to update password.' }) }
+    setPwSaving(false)
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -195,6 +215,30 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
         <button onClick={onClose} style={{ padding: '9px 20px', background: '#EFF2F5', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
         <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', background: '#0E7C7B', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#fff', opacity: saving ? 0.7 : 1 }}>
           {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
+
+      <div style={{ marginTop:24, paddingTop:20, borderTop:'1px solid #EFF2F5' }}>
+        <h4 style={{ fontSize:14, fontWeight:700, color:'#1A2E44', marginBottom:12, marginTop:0 }}>🔑 Set Password</h4>
+        <p style={{ fontSize:12, color:'#8FA0B0', marginBottom:12, marginTop:0 }}>Set a password so the staff member can log in with email and password.</p>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+          <div>
+            <label style={lbl}>New Password</label>
+            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 8 characters" style={inp} />
+          </div>
+          <div>
+            <label style={lbl}>Confirm Password</label>
+            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat password" style={inp} />
+          </div>
+        </div>
+        {pwMsg && (
+          <div style={{ padding:'8px 12px', borderRadius:7, marginBottom:10, fontSize:13, background: pwMsg.type === 'ok' ? '#E6F6F4' : '#FDE8E9', color: pwMsg.type === 'ok' ? '#2A9D8F' : '#E63946' }}>
+            {pwMsg.type === 'ok' ? '✓ ' : '⚠ '}{pwMsg.text}
+          </div>
+        )}
+        <button onClick={handleSetPassword} disabled={pwSaving || !newPassword}
+          style={{ padding:'8px 18px', background: newPassword ? '#1A2E44' : '#CBD5E0', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor: newPassword ? 'pointer' : 'not-allowed' }}>
+          {pwSaving ? 'Setting…' : 'Set Password'}
         </button>
       </div>
     </div>
