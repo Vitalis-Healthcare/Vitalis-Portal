@@ -18,7 +18,7 @@ const adminSections = [
   {
     label: 'MODULES',
     items: [
-      { href: '/lms', label: 'Training & LMS', icon: GraduationCap },
+      { href: '/lms', label: 'Training Programmes', icon: GraduationCap },
       { href: '/policies', label: 'Policies & Procedures', icon: FileText },
       { href: '/credentials', label: 'Credentials', icon: BadgeCheck },
       { href: '/staff', label: 'Staff Portal', icon: Users },
@@ -42,7 +42,7 @@ const staffSections = [
   {
     label: 'MY PORTAL',
     items: [
-      { href: '/lms', label: 'My Training', icon: GraduationCap },
+      { href: '/lms', label: 'Training Programmes', icon: GraduationCap },
       { href: '/policies', label: 'Policies & Procedures', icon: FileText },
       { href: '/credentials', label: 'My Credentials', icon: BadgeCheck },
     ]

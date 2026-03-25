@@ -1,177 +1,207 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus, BookOpen, Users, Clock, CheckCircle } from 'lucide-react'
+import { CheckCircle, Clock, BookOpen, Users, Lock } from 'lucide-react'
 
 export default async function LMSPage() {
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id||'').single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
-  const { data: allCourses } = await supabase
+  // Fetch all programmes with their tracks and modules
+  const { data: programmes } = await supabase
+    .from('programmes')
+    .select('*')
+    .order('id')
+
+  const { data: tracks } = await supabase
+    .from('tracks')
+    .select('*')
+    .order('order_index')
+
+  const { data: modules } = await supabase
     .from('courses')
-    .select('id, title, status, category, estimated_minutes, thumbnail_color, created_at')
-    .order('updated_at', { ascending: false })
+    .select('id, lms_module_id, programme_id, track_id, title, badge, status, estimated_minutes, order_index, thumbnail_color')
+    .not('programme_id', 'is', null)
+    .order('order_index')
 
-  const { count: totalEnrollments } = await supabase
-    .from('course_enrollments').select('*', { count:'exact', head:true })
-
-  const { count: completions } = await supabase
-    .from('course_enrollments').select('*', { count:'exact', head:true }).not('completed_at', 'is', null)
-
-  // My enrollments (for staff view)
-  const { data: myEnrollments } = await supabase
-    .from('course_enrollments')
-    .select('*, course:courses(id, title, category, thumbnail_color, estimated_minutes, status)')
+  // Staff: my programme enrollments
+  const { data: myProgEnrollments } = await supabase
+    .from('programme_enrollments')
+    .select('programme_id, status, completed_at')
     .eq('user_id', user?.id||'')
-    .order('assigned_at', { ascending: false })
 
-  const myActive = (myEnrollments||[]).filter(e => !e.completed_at)
-  const myDone = (myEnrollments||[]).filter(e => e.completed_at)
+  // Staff: my individual module enrollments
+  const { data: myModEnrollments } = await supabase
+    .from('course_enrollments')
+    .select('course_id, progress_pct, completed_at')
+    .eq('user_id', user?.id||'')
+
+  const myProgIds = new Set((myProgEnrollments||[]).map(e => e.programme_id))
+  const myModMap = Object.fromEntries((myModEnrollments||[]).map(e => [e.course_id, e]))
+
+  // Count stats for admin
+  const { count: totalEnrollments } = await supabase
+    .from('programme_enrollments').select('*', { count:'exact', head:true })
+  const { count: completedEnrollments } = await supabase
+    .from('programme_enrollments').select('*', { count:'exact', head:true }).not('completed_at','is',null)
+
+  // Group tracks by programme, modules by track
+  const tracksByProg: Record<string, typeof tracks> = {}
+  const modulesByTrack: Record<string, typeof modules> = {}
+  for (const t of tracks||[]) {
+    if (!tracksByProg[t.programme_id]) tracksByProg[t.programme_id] = []
+    tracksByProg[t.programme_id]!.push(t)
+  }
+  for (const m of modules||[]) {
+    if (!m.track_id) continue
+    if (!modulesByTrack[m.track_id]) modulesByTrack[m.track_id] = []
+    modulesByTrack[m.track_id]!.push(m)
+  }
+
+  const badgeLabel = (b: string) =>
+    b === 'mandatory' ? 'Mandatory' : b === 'core' ? 'Core' : 'Skill-building'
+  const badgeColor = (b: string) =>
+    b === 'mandatory' ? '#E63946' : b === 'core' ? '#457B9D' : '#8FA0B0'
+
+  const statusLight = (s: string) =>
+    s === 'published' ? '🟢' : s === 'in_production' ? '🟡' : '🔴'
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom: 28 }}>
+      {/* Header */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:28 }}>
         <div>
           <h1 style={{ fontSize:24, fontWeight:800, color:'#1A2E44', margin:0 }}>Training & LMS</h1>
-          <p style={{ fontSize:14, color:'#8FA0B0', marginTop:4 }}>Build courses, assign training, and track completions</p>
+          <p style={{ fontSize:14, color:'#8FA0B0', marginTop:4 }}>
+            {isAdmin ? 'Manage training programmes and track caregiver progress' : 'Your assigned training programmes and courses'}
+          </p>
         </div>
-        {isAdmin && (
-          <Link href="/lms/courses/new">
-            <button style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 20px', background:'#0E7C7B', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
-              <Plus size={16}/> New Course
-            </button>
-          </Link>
-        )}
       </div>
 
-      {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:28 }}>
-        {[
-          { label:'Total Courses', value:(allCourses?.length??0), icon:<BookOpen size={18}/>, color:'#0E7C7B' },
-          { label:'Total Enrollments', value:(totalEnrollments??0), icon:<Users size={18}/>, color:'#2A9D8F' },
-          { label:'Completions', value:(completions??0), icon:<CheckCircle size={18}/>, color:'#1A2E44' },
-        ].map((s,i) => (
-          <div key={i} style={{ background:'#fff', borderRadius:12, padding:'18px 20px', borderLeft:`4px solid ${s.color}`, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', display:'flex', alignItems:'center', gap:16 }}>
-            <div style={{ color:s.color }}>{s.icon}</div>
-            <div>
-              <div style={{ fontSize:28, fontWeight:800, color:'#1A2E44', lineHeight:1 }}>{s.value}</div>
-              <div style={{ fontSize:12, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px', marginTop:2 }}>{s.label}</div>
+      {/* Admin stats */}
+      {isAdmin && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:28 }}>
+          {[
+            { label:'Programmes', value:(programmes||[]).length, icon:<BookOpen size={18}/>, color:'#0E7C7B' },
+            { label:'Total Modules', value:(modules||[]).length, icon:<BookOpen size={18}/>, color:'#2A9D8F' },
+            { label:'Programme Enrolments', value:totalEnrollments??0, icon:<Users size={18}/>, color:'#1A2E44' },
+            { label:'Completions', value:completedEnrollments??0, icon:<CheckCircle size={18}/>, color:'#2A9D8F' },
+          ].map((s,i)=>(
+            <div key={i} style={{ background:'#fff', borderRadius:12, padding:'18px 20px', borderLeft:`4px solid ${s.color}`, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', display:'flex', alignItems:'center', gap:16 }}>
+              <div style={{ color:s.color }}>{s.icon}</div>
+              <div>
+                <div style={{ fontSize:28, fontWeight:800, color:'#1A2E44', lineHeight:1 }}>{s.value}</div>
+                <div style={{ fontSize:11, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px', marginTop:2 }}>{s.label}</div>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* My Training — shown when user has enrollments */}
-      {(myEnrollments||[]).length > 0 && (
-        <div style={{ marginBottom:32 }}>
-          <h2 style={{ fontSize:17, fontWeight:800, color:'#1A2E44', marginBottom:14 }}>My Training</h2>
-
-          {myActive.length > 0 && (
-            <>
-              <div style={{ fontSize:12, fontWeight:700, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>In Progress / Assigned</div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:20 }}>
-                {myActive.map((e:any) => (
-                  <Link key={e.id} href={`/lms/courses/${e.course?.id}/take`} style={{ textDecoration:'none' }}>
-                    <div style={{ background:'#fff', borderRadius:10, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.07)', border:'1px solid #EFF2F5', cursor:'pointer' }}>
-                      <div style={{ background:e.course?.thumbnail_color||'#0E7C7B', padding:'14px 16px', color:'#fff' }}>
-                        <div style={{ fontSize:10, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:1 }}>{e.course?.category}</div>
-                        <div style={{ fontSize:14, fontWeight:700, marginTop:3, lineHeight:1.3 }}>{e.course?.title}</div>
-                      </div>
-                      <div style={{ padding:'12px 16px' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                          <div style={{ flex:1, background:'#EFF2F5', borderRadius:10, height:5 }}>
-                            <div style={{ width:`${e.progress_pct||0}%`, background:'#0E7C7B', borderRadius:10, height:5, transition:'width 0.3s' }}/>
-                          </div>
-                          <span style={{ fontSize:11, fontWeight:700, color:'#4A6070' }}>{e.progress_pct||0}%</span>
-                        </div>
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                          <span style={{ fontSize:11, color:'#8FA0B0', display:'flex', alignItems:'center', gap:3 }}>
-                            <Clock size={10}/> {e.course?.estimated_minutes} min
-                          </span>
-                          {e.due_date && (
-                            <span style={{ fontSize:11, color: new Date(e.due_date) < new Date() ? '#E63946' : '#8FA0B0' }}>
-                              Due {new Date(e.due_date).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
-
-          {myDone.length > 0 && (
-            <>
-              <div style={{ fontSize:12, fontWeight:700, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Completed</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                {myDone.map((e:any) => (
-                  <Link key={e.id} href={`/lms/courses/${e.course?.id}`} style={{ textDecoration:'none' }}>
-                    <div style={{ background:'#fff', borderRadius:9, padding:'12px 16px', border:'1px solid #EFF2F5', boxShadow:'0 1px 3px rgba(0,0,0,0.05)', display:'flex', alignItems:'center', gap:12 }}>
-                      <CheckCircle size={16} color='#2A9D8F'/>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontSize:13, fontWeight:600, color:'#1A2E44' }}>{e.course?.title}</div>
-                        <div style={{ fontSize:11, color:'#8FA0B0' }}>{e.course?.category}</div>
-                      </div>
-                      <span style={{ fontSize:11, color:'#2A9D8F', fontWeight:600 }}>
-                        Completed {new Date(e.completed_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
+          ))}
         </div>
       )}
 
-      {/* All Courses */}
-      <div>
-        <h2 style={{ fontSize:17, fontWeight:800, color:'#1A2E44', marginBottom:14 }}>
-          {isAdmin ? 'All Courses' : 'Course Library'}
-        </h2>
-        {(allCourses?.length ?? 0) === 0 ? (
-          <div style={{ background:'#fff', borderRadius:12, padding:'60px 24px', textAlign:'center', boxShadow:'0 1px 4px rgba(0,0,0,0.07)' }}>
-            <div style={{ fontSize:48, marginBottom:16 }}>🎓</div>
-            <h3 style={{ fontSize:18, fontWeight:700, color:'#1A2E44', marginBottom:8 }}>No courses yet</h3>
-            <p style={{ color:'#8FA0B0', marginBottom:24 }}>Create your first training course to get started.</p>
-            {isAdmin && (
-              <Link href="/lms/courses/new">
-                <button style={{ padding:'10px 24px', background:'#0E7C7B', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
-                  Create First Course
-                </button>
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
-            {(isAdmin ? allCourses : allCourses?.filter(c => c.status === 'published'))?.map((c) => (
-              <Link key={c.id} href={`/lms/courses/${c.id}`} style={{ textDecoration:'none' }}>
-                <div style={{ background:'#fff', borderRadius:12, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.07)', border:'1px solid #EFF2F5', cursor:'pointer' }}>
-                  <div style={{ background:c.thumbnail_color||'#0E7C7B', padding:'20px', color:'#fff' }}>
-                    <div style={{ fontSize:10, fontWeight:700, opacity:0.7, textTransform:'uppercase', letterSpacing:1 }}>{c.category}</div>
-                    <div style={{ fontSize:16, fontWeight:700, marginTop:4 }}>{c.title}</div>
-                    <div style={{ fontSize:12, opacity:0.8, marginTop:4 }}>{c.estimated_minutes} min estimated</div>
-                  </div>
-                  <div style={{ padding:'16px' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{
-                        padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:600,
-                        background: c.status==='published' ? '#E6F6F4' : '#EFF2F5',
-                        color: c.status==='published' ? '#2A9D8F' : '#8FA0B0'
-                      }}>{c.status==='published' ? 'Published' : 'Draft'}</span>
-                      <span style={{ fontSize:12, color:'#8FA0B0' }}>{new Date(c.created_at).toLocaleDateString()}</span>
+      {/* Programme cards */}
+      <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
+        {(programmes||[]).map(prog => {
+          const progTracks = tracksByProg[prog.id] || []
+          const allModules = progTracks.flatMap(t => modulesByTrack[t.id] || [])
+          const liveCount = allModules.filter(m => m.status === 'published').length
+          const isEnrolled = myProgIds.has(prog.id)
+
+          // Staff: count completed modules in this programme
+          const completedCount = allModules.filter(m => myModMap[m.id]?.completed_at).length
+          const inProgressCount = allModules.filter(m => myModMap[m.id] && !myModMap[m.id]?.completed_at).length
+          const progPct = allModules.length > 0 ? Math.round((completedCount / allModules.length) * 100) : 0
+
+          const progStatusColor = prog.status === 'live' ? '#2A9D8F' : prog.status === 'in_production' ? '#F4A261' : '#8FA0B0'
+          const progStatusBg = prog.status === 'live' ? '#E6F6F4' : prog.status === 'in_production' ? '#FEF3EA' : '#EFF2F5'
+          const progStatusLabel = prog.status === 'live' ? 'Live' : prog.status === 'in_production' ? 'In Production' : 'Not Started'
+
+          return (
+            <div key={prog.id} style={{ background:'#fff', borderRadius:14, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', overflow:'hidden', border:'1px solid #EFF2F5' }}>
+              {/* Programme header */}
+              <div style={{ background: prog.status === 'not_started' ? '#F8FAFB' : `${progTracks[0]?.colour_hex || '#1A2E44'}18`, borderBottom:'1px solid #EFF2F5', padding:'20px 24px' }}>
+                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                      <h2 style={{ fontSize:18, fontWeight:800, color:'#1A2E44', margin:0 }}>{prog.title}</h2>
+                      <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:progStatusBg, color:progStatusColor }}>
+                        {progStatusLabel}
+                      </span>
+                    </div>
+                    {prog.subtitle && <p style={{ fontSize:13, color:'#4A6070', margin:'0 0 10px' }}>{prog.subtitle}</p>}
+                    <div style={{ display:'flex', gap:20, fontSize:12, color:'#8FA0B0' }}>
+                      <span><Clock size={12} style={{ verticalAlign:'middle', marginRight:3 }}/>{prog.est_hours}h estimated</span>
+                      <span><BookOpen size={12} style={{ verticalAlign:'middle', marginRight:3 }}/>{prog.total_modules} modules</span>
+                      {prog.audience && <span>👥 {prog.audience}</span>}
+                      {isAdmin && <span>{statusLight('draft')} {allModules.length - liveCount} not ready · {statusLight('published')} {liveCount} live</span>}
                     </div>
                   </div>
+
+                  <div style={{ display:'flex', gap:8, flexShrink:0, alignItems:'center' }}>
+                    {/* Staff: progress */}
+                    {!isAdmin && isEnrolled && allModules.length > 0 && (
+                      <div style={{ textAlign:'right', minWidth:100 }}>
+                        <div style={{ fontSize:20, fontWeight:800, color:'#0E7C7B' }}>{progPct}%</div>
+                        <div style={{ fontSize:11, color:'#8FA0B0' }}>{completedCount}/{allModules.length} done</div>
+                      </div>
+                    )}
+                    <Link href={`/lms/programmes/${prog.slug}`}>
+                      <button style={{
+                        padding:'9px 20px', borderRadius:8, border:'none', fontWeight:700, fontSize:13,
+                        background: isAdmin ? '#1A2E44' : isEnrolled ? '#0E7C7B' : '#EFF2F5',
+                        color: isAdmin || isEnrolled ? '#fff' : '#4A6070', cursor:'pointer'
+                      }}>
+                        {isAdmin ? 'Manage →' : isEnrolled ? 'Continue →' : 'View Programme →'}
+                      </button>
+                    </Link>
+                  </div>
                 </div>
-              </Link>
-            ))}
-          </div>
-        )}
+
+                {/* Staff: progress bar */}
+                {!isAdmin && isEnrolled && allModules.length > 0 && (
+                  <div style={{ marginTop:14, background:'rgba(0,0,0,0.08)', borderRadius:10, height:6 }}>
+                    <div style={{ width:`${progPct}%`, background:'#0E7C7B', borderRadius:10, height:6, transition:'width 0.4s' }}/>
+                  </div>
+                )}
+              </div>
+
+              {/* Tracks preview */}
+              <div style={{ padding:'16px 24px', display:'flex', gap:10, flexWrap:'wrap' }}>
+                {progTracks.map(track => {
+                  const trackMods = modulesByTrack[track.id] || []
+                  const trackLive = trackMods.filter(m => m.status === 'published').length
+                  const trackDone = trackMods.filter(m => myModMap[m.id]?.completed_at).length
+
+                  return (
+                    <div key={track.id} style={{
+                      padding:'8px 14px', borderRadius:8, border:`1px solid ${track.colour_hex}33`,
+                      background:`${track.colour_hex}0D`, display:'flex', alignItems:'center', gap:8
+                    }}>
+                      <div style={{ width:8, height:8, borderRadius:'50%', background:track.colour_hex, flexShrink:0 }}/>
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:600, color:'#1A2E44' }}>
+                          {track.title.replace(/^Track \d+ — /, '')}
+                        </div>
+                        <div style={{ fontSize:11, color:'#8FA0B0' }}>
+                          {isAdmin
+                            ? `${trackMods.length} modules · ${trackLive} live`
+                            : `${trackMods.length} modules${trackDone > 0 ? ` · ${trackDone} done` : ''}`
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
       </div>
+
+      {/* Legacy non-LMS courses — admin only */}
+      {isAdmin && (() => {
+        return null // Legacy courses hidden for now — accessible via direct URL
+      })()}
     </div>
   )
 }
