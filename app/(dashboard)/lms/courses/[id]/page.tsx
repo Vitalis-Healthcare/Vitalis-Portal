@@ -99,7 +99,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
                   courseName={course.title}
                   unassignedStaff={unassignedStaff}
                 />
-                <CourseActions courseId={course.id} currentStatus={course.status} />
+                <CourseActions courseId={course.id} currentStatus={course.status} courseTitle={course.title} />
               </>
             )}
           </div>
