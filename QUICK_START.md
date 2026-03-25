@@ -72,4 +72,16 @@ Then every `git push` auto-deploys.
 
 ---
 
-*Vitalis Healthcare Services · Baltimore, Maryland · v1.0*
+*Vitalis Healthcare Services · Baltimore, Maryland · v1.1*
+
+---
+
+## Upgrading from v1.0
+
+If you already have v1.0 running, just replace these two files in your existing project:
+
+1. **Delete** `middleware.ts`
+2. **Add** `proxy.ts` (included in this zip)
+
+No database changes needed — your Supabase data is untouched.
+

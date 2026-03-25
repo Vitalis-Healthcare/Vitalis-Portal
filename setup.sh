@@ -18,7 +18,7 @@ NC='\033[0m' # No Colour
 clear
 echo ""
 echo -e "${TEAL}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${TEAL}${BOLD}║        VITALIS PORTAL — Setup Wizard  v1.0       ║${NC}"
+echo -e "${TEAL}${BOLD}║        VITALIS PORTAL — Setup Wizard  v1.1       ║${NC}"
 echo -e "${TEAL}${BOLD}║        Vitalis Healthcare Services                ║${NC}"
 echo -e "${TEAL}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
