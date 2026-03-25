@@ -64,12 +64,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to record acknowledgment' }, { status: 500 })
   }
 
-  // Audit log
-  await supabase.from('audit_log').insert({
-    user_id: user.id,
-    action: `Acknowledged policy ${docId} v${docVersion}`,
-    entity_type: 'policy',
-  }).catch(() => {})
+  // Audit log — best effort, non-blocking
+  try {
+    await supabase.from('audit_log').insert({
+      user_id: user.id,
+      action: `Acknowledged policy ${docId} v${docVersion}`,
+      entity_type: 'policy',
+    })
+  } catch {}
 
   return NextResponse.json({ ok: true })
 }
