@@ -84,12 +84,14 @@ export async function POST(request: Request) {
 
       if (res.ok) {
         // Log the email
-        await supabase.from('email_log').insert({
-          recipient_email: staff.email,
-          subject: `New Training Assigned: ${courseName}`,
-          type: 'course_assigned',
-          entity_id: courseId
-        }).catch(() => {}) // non-critical
+        try {
+          await supabase.from('email_log').insert({
+            recipient_email: staff.email,
+            subject: `New Training Assigned: ${courseName}`,
+            type: 'course_assigned',
+            entity_id: courseId
+          })
+        } catch { /* non-critical */ }
 
         sent++
       } else {
