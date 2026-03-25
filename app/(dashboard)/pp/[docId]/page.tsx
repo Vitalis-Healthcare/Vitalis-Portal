@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, CheckCircle, Clock, Printer, AlertTriangle } from 'lucide-react'
 import PolicyAcknowledgeButton from './PolicyAcknowledgeButton'
+import PrintButton from './PrintButton'
 
 export default async function PolicyViewerPage({ params }: { params: Promise<{ docId: string }> }) {
   const { docId } = await params
@@ -132,12 +133,7 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
 
           {/* Right: acknowledgment + print */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-            <button
-              onClick={() => window.print()}
-              style={{ padding: '8px 14px', border: '1px solid #E2E8F0', borderRadius: 8, background: '#fff', color: '#4A6070', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
-            >
-              🖨 Print
-            </button>
+            <PrintButton />
 
             <PolicyAcknowledgeButton
               docId={policy.doc_id}
