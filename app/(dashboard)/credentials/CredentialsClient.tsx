@@ -18,7 +18,7 @@ export default function CredentialsClient({
 }: { credTypes: CredType[]; staff: StaffMember[]; allCreds: Cred[]; stats: Stats }) {
   const supabase = createClient()
   const router = useRouter()
-  const [view, setView] = useState<'matrix'|'alerts'|'add'>('matrix')
+  const [view, setView] = useState<'matrix'|'pending'|'alerts'|'add'>('matrix')
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     user_id: '', credential_type_id: '', issue_date: '', expiry_date: '', notes: ''
@@ -77,6 +77,28 @@ export default function CredentialsClient({
     }))
     .sort((a, b) => (a.expiry_date || '') < (b.expiry_date || '') ? -1 : 1)
 
+
+  const pendingCreds = allCreds.filter(c => c.review_status === 'pending')
+    .map(c => ({
+      ...c,
+      staffName: (c as any).submitter?.full_name || staff.find(s => s.id === c.user_id)?.full_name || 'Unknown',
+      credName: c.credential_type?.name || 'Unknown'
+    }))
+
+  const handleReview = async (credId: string, userId: string, credTypeId: string, approve: boolean) => {
+    const supabaseClient = createClient()
+    const { data: { user } } = await supabaseClient.auth.getUser()
+    await supabaseClient.from('staff_credentials')
+      .update({ review_status: approve ? 'approved' : 'rejected', verified_by: user?.id })
+      .eq('id', credId)
+    await supabaseClient.from('audit_log').insert({
+      user_id: user?.id,
+      action: `Credential ${approve ? 'approved' : 'rejected'} for user ${userId}`,
+      entity_type: 'credential', entity_id: credId
+    })
+    router.refresh()
+  }
+
   const inputStyle = { width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #D1D9E0', fontSize:13, outline:'none', fontFamily:'inherit', background:'#fff' }
   const labelStyle = { fontSize:12, fontWeight:600 as const, color:'#4A6070', display:'block' as const, marginBottom:5 }
 
@@ -121,13 +143,19 @@ export default function CredentialsClient({
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-        {(['matrix','alerts','add'] as const).map(v=>(
-          <button key={v} onClick={()=>setView(v)} style={{
+        {([
+          { key: 'matrix', label: 'Credential Matrix' },
+          { key: 'pending', label: `Pending Review${pendingCreds.length > 0 ? ` (${pendingCreds.length})` : ''}` },
+          { key: 'alerts', label: `Alerts (${alerts.length})` },
+          { key: 'add', label: 'Add Credential' },
+        ] as const).map(v=>(
+          <button key={v.key} onClick={()=>setView(v.key as any)} style={{
             padding:'7px 16px', borderRadius:8, border:'none', cursor:'pointer', fontSize:13, fontWeight:600,
-            background: view===v ? '#0E7C7B' : '#EFF2F5',
-            color: view===v ? '#fff' : '#4A6070'
+            background: view===v.key ? (v.key === 'pending' && pendingCreds.length > 0 ? '#457B9D' : '#0E7C7B') : '#EFF2F5',
+            color: view===v.key ? '#fff' : '#4A6070',
+            position: 'relative' as const
           }}>
-            {v==='matrix'?'Credential Matrix':v==='alerts'?`Alerts (${alerts.length})`:'Add Credential'}
+            {v.label}
           </button>
         ))}
       </div>
@@ -177,6 +205,49 @@ export default function CredentialsClient({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+
+      {/* Pending review view */}
+      {view === 'pending' && (
+        <div style={{ background:'#fff', borderRadius:12, padding:24, boxShadow:'0 1px 4px rgba(0,0,0,0.07)' }}>
+          {pendingCreds.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'40px 0', color:'#8FA0B0' }}>
+              <CheckCircle size={40} color="#2A9D8F" style={{ margin:'0 auto 12px', display:'block' }}/>
+              <strong style={{ fontSize:16, color:'#1A2E44' }}>No pending submissions</strong>
+              <p style={{ marginTop:4, fontSize:14 }}>All credentials have been reviewed.</p>
+            </div>
+          ) : pendingCreds.map((c,i)=>(
+            <div key={i} style={{ display:'flex', alignItems:'flex-start', padding:'16px 0', borderBottom:'1px solid #EFF2F5', gap:16 }}>
+              <div style={{ width:40, height:40, borderRadius:10, background:'#EBF4FF', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:18 }}>📋</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:14, color:'#1A2E44' }}>{c.staffName}</div>
+                <div style={{ fontSize:13, color:'#4A6070', marginTop:2 }}>{c.credName}</div>
+                <div style={{ fontSize:12, color:'#8FA0B0', marginTop:4, display:'flex', gap:16 }}>
+                  <span>Issued: {c.issue_date ? new Date(c.issue_date).toLocaleDateString() : '—'}</span>
+                  {c.expiry_date && <span>Expires: {new Date(c.expiry_date).toLocaleDateString()}</span>}
+                </div>
+                {c.submitted_notes && (
+                  <div style={{ fontSize:12, color:'#457B9D', marginTop:4, background:'#EBF4FF', padding:'4px 10px', borderRadius:6, display:'inline-block' }}>
+                    Note: {c.submitted_notes}
+                  </div>
+                )}
+              </div>
+              <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+                <button
+                  onClick={() => handleReview(c.id, c.user_id, c.credential_type_id, true)}
+                  style={{ padding:'7px 16px', background:'#E6F6F4', border:'none', borderRadius:8, fontSize:13, fontWeight:700, color:'#2A9D8F', cursor:'pointer' }}>
+                  ✓ Approve
+                </button>
+                <button
+                  onClick={() => handleReview(c.id, c.user_id, c.credential_type_id, false)}
+                  style={{ padding:'7px 16px', background:'#FDE8E9', border:'none', borderRadius:8, fontSize:13, fontWeight:700, color:'#E63946', cursor:'pointer' }}>
+                  ✗ Reject
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
