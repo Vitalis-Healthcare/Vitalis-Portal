@@ -335,6 +335,17 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         />
                       </div>
+                    ) : /synthesia\.io/.test(currentSection.video_url) ? (
+                      <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+                        <iframe
+                          src={currentSection.video_url.includes('/embeds/') ? currentSection.video_url : currentSection.video_url.replace('share.synthesia.io/', 'share.synthesia.io/embeds/videos/')}
+                          loading="lazy"
+                          title="Training video"
+                          allowFullScreen
+                          allow="encrypted-media; fullscreen; microphone; screen-wake-lock"
+                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                        />
+                      </div>
                     ) : (
                       <video
                         src={currentSection.video_url}
