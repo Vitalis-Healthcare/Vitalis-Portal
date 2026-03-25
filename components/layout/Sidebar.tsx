@@ -8,13 +8,12 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
-const navSections = [
+const adminSections = [
   {
     label: 'MAIN',
-    items: [
-      { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-    ]
+    items: [{ href: '/dashboard', label: 'Overview', icon: LayoutDashboard }]
   },
   {
     label: 'MODULES',
@@ -35,15 +34,44 @@ const navSections = [
   }
 ]
 
+const staffSections = [
+  {
+    label: 'MAIN',
+    items: [{ href: '/dashboard', label: 'Overview', icon: LayoutDashboard }]
+  },
+  {
+    label: 'MY PORTAL',
+    items: [
+      { href: '/lms', label: 'My Training', icon: GraduationCap },
+      { href: '/policies', label: 'Policies & Procedures', icon: FileText },
+      { href: '/credentials', label: 'My Credentials', icon: BadgeCheck },
+    ]
+  }
+]
+
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { setLoaded(true); return }
+      supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
+        setIsAdmin(data?.role === 'admin' || data?.role === 'supervisor')
+        setLoaded(true)
+      })
+    })
+  }, [])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/login')
   }
+
+  const navSections = isAdmin ? adminSections : staffSections
 
   return (
     <aside style={{
@@ -51,7 +79,7 @@ export default function Sidebar() {
       display: 'flex', flexDirection: 'column', flexShrink: 0,
       height: '100vh', position: 'sticky', top: 0, overflowY: 'auto'
     }}>
-      <div style={{ padding: '20px 0', flex: 1 }}>
+      <div style={{ padding: '20px 0', flex: 1, opacity: loaded ? 1 : 0.5, transition: 'opacity 0.2s' }}>
         {navSections.map((section) => (
           <div key={section.label}>
             <div style={{

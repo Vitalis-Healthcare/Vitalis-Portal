@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -59,6 +59,18 @@ export default function LoginPage() {
         router.push('/dashboard')
       }
     }
+    setLoading(false)
+  }
+
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true); setError(''); setSuccessMsg('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/update-password`
+    })
+    if (error) { setError(error.message) }
+    else { setSuccessMsg('Password reset link sent. Check your email.') }
     setLoading(false)
   }
 
@@ -150,6 +162,28 @@ export default function LoginPage() {
             ))}
           </div>
 
+          {/* Forgot password view */}
+          {mode === 'reset' ? (
+            <form onSubmit={handleResetPassword}>
+              <p style={{ fontSize: 13, color: '#8FA0B0', marginBottom: 16, marginTop: 0 }}>
+                Enter your email address and we’ll send you a link to reset your password.
+              </p>
+              <div style={{ marginBottom: 16 }}>
+                <label style={lbl}>Email Address</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                  placeholder="you@vitalis.care" style={inp}/>
+              </div>
+              {error && <div style={{ background: '#FDE8E9', color: '#E63946', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{error}</div>}
+              {successMsg && <div style={{ background: '#E6F6F4', color: '#2A9D8F', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{successMsg}</div>}
+              <button type="submit" disabled={loading} style={{ width: '100%', padding: 12, background: '#0E7C7B', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+                {loading ? '…' : 'Send Reset Link'}
+              </button>
+              <button type="button" onClick={() => { setMode('signin'); setError(''); setSuccessMsg('') }}
+                style={{ width: '100%', marginTop: 10, padding: '10px 0', background: 'none', border: 'none', color: '#8FA0B0', fontSize: 13, cursor: 'pointer' }}>
+                ← Back to Sign In
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleEmailAuth}>
             {mode === 'signup' && (
               <div style={{ marginBottom: 14 }}>
@@ -163,22 +197,23 @@ export default function LoginPage() {
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
                 placeholder="you@vitalis.care" style={inp}/>
             </div>
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 8 }}>
               <label style={lbl}>Password</label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
                 placeholder="••••••••" style={inp} minLength={6}/>
             </div>
+            {mode === 'signin' && (
+              <div style={{ textAlign: 'right', marginBottom: 16 }}>
+                <button type="button" onClick={() => { setMode('reset'); setError(''); setSuccessMsg('') }}
+                  style={{ background: 'none', border: 'none', color: '#0E7C7B', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                  Forgot password?
+                </button>
+              </div>
+            )}
+            {mode === 'signup' && <div style={{ marginBottom: 20 }}/>}
 
-            {error && (
-              <div style={{ background: '#FDE8E9', color: '#E63946', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>
-                {error}
-              </div>
-            )}
-            {successMsg && (
-              <div style={{ background: '#E6F6F4', color: '#2A9D8F', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>
-                {successMsg}
-              </div>
-            )}
+            {error && <div style={{ background: '#FDE8E9', color: '#E63946', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{error}</div>}
+            {successMsg && <div style={{ background: '#E6F6F4', color: '#2A9D8F', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{successMsg}</div>}
 
             <button type="submit" disabled={loading} style={{
               width: '100%', padding: 12, background: '#0E7C7B', color: '#fff',
@@ -188,6 +223,7 @@ export default function LoginPage() {
               {loading ? '…' : mode === 'signin' ? 'Sign In' : 'Create Account'}
             </button>
           </form>
+          )}
 
           <p style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: '#8FA0B0' }}>
             Vitalis Healthcare Services · Baltimore, Maryland

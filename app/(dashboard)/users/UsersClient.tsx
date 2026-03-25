@@ -1,5 +1,4 @@
 'use client'
-import React from 'react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -131,10 +130,10 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
     hire_date: profile.hire_date || '',
     status: profile.status,
   })
-  const [newPassword, setNewPassword] = React.useState('')
-  const [confirmPassword, setConfirmPassword] = React.useState('')
-  const [pwSaving, setPwSaving] = React.useState(false)
-  const [pwMsg, setPwMsg] = React.useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwMsg, setPwMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const handleSetPassword = async () => {
     if (newPassword.length < 8) { setPwMsg({ type: 'err', text: 'Password must be at least 8 characters.' }); return }
@@ -218,10 +217,11 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
         </button>
       </div>
 
-      <div style={{ marginTop:24, paddingTop:20, borderTop:'1px solid #EFF2F5' }}>
-        <h4 style={{ fontSize:14, fontWeight:700, color:'#1A2E44', marginBottom:12, marginTop:0 }}>🔑 Set Password</h4>
-        <p style={{ fontSize:12, color:'#8FA0B0', marginBottom:12, marginTop:0 }}>Set a password so the staff member can log in with email and password.</p>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+      {/* Password section */}
+      <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #EFF2F5' }}>
+        <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1A2E44', marginBottom: 14, marginTop: 0 }}>🔑 Set Password</h4>
+        <p style={{ fontSize: 12, color: '#8FA0B0', marginBottom: 14, marginTop: 0 }}>Set a password so the staff member can log in without a magic link.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
           <div>
             <label style={lbl}>New Password</label>
             <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 8 characters" style={inp} />
@@ -232,12 +232,12 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
           </div>
         </div>
         {pwMsg && (
-          <div style={{ padding:'8px 12px', borderRadius:7, marginBottom:10, fontSize:13, background: pwMsg.type === 'ok' ? '#E6F6F4' : '#FDE8E9', color: pwMsg.type === 'ok' ? '#2A9D8F' : '#E63946' }}>
+          <div style={{ padding: '8px 12px', borderRadius: 7, marginBottom: 10, fontSize: 13, background: pwMsg.type === 'ok' ? '#E6F6F4' : '#FDE8E9', color: pwMsg.type === 'ok' ? '#2A9D8F' : '#E63946' }}>
             {pwMsg.type === 'ok' ? '✓ ' : '⚠ '}{pwMsg.text}
           </div>
         )}
         <button onClick={handleSetPassword} disabled={pwSaving || !newPassword}
-          style={{ padding:'8px 18px', background: newPassword ? '#1A2E44' : '#CBD5E0', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor: newPassword ? 'pointer' : 'not-allowed' }}>
+          style={{ padding: '8px 18px', background: newPassword ? '#1A2E44' : '#CBD5E0', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newPassword ? 'pointer' : 'not-allowed' }}>
           {pwSaving ? 'Setting…' : 'Set Password'}
         </button>
       </div>
