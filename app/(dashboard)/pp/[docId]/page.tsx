@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, CheckCircle, Clock, Printer, AlertTriangle } from 'lucide-react'
 import PolicyAcknowledgeButton from './PolicyAcknowledgeButton'
 import PrintButton from './PrintButton'
+import PolicyIframe from './PolicyIframe'
 
 export default async function PolicyViewerPage({ params }: { params: Promise<{ docId: string }> }) {
   const { docId } = await params
@@ -147,12 +148,9 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
         </div>
       </div>
 
-      {/* Policy HTML content */}
+      {/* Policy HTML content — rendered via iframe to preserve full CSS */}
       <div style={{ border: '1px solid #E2E8F0', borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
-        <div
-          className="pp-policy-content"
-          dangerouslySetInnerHTML={{ __html: policy.html_content }}
-        />
+        <PolicyIframe docId={policy.doc_id} />
       </div>
 
       {/* Bottom acknowledgment CTA */}
