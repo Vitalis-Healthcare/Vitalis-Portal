@@ -9,6 +9,8 @@ interface StaffMember { id: string; full_name: string; role: string }
 interface Cred {
   id: string; user_id: string; credential_type_id: string; issue_date: string;
   expiry_date?: string; document_url?: string; notes?: string; status: string;
+  review_status?: string; submitted_notes?: string;
+  submitter?: { full_name: string };
   credential_type?: { name: string; validity_days: number }
 }
 interface Stats { current: number; expiring: number; expired: number; total: number }
