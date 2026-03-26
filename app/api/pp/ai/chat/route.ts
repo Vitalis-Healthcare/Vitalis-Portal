@@ -70,9 +70,11 @@ export async function POST(req: NextRequest) {
 
     policyContext = (fullPolicies || []).map(p => {
       // Strip HTML tags for plain text
-      const text = (p.html_content || '')
-        .replace(/<style[^>]*>.*?<\/style>/gs, '')
-        .replace(/<script[^>]*>.*?<\/script>/gs, '')
+      const html = p.html_content || ''
+      // Remove style/script blocks without the 's' flag (ES2015 compatible)
+      const noStyle = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      const noScript = noStyle.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      const text = noScript
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
