@@ -38,19 +38,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -143,16 +130,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -160,41 +143,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#procedure">Procedure</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-003">VHS-D2-003</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-012">VHS-D2-012</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-013">VHS-D2-013</a>
-<a class="sidebar-chip" href="/pp/VHS-D1-004">VHS-D1-004</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-001</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -214,7 +172,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">If you have a physical or mental health condition that makes it hard to do your job, you can ask Vitalis to make changes to help you. This is called a reasonable accommodation.</li>
@@ -263,6 +221,31 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-003">
+    <div class="related-card-id">VHS-D2-003</div>
+    <div class="related-card-title">Classification & Hiring Standards</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-012">
+    <div class="related-card-id">VHS-D2-012</div>
+    <div class="related-card-title">Employee Discipline & Separation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-013">
+    <div class="related-card-id">VHS-D2-013</div>
+    <div class="related-card-title">Employee Grievances</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D1-004">
+    <div class="related-card-id">VHS-D1-004</div>
+    <div class="related-card-title">Ethics & Corporate Compliance</div>
+    <div class="related-card-domain">D1 · Governance &amp; Compliance</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -283,9 +266,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -336,19 +318,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -441,16 +410,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -458,43 +423,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#required-contents">Required file contents</a>
-<a class="sidebar-link" href="#expiration-tracked">Expiration-tracked items</a>
-<a class="sidebar-link" href="#sensitive-file">Sensitive personnel file</a>
-<a class="sidebar-link" href="#employee-access">Employee access</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-003">VHS-D2-003</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-009">VHS-D2-009</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-011">VHS-D2-011</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-002</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -514,7 +452,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">Vitalis keeps a file on every employee containing your application, ID, credentials, certifications, evaluations, and training records.</li>
@@ -599,6 +537,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-003">
+    <div class="related-card-id">VHS-D2-003</div>
+    <div class="related-card-title">Classification & Hiring Standards</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-009">
+    <div class="related-card-id">VHS-D2-009</div>
+    <div class="related-card-title">Competency Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-011">
+    <div class="related-card-id">VHS-D2-011</div>
+    <div class="related-card-title">Performance Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -619,9 +577,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -672,19 +629,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -777,16 +721,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -794,43 +734,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#classifications">Employee classifications</a>
-<a class="sidebar-link" href="#at-will">At-will employment</a>
-<a class="sidebar-link" href="#hiring-standards">Hiring standards</a>
-<a class="sidebar-link" href="#licensed">Licensed & certified employees</a>
-<a class="sidebar-link" href="#non-discrimination">Non-discrimination</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-002">VHS-D2-002</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-004">VHS-D2-004</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-009">VHS-D2-009</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-003</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -850,7 +763,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">Every job at Vitalis has a written job description. You must receive and sign yours before you start working.</li>
@@ -926,6 +839,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-002">
+    <div class="related-card-id">VHS-D2-002</div>
+    <div class="related-card-title">Personnel Records</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-004">
+    <div class="related-card-id">VHS-D2-004</div>
+    <div class="related-card-title">Employee Standards of Conduct</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-009">
+    <div class="related-card-id">VHS-D2-009</div>
+    <div class="related-card-title">Competency Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -946,9 +879,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -999,19 +931,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -1104,16 +1023,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -1121,41 +1036,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#professional-ethics">Professional ethics</a>
-<a class="sidebar-link" href="#dress-code">Dress code</a>
-<a class="sidebar-link" href="#health-assessments">Employee health assessments</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-006">VHS-D2-006</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-012">VHS-D2-012</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-015">VHS-D2-015</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-004</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -1175,7 +1065,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">Field staff: wear clean, stain-free scrubs and rubber-sole shoes. Always wear your Vitalis ID badge while on duty. Pull long hair back so it does not touch the client.</li>
@@ -1246,6 +1136,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-006">
+    <div class="related-card-id">VHS-D2-006</div>
+    <div class="related-card-title">Confidentiality</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-012">
+    <div class="related-card-id">VHS-D2-012</div>
+    <div class="related-card-title">Employee Discipline & Separation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-015">
+    <div class="related-card-id">VHS-D2-015</div>
+    <div class="related-card-title">Drug Testing</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -1266,9 +1176,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -1319,19 +1228,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -1424,16 +1320,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -1441,42 +1333,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#payroll">Payroll platform & pay cycle</a>
-<a class="sidebar-link" href="#payment">Payment & AxisCare</a>
-<a class="sidebar-link" href="#wage-conf">Wage confidentiality</a>
-<a class="sidebar-link" href="#benefits">Benefits</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-003">VHS-D2-003</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-007">VHS-D2-007</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-009">VHS-D2-009</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-005</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -1496,7 +1362,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">Vitalis pays on a bi-weekly schedule. Your pay period runs Thursday to Wednesday, and your paycheck is issued the following Friday.</li>
@@ -1566,6 +1432,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-003">
+    <div class="related-card-id">VHS-D2-003</div>
+    <div class="related-card-title">Classification & Hiring Standards</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-007">
+    <div class="related-card-id">VHS-D2-007</div>
+    <div class="related-card-title">Orientation & Staff Development</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-009">
+    <div class="related-card-id">VHS-D2-009</div>
+    <div class="related-card-title">Competency Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -1586,9 +1472,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -1639,19 +1524,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -1744,16 +1616,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -1761,42 +1629,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#what-is">What is confidential</a>
-<a class="sidebar-link" href="#obligations">Key obligations</a>
-<a class="sidebar-link" href="#breach">Breach notification</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-010">VHS-D2-010</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-012">VHS-D2-012</a>
-<a class="sidebar-chip" href="/pp/VHS-D1-002">VHS-D1-002</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-006</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -1816,7 +1658,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.11 · HIPAA 45 CFR Parts 160 & 164</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">Everything you learn about a client — their health, their family, their finances — is completely private. You may not share it with anyone outside the care team.</li>
@@ -1884,6 +1726,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-010">
+    <div class="related-card-id">VHS-D2-010</div>
+    <div class="related-card-title">Cell Phone & Texting Policy</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-012">
+    <div class="related-card-id">VHS-D2-012</div>
+    <div class="related-card-title">Employee Discipline & Separation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D1-002">
+    <div class="related-card-id">VHS-D1-002</div>
+    <div class="related-card-title">HIPAA & Confidentiality — D1</div>
+    <div class="related-card-domain">D1 · Governance &amp; Compliance</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -1904,9 +1766,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -1957,19 +1818,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -2062,16 +1910,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -2079,43 +1923,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#who-conducts">Who conducts orientation</a>
-<a class="sidebar-link" href="#topics">Required orientation topics</a>
-<a class="sidebar-link" href="#skills">Skills assessment</a>
-<a class="sidebar-link" href="#policy-ack">Policy acknowledgment</a>
-<a class="sidebar-link" href="#ongoing">Ongoing development</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-008">VHS-D2-008</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-009">VHS-D2-009</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-017">VHS-D2-017</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-007</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -2135,7 +1952,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">You must complete orientation before you can see any client. There are no exceptions.</li>
@@ -2225,6 +2042,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-008">
+    <div class="related-card-id">VHS-D2-008</div>
+    <div class="related-card-title">Policy & Procedure Agreement</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-009">
+    <div class="related-card-id">VHS-D2-009</div>
+    <div class="related-card-title">Competency Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-017">
+    <div class="related-card-id">VHS-D2-017</div>
+    <div class="related-card-title">Knowledge Resource Center</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -2245,9 +2082,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -2298,19 +2134,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -2403,16 +2226,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -2420,41 +2239,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#procedure">Procedure</a>
-<a class="sidebar-link" href="#ohcq">OHCQ survey requirement</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-007">VHS-D2-007</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-009">VHS-D2-009</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-002">VHS-D2-002</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-008</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -2474,7 +2268,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">Before you can work with any client, you must read and acknowledge all Vitalis policies that apply to your role.</li>
@@ -2529,6 +2323,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-007">
+    <div class="related-card-id">VHS-D2-007</div>
+    <div class="related-card-title">Orientation & Staff Development</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-009">
+    <div class="related-card-id">VHS-D2-009</div>
+    <div class="related-card-title">Competency Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-002">
+    <div class="related-card-id">VHS-D2-002</div>
+    <div class="related-card-title">Personnel Records</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -2549,9 +2363,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -2602,19 +2415,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -2707,16 +2507,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -2724,41 +2520,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#procedure">Procedure</a>
-<a class="sidebar-link" href="#supervisor-req">Supervisor credential requirement</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-007">VHS-D2-007</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-011">VHS-D2-011</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-002">VHS-D2-002</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-009</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -2778,7 +2549,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10(D)</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">Before you work with any patient, an RN will check that you can safely perform the tasks in your job description. This is your competency evaluation.</li>
@@ -2833,6 +2604,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-007">
+    <div class="related-card-id">VHS-D2-007</div>
+    <div class="related-card-title">Orientation & Staff Development</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-011">
+    <div class="related-card-id">VHS-D2-011</div>
+    <div class="related-card-title">Performance Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-002">
+    <div class="related-card-id">VHS-D2-002</div>
+    <div class="related-card-title">Personnel Records</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -2853,9 +2644,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -2906,19 +2696,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -3011,16 +2788,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -3028,44 +2801,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#safety">Safety</a>
-<a class="sidebar-link" href="#privacy">Privacy — when you may discuss patients</a>
-<a class="sidebar-link" href="#phi">PHI hard prohibitions</a>
-<a class="sidebar-link" href="#etiquette">Etiquette</a>
-<a class="sidebar-link" href="#enforcement">Enforcement</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-006">VHS-D2-006</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-012">VHS-D2-012</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-004">VHS-D2-004</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-010</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -3085,7 +2830,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.11 · 45 CFR Part 164</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">Never use your phone while driving. Pull over safely before making or taking any call.</li>
@@ -3159,6 +2904,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-006">
+    <div class="related-card-id">VHS-D2-006</div>
+    <div class="related-card-title">Confidentiality</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-012">
+    <div class="related-card-id">VHS-D2-012</div>
+    <div class="related-card-title">Employee Discipline & Separation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-004">
+    <div class="related-card-id">VHS-D2-004</div>
+    <div class="related-card-title">Employee Standards of Conduct</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -3179,9 +2944,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -3232,19 +2996,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -3337,16 +3088,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -3354,41 +3101,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#schedule">Evaluation schedule</a>
-<a class="sidebar-link" href="#procedure">Procedure</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-009">VHS-D2-009</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-012">VHS-D2-012</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-002">VHS-D2-002</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-011</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -3408,7 +3130,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">Your supervisor will give you a written performance evaluation at the end of your 3-month observational period, at your 1-year anniversary, and every year after that.</li>
@@ -3466,6 +3188,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-009">
+    <div class="related-card-id">VHS-D2-009</div>
+    <div class="related-card-title">Competency Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-012">
+    <div class="related-card-id">VHS-D2-012</div>
+    <div class="related-card-title">Employee Discipline & Separation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-002">
+    <div class="related-card-id">VHS-D2-002</div>
+    <div class="related-card-title">Personnel Records</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -3486,9 +3228,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -3539,19 +3280,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -3644,16 +3372,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -3661,41 +3385,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#progressive">Progressive discipline</a>
-<a class="sidebar-link" href="#gross">Gross misconduct — immediate termination</a>
-<a class="sidebar-link" href="#separation">Separation from employment</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-013">VHS-D2-013</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-015">VHS-D2-015</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-001">VHS-D2-001</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-012</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -3715,7 +3414,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">If you break a policy or your performance is not meeting standards, you may receive a verbal warning, then a written warning, then suspension, and then termination. In serious cases, you may be terminated immediately — without going through all those steps first.</li>
@@ -3792,6 +3491,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-013">
+    <div class="related-card-id">VHS-D2-013</div>
+    <div class="related-card-title">Employee Grievances</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-015">
+    <div class="related-card-id">VHS-D2-015</div>
+    <div class="related-card-title">Drug Testing</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-001">
+    <div class="related-card-id">VHS-D2-001</div>
+    <div class="related-card-title">Reasonable Accommodations</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -3812,9 +3531,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -3865,19 +3583,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -3970,16 +3675,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -3987,41 +3688,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#procedure">Procedure</a>
-<a class="sidebar-link" href="#external">External reporting</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-012">VHS-D2-012</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-001">VHS-D2-001</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-014">VHS-D2-014</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-013</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -4041,7 +3717,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">If you believe you have been treated unfairly — discriminated against, harassed, or had a policy applied incorrectly — you have the right to file a formal grievance.</li>
@@ -4098,6 +3774,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-012">
+    <div class="related-card-id">VHS-D2-012</div>
+    <div class="related-card-title">Employee Discipline & Separation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-001">
+    <div class="related-card-id">VHS-D2-001</div>
+    <div class="related-card-title">Reasonable Accommodations</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-014">
+    <div class="related-card-id">VHS-D2-014</div>
+    <div class="related-card-title">Professional Standards & Reporting</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -4118,9 +3814,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -4171,19 +3866,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -4276,16 +3958,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -4293,41 +3971,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#peer-review">Annual professional peer review</a>
-<a class="sidebar-link" href="#mandatory">Mandatory board reporting</a>
-<a class="sidebar-link" href="#contacts">Board contact information</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-009">VHS-D2-009</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-012">VHS-D2-012</a>
-<a class="sidebar-chip" href="/pp/VHS-D1-003">VHS-D1-003</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-014</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -4347,7 +4000,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10 · Health Occupations §§ 8-316, 8-6A-10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">If you see a colleague providing unsafe or inappropriate care, you must report it. This is not optional — it is a professional and legal obligation.</li>
@@ -4413,6 +4066,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-009">
+    <div class="related-card-id">VHS-D2-009</div>
+    <div class="related-card-title">Competency Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-012">
+    <div class="related-card-id">VHS-D2-012</div>
+    <div class="related-card-title">Employee Discipline & Separation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D1-003">
+    <div class="related-card-id">VHS-D1-003</div>
+    <div class="related-card-title">Abuse, Neglect & Exploitation — D1</div>
+    <div class="related-card-domain">D1 · Governance &amp; Compliance</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -4433,9 +4106,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -4486,19 +4158,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -4591,16 +4250,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -4608,41 +4263,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#testing">Testing requirements</a>
-<a class="sidebar-link" href="#prescription">Prescription medications</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-012">VHS-D2-012</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-004">VHS-D2-004</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-002">VHS-D2-002</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-015</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -4662,7 +4292,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">All new hires are drug and alcohol tested before they start. A positive test result means you will not be hired.</li>
@@ -4717,6 +4347,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-012">
+    <div class="related-card-id">VHS-D2-012</div>
+    <div class="related-card-title">Employee Discipline & Separation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-004">
+    <div class="related-card-id">VHS-D2-004</div>
+    <div class="related-card-title">Employee Standards of Conduct</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-002">
+    <div class="related-card-id">VHS-D2-002</div>
+    <div class="related-card-title">Personnel Records</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -4737,9 +4387,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -4790,19 +4439,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -4895,16 +4531,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -4912,41 +4544,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#what-constitutes">What constitutes a conflict</a>
-<a class="sidebar-link" href="#procedure">Procedure</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D1-004">VHS-D1-004</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-006">VHS-D2-006</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-012">VHS-D2-012</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-016</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -4966,7 +4573,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.08</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">A conflict of interest is when your personal situation could affect — or look like it could affect — how you do your job at Vitalis.</li>
@@ -5023,6 +4630,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D1-004">
+    <div class="related-card-id">VHS-D1-004</div>
+    <div class="related-card-title">Ethics & Corporate Compliance</div>
+    <div class="related-card-domain">D1 · Governance &amp; Compliance</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-006">
+    <div class="related-card-id">VHS-D2-006</div>
+    <div class="related-card-title">Confidentiality</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-012">
+    <div class="related-card-id">VHS-D2-012</div>
+    <div class="related-card-title">Employee Discipline & Separation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -5043,9 +4670,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
@@ -5096,19 +4722,6 @@ VALUES (
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-sans); color: var(--text); background: var(--bg); font-size: 15px; line-height: 1.7; }
-.page-wrapper { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--navy); padding: 24px 0 40px; }
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-.sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.35); padding: 0 20px; margin: 16px 0 6px; }
-.sidebar-link { display: block; padding: 7px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.15s; line-height: 1.4; }
-.sidebar-link:hover, .sidebar-link.active { color: #fff; border-left-color: var(--teal-mid); background: rgba(255,255,255,0.06); }
-.sidebar-sep { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 20px; }
-.sidebar-related { padding: 0 20px; }
-.sidebar-related-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
-.sidebar-chip { display: inline-block; padding: 3px 9px; background: rgba(255,255,255,0.08); border-radius: 20px; font-size: 11px; color: rgba(255,255,255,0.6); text-decoration: none; margin: 2px 3px 2px 0; border: 1px solid rgba(255,255,255,0.12); transition: all 0.15s; }
-.sidebar-chip:hover { background: rgba(26,155,135,0.2); color: var(--teal-mid); border-color: var(--teal-mid); }
 .main-content { max-width: 820px; padding: 0 48px 80px; }
 .doc-banner { background: linear-gradient(135deg, var(--navy) 0%, #0B3D6B 100%); margin: 0 -48px 40px; padding: 32px 48px 28px; position: relative; overflow: hidden; }
 .doc-banner::after { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(26,155,135,0.18) 0%, transparent 70%); pointer-events: none; }
@@ -5201,16 +4814,12 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 .related-card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .related-card-domain { font-size: 11px; color: var(--muted); }
 @media (max-width: 768px) {
-  .page-wrapper { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .main-content { padding: 0 20px 60px; max-width: 100%; }
   .doc-banner { margin: 0 -20px 32px; padding: 24px 20px 20px; }
   .doc-meta-grid { grid-template-columns: 1fr 1fr; }
   .approval-block { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar { display: none; }
-  .page-wrapper { grid-template-columns: 1fr; }
   .main-content { padding: 0; }
   .doc-banner { margin: 0 0 32px; }
   .ack-btn { display: none; }
@@ -5218,42 +4827,16 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div class="page-wrapper">
-  <div class="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-name">Vitalis Healthcare</div>
-    <div class="sidebar-logo-sub">D2 · Human Resources</div>
-  </div>
-  <div class="sidebar-label">On this page</div>
-  <a class="sidebar-link" href="#wmfy">What this means for you</a>
-<a class="sidebar-link" href="#purpose">Purpose</a>
-<a class="sidebar-link" href="#policy-statement">Policy statement</a>
-<a class="sidebar-link" href="#procedure">Procedure</a>
-<a class="sidebar-link" href="#materials">Required resource center materials</a>
-<a class="sidebar-link" href="#digital">Digital library — Vitalis Portal</a>
-<a class="sidebar-link" href="#regulatory">Regulatory references</a>
-<a class="sidebar-link" href="#history">Version history</a>
-<a class="sidebar-link" href="#approvals">Approvals</a>
-
-  <hr class="sidebar-sep">
-  <div class="sidebar-related">
-    <div class="sidebar-related-title">Related</div>
-    <a class="sidebar-chip" href="/pp/VHS-D2-007">VHS-D2-007</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-008">VHS-D2-008</a>
-<a class="sidebar-chip" href="/pp/VHS-D2-009">VHS-D2-009</a>
-
-  </div>
-</div>
-  <main class="content">
-    <div class="main-content">
-      <nav class="breadcrumb">
+<main class="content">
+  <div class="main-content">
+    <nav class="breadcrumb">
   <a href="/pp">Policy Library</a>
   <span>›</span>
   <a href="/pp/domain/D2">D2 · Human Resources &amp; Workforce</a>
   <span>›</span>
   <span>VHS-D2-017</span>
 </nav>
-      <div class="doc-banner">
+    <div class="doc-banner">
   <div class="doc-banner-top">
     <div>
       <div class="doc-meta-pills">
@@ -5273,7 +4856,7 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
     <div><div class="doc-meta-label">COMAR Reference</div><div class="doc-meta-value">COMAR 10.07.05.10</div></div>
   </div>
 </div>
-      
+    
 <div class="wmfy-box">
   <div class="wmfy-label">✦ What this means for you</div>
   <ul class="wmfy-list"><li class="wmfy-item">The Vitalis Portal is your primary source for policies, training modules, and reference materials. You can access it from any device, any time.</li>
@@ -5343,6 +4926,26 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
 </tbody></table>
 </section>
 
+<section class="policy-section" id="related">
+  <h2 class="section-heading">Related Documents</h2>
+  <div class="related-grid">
+  <a class="related-card" href="/pp/VHS-D2-007">
+    <div class="related-card-id">VHS-D2-007</div>
+    <div class="related-card-title">Orientation & Staff Development</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-008">
+    <div class="related-card-id">VHS-D2-008</div>
+    <div class="related-card-title">Policy & Procedure Agreement</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  <a class="related-card" href="/pp/VHS-D2-009">
+    <div class="related-card-id">VHS-D2-009</div>
+    <div class="related-card-title">Competency Evaluation</div>
+    <div class="related-card-domain">D2 · Human Resources &amp; Workforce</div>
+  </a>
+  </div>
+</section>
 <section class="policy-section" id="approvals">
   <h2 class="section-heading">Approvals</h2>
   <div class="approval-block">
@@ -5363,9 +4966,8 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--bg);
   </div>
 </div>
 </section>
-    </div>
-  </main>
-</div>$VITALIS_HTML$,
+  </div>
+</main>$VITALIS_HTML$,
   'active', 'VHS-D2-Human-Resources-Workforce.docx'
 )
 ON CONFLICT (doc_id) DO UPDATE SET
