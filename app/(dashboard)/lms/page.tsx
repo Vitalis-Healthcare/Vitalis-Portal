@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
+import EnrollmentRequestQueue from './EnrollmentRequestQueue'
 import { CheckCircle, Clock, BookOpen, Users, Lock } from 'lucide-react'
 
 export default async function LMSPage() {
@@ -26,6 +27,23 @@ export default async function LMSPage() {
     .select('id, lms_module_id, programme_id, track_id, title, badge, status, estimated_minutes, order_index, thumbnail_color')
     .not('programme_id', 'is', null)
     .order('order_index')
+
+  // Pending enrollment requests (admin: all, caregiver: own)
+  const { data: enrollmentRequests } = await svc
+    .from('enrollment_requests')
+    .select('id, user_id, programme_id, course_id, status, request_message, created_at, caregiver:user_id(full_name)')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+
+  // Caregiver: my pending/approved request IDs
+  const { data: myRequests } = !isAdmin ? await svc
+    .from('enrollment_requests')
+    .select('programme_id, status')
+    .eq('user_id', user?.id || '')
+    .in('status', ['pending', 'approved']) : { data: [] }
+
+  const myPendingProgIds  = new Set((myRequests || []).filter((r: any) => r.status === 'pending').map((r: any) => r.programme_id))
+  const myApprovedProgIds = new Set((myRequests || []).filter((r: any) => r.status === 'approved').map((r: any) => r.programme_id))
 
   // Staff: my programme enrollments
   const { data: myProgEnrollments } = await svc
@@ -79,6 +97,11 @@ export default async function LMSPage() {
             {isAdmin ? 'Manage training programmes and track caregiver progress' : 'Your assigned training programmes and courses'}
           </p>
         </div>
+        {isAdmin && (enrollmentRequests||[]).length > 0 && (
+          <div style={{ background:'#EBF4FF', border:'1px solid #457B9D', borderRadius:8, padding:'8px 16px', fontSize:13, fontWeight:600, color:'#457B9D' }}>
+            {(enrollmentRequests||[]).length} enrollment request{(enrollmentRequests||[]).length !== 1 ? 's' : ''} pending review
+          </div>
+        )}
       </div>
 
       {/* Admin stats */}
@@ -99,6 +122,11 @@ export default async function LMSPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Admin: Enrollment Request Queue */}
+      {isAdmin && (enrollmentRequests||[]).length > 0 && (
+        <EnrollmentRequestQueue requests={enrollmentRequests||[]} />
       )}
 
       {/* Programme cards */}
@@ -150,10 +178,10 @@ export default async function LMSPage() {
                     <Link href={`/lms/programmes/${prog.slug}`}>
                       <button style={{
                         padding:'9px 20px', borderRadius:8, border:'none', fontWeight:700, fontSize:13,
-                        background: isAdmin ? '#1A2E44' : isEnrolled ? '#0E7C7B' : '#EFF2F5',
-                        color: isAdmin || isEnrolled ? '#fff' : '#4A6070', cursor:'pointer'
+                        background: isAdmin ? '#1A2E44' : isEnrolled ? '#0E7C7B' : myPendingProgIds.has(prog.id) ? '#F4A261' : '#EFF2F5',
+                        color: isAdmin || isEnrolled ? '#fff' : myPendingProgIds.has(prog.id) ? '#fff' : '#4A6070', cursor:'pointer'
                       }}>
-                        {isAdmin ? 'Manage →' : isEnrolled ? 'Continue →' : 'View Programme →'}
+                        {isAdmin ? 'Manage →' : isEnrolled ? 'Continue →' : myPendingProgIds.has(prog.id) ? '⏳ Pending Approval' : 'View Programme →'}
                       </button>
                     </Link>
                   </div>

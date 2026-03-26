@@ -4,7 +4,7 @@
 // Works for both professional employment references and character references.
 
 import { useState, useEffect } from 'react'
-import { X, ExternalLink } from 'lucide-react'
+import { X, Printer } from 'lucide-react'
 
 const RATING_LABELS: Record<string, string> = {
   very_good:    'Very Good',
@@ -259,9 +259,19 @@ export default function ReferenceSubmissionViewer({
 
         {/* Footer */}
         <div style={{ padding: '14px 24px', borderTop: '1px solid #EFF2F5', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 24px', background: '#EFF2F5', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#4A6070', cursor: 'pointer' }}>
-            Close
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <a
+              href={`/api/references/print?referenceId=${referenceId}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: '#0E7C7B', color: '#fff', textDecoration: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600 }}
+            >
+              <Printer size={13}/> Print / Save PDF
+            </a>
+            <button onClick={onClose} style={{ padding: '8px 24px', background: '#EFF2F5', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#4A6070', cursor: 'pointer' }}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

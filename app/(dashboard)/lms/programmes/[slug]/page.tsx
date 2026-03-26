@@ -31,6 +31,15 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
     .eq('programme_id', programme.id)
     .order('order_index')
 
+  // My pending enrollment requests for this programme
+  const { data: myRequest } = !isAdmin ? await svc
+    .from('enrollment_requests')
+    .select('status')
+    .eq('user_id', user?.id || '')
+    .eq('programme_id', programme?.id || '')
+    .in('status', ['pending'])
+    .maybeSingle() : { data: null }
+
   // My enrollment in this programme
   const { data: myProgEnrollment } = await supabase
     .from('programme_enrollments')

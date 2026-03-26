@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, GraduationCap,
-  BadgeCheck, Users, BarChart3, Settings, UserCheck,
+  BadgeCheck, Users, BarChart3, Settings, UserCheck, ClipboardList,
   LogOut, UserCog, ShieldCheck, AlertTriangle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +17,7 @@ const adminSections = [
       { href: '/ep',          label: 'Emergency Preparedness',icon: AlertTriangle },
       { href: '/credentials', label: 'Credentials',           icon: BadgeCheck },
       { href: '/references',  label: 'References',            icon: UserCheck },
+      { href: '/appraisals',  label: 'Appraisals',            icon: ClipboardList },
       { href: '/staff',       label: 'Staff Portal',          icon: Users },
   ]},
   { label: 'ADMIN', items: [
