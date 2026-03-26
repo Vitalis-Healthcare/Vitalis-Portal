@@ -1,8 +1,8 @@
 'use client'
-import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Plus, CheckCircle, Clock, AlertTriangle, X, FileText } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, CheckCircle, Clock, AlertTriangle, X, FileText, Upload } from 'lucide-react'
 
 interface CredType { id: string; name: string; validity_days: number }
 interface Cred {
@@ -39,6 +39,9 @@ export default function StaffCredentialsClient({
   const router = useRouter()
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploadedFile, setUploadedFile] = useState<{name:string;url:string}|null>(null)
+  const [uploading, setUploading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [form, setForm] = useState({
     credential_type_id: '', issue_date: '', expiry_date: '', submitted_notes: ''
@@ -49,9 +52,26 @@ export default function StaffCredentialsClient({
   const statusBg = (s: string) =>
     s === 'current' ? '#E6F6F4' : s === 'expiring' ? '#FEF3EA' : s === 'expired' ? '#FDE8E9' : '#EFF2F5'
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) { alert('Max 10MB'); return }
+    setUploading(true)
+    const ext = file.name.split('.').pop()
+    const path = `credentials/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { data, error } = await supabase.storage.from('credential-documents').upload(path, file, { cacheControl:'3600', upsert:false })
+    if (error) { alert(`Upload failed: ${error.message}`); setUploading(false); return }
+    const { data: urlData } = supabase.storage.from('credential-documents').getPublicUrl(data.path)
+    setUploadedFile({ name: file.name, url: urlData.publicUrl })
+    setUploading(false)
+  }
+
   const handleSubmit = async () => {
     if (!form.credential_type_id || !form.issue_date) {
       alert('Please select a credential type and issue date.'); return
+    }
+    if (!uploadedFile) {
+      alert('Please upload your credential document (certificate, card, or relevant document).'); return
     }
     setSaving(true)
 
@@ -61,6 +81,7 @@ export default function StaffCredentialsClient({
       issue_date: form.issue_date,
       expiry_date: form.expiry_date || null,
       submitted_notes: form.submitted_notes || null,
+      document_url: uploadedFile?.url || null,
       review_status: 'pending',
     }, { onConflict: 'user_id,credential_type_id' })
 
@@ -272,6 +293,24 @@ export default function StaffCredentialsClient({
                       <label style={lbl}>Expiry Date</label>
                       <input type="date" value={form.expiry_date} onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))} style={inp} />
                     </div>
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={lbl}>Upload Document <span style={{color:'#E63946'}}>*</span></label>
+                    <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display:'none' }} onChange={handleFileChange}/>
+                    {uploadedFile ? (
+                      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderRadius:8, border:'1px solid #A7F3D0', background:'#F0FDF4' }}>
+                        <FileText size={16} color="#2A9D8F"/>
+                        <span style={{ flex:1, fontSize:13, color:'#1A2E44', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{uploadedFile.name}</span>
+                        <button onClick={()=>setUploadedFile(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#8FA0B0', padding:0 }}><X size={14}/></button>
+                      </div>
+                    ) : (
+                      <button onClick={()=>fileRef.current?.click()} disabled={uploading}
+                        style={{ width:'100%', padding:'20px', borderRadius:8, border:'2px dashed #D1D9E0', background:'#F8FAFB', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, color:'#8FA0B0', fontSize:13, opacity:uploading?0.6:1 }}>
+                        <Upload size={18} color="#8FA0B0"/>
+                        <span style={{ fontWeight:600 }}>{uploading ? 'Uploading…' : 'Click to upload document'}</span>
+                        <span style={{ fontSize:12 }}>PDF, JPG, PNG · max 10MB</span>
+                      </button>
+                    )}
                   </div>
                   <div style={{ marginBottom: 20 }}>
                     <label style={lbl}>Notes (optional)</label>

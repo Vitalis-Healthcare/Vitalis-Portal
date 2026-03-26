@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Send, CheckCircle, Clock, FileText, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { Plus, Send, CheckCircle, Clock, FileText, ChevronDown, ChevronUp, X, Printer } from 'lucide-react'
 
 const CLINICAL_ITEMS = [
   { key: 's_patient_care_duties',        label: 'Assists professional staff by performing patient care duties in the home' },
@@ -349,6 +349,14 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
                       <Send size={11}/> Resend
                     </button>
                   )}
+                  <a
+                    href={`/api/appraisals/print?appraisalId=${a.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 7, color: '#4A6070', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
+                  >
+                    <Printer size={12}/> Print
+                  </a>
                   <button onClick={() => setExpandedId(isExpanded ? null : a.id)} style={{ padding: '7px 10px', background: '#F8FAFB', border: 'none', borderRadius: 7, color: '#8FA0B0', cursor: 'pointer' }}>
                     {isExpanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
                   </button>

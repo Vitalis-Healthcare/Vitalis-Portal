@@ -55,6 +55,7 @@ export default function StaffCredentialAdd({ credTypes, caregiverId, viewerRole 
   const handleSave = async () => {
     if (!form.credential_type_id || !form.issue_date) { alert('Credential type and issue date required'); return }
     if (!form.does_not_expire && !form.not_applicable && !form.expiry_date) { alert('Enter an expiry date, or check Does Not Expire / N/A'); return }
+    if (!form.not_applicable && !uploadedFile) { alert('A document upload is required. Please upload the certificate or relevant document.'); return }
     setSaving(true)
 
     const { data: { user } } = await supabase.auth.getUser()

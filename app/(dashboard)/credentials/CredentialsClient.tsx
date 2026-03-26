@@ -39,9 +39,9 @@ export default function CredentialsClient({
   })
 
   const statusColor = (s: string) =>
-    s === 'current' ? '#2A9D8F' : s === 'expiring' ? '#F4A261' : s === 'expired' ? '#E63946' : '#8FA0B0'
+    s === 'current' ? '#2A9D8F' : s === 'expiring' ? '#F4A261' : s === 'expired' ? '#E63946' : s === 'missing' ? '#9B59B6' : '#8FA0B0'
   const statusBg = (s: string) =>
-    s === 'current' ? '#E6F6F4' : s === 'expiring' ? '#FEF3EA' : s === 'expired' ? '#FDE8E9' : '#EFF2F5'
+    s === 'current' ? '#E6F6F4' : s === 'expiring' ? '#FEF3EA' : s === 'expired' ? '#FDE8E9' : s === 'missing' ? '#F3E8FF' : '#EFF2F5'
   const statusIcon = (s: string) =>
     s === 'current' ? <CheckCircle size={12}/> : s === 'expiring' ? <Clock size={12}/> : <AlertTriangle size={12}/>
 
@@ -68,6 +68,9 @@ export default function CredentialsClient({
     }
     if (!form.does_not_expire && !form.not_applicable && !form.expiry_date) {
       alert('Please enter an expiry date, or check "Does Not Expire".'); return
+    }
+    if (!form.not_applicable && !uploadedFile) {
+      alert('A document upload is required for this credential. Please upload the certificate, card, or relevant document.'); return
     }
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
