@@ -9,7 +9,7 @@ interface Profile {
   status: string; hire_date?: string; department?: string; phone?: string; created_at: string;
 }
 
-const ROLES = ['admin', 'supervisor', 'caregiver']
+const ROLES = ['admin', 'supervisor', 'staff', 'caregiver']
 const DEPARTMENTS = ['Home Care', 'Administrative', 'Clinical', 'Operations', 'Management']
 
 const inp: React.CSSProperties = {
@@ -265,8 +265,8 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
   })
 
   const active = profiles.filter(p => p.status === 'active').length
-  const roleColor = (r: string) => r === 'admin' ? '#1A2E44' : r === 'supervisor' ? '#0E7C7B' : '#2A9D8F'
-  const roleBg = (r: string) => r === 'admin' ? '#EFF2F5' : r === 'supervisor' ? '#E6F4F4' : '#E6F6F4'
+  const roleColor = (r: string) => r === 'admin' ? '#1A2E44' : r === 'supervisor' ? '#0E7C7B' : r === 'staff' ? '#1D4ED8' : '#2A9D8F'
+  const roleBg = (r: string) => r === 'admin' ? '#EFF2F5' : r === 'supervisor' ? '#E6F4F4' : r === 'staff' ? '#EFF6FF' : '#E6F6F4'
 
   return (
     <div>
@@ -318,6 +318,7 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
           { label: 'Total Staff', value: profiles.length, color: '#1A2E44' },
           { label: 'Active', value: active, color: '#2A9D8F' },
           { label: 'Admins', value: profiles.filter(p => p.role === 'admin').length, color: '#0E7C7B' },
+          { label: 'Staff', value: profiles.filter(p => p.role === 'staff' || p.role === 'supervisor').length, color: '#1D4ED8' },
           { label: 'Caregivers', value: profiles.filter(p => p.role === 'caregiver').length, color: '#F4A261' },
         ].map((s, i) => (
           <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', borderLeft: `4px solid ${s.color}`, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
