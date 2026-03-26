@@ -47,11 +47,15 @@ export default async function CredentialsPage() {
     .in('caregiver_id', (staff || []).map((s: any) => s.id))
 
   // Build per-caregiver summary: { caregiver_id, received, total }
+  // Always show X/3 — total is always 3 slots regardless of how many sent
   const refMap: Record<string, { received: number; total: number }> = {}
   for (const ref of allRefs || []) {
-    if (!refMap[ref.caregiver_id]) refMap[ref.caregiver_id] = { received: 0, total: 0 }
-    refMap[ref.caregiver_id].total++
+    if (!refMap[ref.caregiver_id]) refMap[ref.caregiver_id] = { received: 0, total: 3 }
     if (ref.status === 'received') refMap[ref.caregiver_id].received++
+  }
+  // Ensure all caregivers appear even if no refs sent yet
+  for (const s of staff || []) {
+    if (!refMap[s.id]) refMap[s.id] = { received: 0, total: 3 }
   }
   const refSummaries = Object.entries(refMap).map(([caregiver_id, v]) => ({ caregiver_id, ...v }))
 

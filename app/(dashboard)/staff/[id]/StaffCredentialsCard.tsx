@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { CheckCircle, FileText } from 'lucide-react'
 import CredentialDocViewer from '@/components/credentials/CredentialDocViewer'
+import StaffCredentialAdd from './StaffCredentialAdd'
 
 interface Credential {
   id:               string
@@ -27,11 +28,13 @@ function getName(c: Credential): string {
 
 interface Props {
   credentials: Credential[]
+  credTypes:   { id: string; name: string; validity_days: number }[]
+  caregiverId: string
   memberName:  string
   viewerRole:  string
 }
 
-export default function StaffCredentialsCard({ credentials, memberName, viewerRole }: Props) {
+export default function StaffCredentialsCard({ credentials, credTypes, caregiverId, memberName, viewerRole }: Props) {
   const [docViewer, setDocViewer] = useState<{
     credId: string; credName: string; documentUrl?: string
   } | null>(null)
@@ -49,7 +52,10 @@ export default function StaffCredentialsCard({ credentials, memberName, viewerRo
       <div style={{ background: '#fff', borderRadius: 12, padding: '22px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
         <div style={sectionTitle}>
           <span>🪪 Credentials</span>
-          <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{credentials.length} on file</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{credentials.length} on file</span>
+            <StaffCredentialAdd credTypes={credTypes} caregiverId={caregiverId} viewerRole={viewerRole} />
+          </div>
         </div>
 
         {expiringCreds.length > 0 && (

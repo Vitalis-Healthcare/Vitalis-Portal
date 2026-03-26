@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { CheckCircle } from 'lucide-react'
 import StaffCredentialsCard from './StaffCredentialsCard'
 import StaffReferencesCard from './StaffReferencesCard'
+import StaffTrainingCard from './StaffTrainingCard'
+import StaffAppraisalsCard from './StaffAppraisalsCard'
 
 export default async function StaffMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -17,21 +19,25 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
   const isAdmin = viewer?.role === 'admin' || viewer?.role === 'supervisor' || viewer?.role === 'staff'
   if (!isAdmin) redirect('/dashboard')
 
-  // Load the staff member's profile
   const { data: member } = await svc
     .from('profiles')
     .select('id, full_name, email, role, status, department, phone, position_name')
     .eq('id', id)
     .single()
 
-  if (!member) return <div style={{padding:40,color:'#8FA0B0'}}>Caregiver not found. <a href='/staff'>← Back</a></div>
+  if (!member) return <div style={{ padding: 40, color: '#8FA0B0' }}>Caregiver not found. <a href='/staff'>← Back</a></div>
 
-  // Load all their activity in parallel
+  // Load everything in parallel
   const [
     { data: enrollments },
     { data: credentials },
     { data: acknowledgments },
     { data: references },
+    { data: appraisals },
+    { data: credTypes },
+    { data: programmes },
+    { data: progEnrollments },
+    { data: enrollmentRequests },
   ] = await Promise.all([
     svc.from('course_enrollments').select(`
       id, completed_at, due_date, assigned_at,
@@ -39,7 +45,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
     `).eq('user_id', id).order('assigned_at', { ascending: false }),
 
     svc.from('staff_credentials').select(`
-      id, status, issue_date, expiry_date, does_not_expire, notes, document_url,
+      id, status, issue_date, expiry_date, does_not_expire, not_applicable, notes, document_url,
       credential_type:credential_type_id(name)
     `).eq('user_id', id).order('issue_date', { ascending: false }),
 
@@ -52,11 +58,26 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
       .select('id, slot, reference_type, referee_name, referee_email, referee_phone, referee_org, status, sent_at, received_at, reminder_count, submission:reference_submissions(submitted_at, overall_recommendation)')
       .eq('caregiver_id', id)
       .order('slot'),
+
+    svc.from('appraisals')
+      .select('id, status, appraisal_period, signed_at, sent_at, caregiver_signature, created_at, s_patient_care_duties, s_medications, s_vitals, s_attendance, s_judgment, s_confidentiality')
+      .eq('caregiver_id', id)
+      .order('created_at', { ascending: false }),
+
+    svc.from('credential_types').select('id, name, validity_days').order('name'),
+
+    svc.from('programmes').select('id, title, slug, est_hours, total_modules').eq('status', 'live').order('title'),
+
+    svc.from('programme_enrollments').select('programme_id').eq('user_id', id),
+
+    svc.from('enrollment_requests').select('id, programme_id, status, created_at')
+      .eq('user_id', id).eq('status', 'pending'),
   ])
 
-  const completedCourses = (enrollments || []).filter(e => e.completed_at)
-  const pendingCourses   = (enrollments || []).filter(e => !e.completed_at)
-  const expiringCreds    = (credentials || []).filter(c => c.status === 'expiring' || c.status === 'expired')
+  const completedCourses  = (enrollments || []).filter(e => e.completed_at)
+  const expiringCreds     = (credentials || []).filter(c => c.status === 'expiring' || c.status === 'expired')
+  const receivedRefs      = (references || []).filter(r => r.status === 'received').length
+  const enrolledProgIds   = (progEnrollments || []).map((e: any) => e.programme_id)
 
   const roleColor = (r: string) =>
     r === 'admin' ? '#1A2E44' : r === 'supervisor' ? '#0E7C7B' : r === 'staff' ? '#1D4ED8' : '#2A9D8F'
@@ -64,17 +85,15 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
     r === 'admin' ? '#EFF2F5' : r === 'supervisor' ? '#E6F4F4' : r === 'staff' ? '#EFF6FF' : '#E6F6F4'
 
   const card = { background: '#fff', borderRadius: 12, padding: '22px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }
-  const sectionTitle = { fontSize: 14, fontWeight: 700, color: '#1A2E44', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' } as const
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1040, margin: '0 auto' }}>
 
-      {/* Back nav */}
       <Link href="/staff" style={{ fontSize: 13, color: '#0E7C7B', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
         ← Back to Caregiver Directory
       </Link>
 
-      {/* Header card */}
+      {/* Header */}
       <div style={{ ...card, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20 }}>
         <div style={{
           width: 60, height: 60, borderRadius: '50%', flexShrink: 0,
@@ -101,93 +120,63 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
             {member.phone && <span>📞 {member.phone}</span>}
           </div>
         </div>
-
         {/* Summary stats */}
         <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
           {[
-            { label: 'Courses done', value: completedCourses.length, color: '#2A9D8F' },
-            { label: 'Pending training', value: pendingCourses.length, color: pendingCourses.length > 0 ? '#F4A261' : '#2A9D8F' },
-            { label: 'Credential alerts', value: expiringCreds.length, color: expiringCreds.length > 0 ? '#E63946' : '#2A9D8F' },
-            { label: 'Policies signed', value: (acknowledgments || []).length, color: '#0E7C7B' },
+            { label: 'Training done',     value: completedCourses.length,              color: '#2A9D8F' },
+            { label: 'Cred alerts',       value: expiringCreds.length,                 color: expiringCreds.length > 0 ? '#E63946' : '#2A9D8F' },
+            { label: 'References',        value: `${receivedRefs}/3`,                  color: receivedRefs === 3 ? '#2A9D8F' : '#F4A261' },
+            { label: 'Policies signed',   value: (acknowledgments || []).length,        color: '#0E7C7B' },
+            { label: 'Appraisals',        value: (appraisals || []).filter(a => a.status === 'signed').length, color: '#8FA0B0' },
           ].map((s, i) => (
-            <div key={i} style={{ textAlign: 'center', minWidth: 70 }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
-              <div style={{ fontSize: 10, color: '#8FA0B0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>{s.label}</div>
+            <div key={i} style={{ textAlign: 'center', minWidth: 64 }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 9, color: '#8FA0B0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>{s.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* GRID */}
+      {/* Row 1: Training + Credentials */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-
-        {/* Training */}
-        <div style={card}>
-          <div style={sectionTitle}>
-            <span>🎓 Training</span>
-            <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{(enrollments || []).length} total</span>
-          </div>
-
-          {pendingCourses.length > 0 && (
-            <>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#F4A261', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>In Progress</div>
-              {pendingCourses.map((e: any) => (
-                <div key={e.id} style={{ marginBottom: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                    <span style={{ fontWeight: 600, color: '#1A2E44' }}>{e.course?.title}</span>
-                    <span style={{ fontSize: 11, color: '#8FA0B0' }}>{0}%</span>
-                  </div>
-                  <div style={{ height: 5, borderRadius: 3, background: '#EFF2F5' }}>
-                    <div style={{ height: '100%', width: `${0}%`, background: '#0E7C7B', borderRadius: 3 }} />
-                  </div>
-                  {e.due_date && <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 3 }}>Due {new Date(e.due_date).toLocaleDateString()}</div>}
-                </div>
-              ))}
-              {completedCourses.length > 0 && <div style={{ borderTop: '1px solid #EFF2F5', marginTop: 12, marginBottom: 12 }} />}
-            </>
-          )}
-
-          {completedCourses.length > 0 && (
-            <>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#2A9D8F', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Completed</div>
-              {completedCourses.map((e: any) => (
-                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#4A6070', marginBottom: 8 }}>
-                  <CheckCircle size={13} color="#2A9D8F" style={{ flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>{e.course?.title}</div>
-                  <div style={{ fontSize: 11, color: '#8FA0B0' }}>{new Date(e.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                </div>
-              ))}
-            </>
-          )}
-
-          {(enrollments || []).length === 0 && (
-            <p style={{ color: '#8FA0B0', fontSize: 13 }}>No courses assigned yet.</p>
-          )}
-        </div>
-
-        {/* Credentials */}
+        <StaffTrainingCard
+          enrollments={enrollments || []}
+          programmes={programmes || []}
+          enrolledProgIds={enrolledProgIds}
+          pendingRequests={enrollmentRequests || []}
+          caregiverId={id}
+          viewerRole={viewer?.role || 'staff'}
+        />
         <StaffCredentialsCard
           credentials={credentials || []}
+          credTypes={credTypes || []}
+          caregiverId={id}
           memberName={member.full_name}
           viewerRole={viewer?.role || 'staff'}
         />
       </div>
 
-      {/* References */}
-      <StaffReferencesCard
-        references={references || []}
-        caregiverId={id}
-        caregiverName={member.full_name}
-        viewerRole={viewer?.role || 'staff'}
-      />
+      {/* Row 2: References + Appraisals */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+        <StaffReferencesCard
+          references={references || []}
+          caregiverId={id}
+          caregiverName={member.full_name}
+          viewerRole={viewer?.role || 'staff'}
+        />
+        <StaffAppraisalsCard
+          appraisals={appraisals || []}
+          caregiverId={id}
+          viewerRole={viewer?.role || 'staff'}
+        />
+      </div>
 
-      {/* Policies Acknowledged */}
+      {/* Row 3: Policies Acknowledged */}
       <div style={{ ...card, marginBottom: 20 }}>
-        <div style={sectionTitle}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#1A2E44', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span>📋 Policies & Procedures Acknowledged</span>
           <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{(acknowledgments || []).length} signed</span>
         </div>
-
         {(acknowledgments || []).length === 0 ? (
           <p style={{ color: '#8FA0B0', fontSize: 13 }}>No policies acknowledged yet.</p>
         ) : (
@@ -206,6 +195,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
           </div>
         )}
       </div>
+
     </div>
   )
 }
