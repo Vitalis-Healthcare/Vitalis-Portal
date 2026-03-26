@@ -13,6 +13,7 @@ interface Cred {
   notes?: string
   submitted_notes?: string
   status: string
+  not_applicable?: boolean
   review_status?: string
   credential_type?: { name: string; validity_days: number }
 }
@@ -210,8 +211,8 @@ export default function StaffCredentialsClient({
                   </div>
                   <div>
                     {reviewStatus === 'approved' ? (
-                      <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: statusColor(c.status), background: statusBg(c.status), textTransform: 'capitalize' }}>
-                        {c.status || 'current'}
+                      <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: c.not_applicable ? '#8FA0B0' : statusColor(c.status), background: c.not_applicable ? '#EFF2F5' : statusBg(c.status), textTransform: 'capitalize' }}>
+                        {c.not_applicable ? 'N/A' : c.status || 'current'}
                       </span>
                     ) : (
                       <span style={{ fontSize: 11, color: '#8FA0B0' }}>—</span>

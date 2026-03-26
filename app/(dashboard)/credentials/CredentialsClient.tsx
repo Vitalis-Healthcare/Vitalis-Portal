@@ -10,7 +10,7 @@ interface StaffMember { id: string; full_name: string; role: string }
 interface Cred {
   id: string; user_id: string; credential_type_id: string; issue_date: string;
   expiry_date?: string; document_url?: string; notes?: string; status: string;
-  does_not_expire?: boolean; review_status?: string; submitted_notes?: string;
+  does_not_expire?: boolean; not_applicable?: boolean; review_status?: string; submitted_notes?: string;
   submitter?: { full_name: string };
   credential_type?: { name: string; validity_days: number }
 }
@@ -34,7 +34,7 @@ export default function CredentialsClient({
   const [docViewer, setDocViewer]           = useState<{ credId: string; credName: string; staffName: string; documentUrl?: string } | null>(null)
   const [form, setForm] = useState({
     user_id: '', credential_type_id: '', issue_date: new Date().toISOString().split('T')[0],
-    expiry_date: '', notes: '', does_not_expire: false,
+    expiry_date: '', notes: '', does_not_expire: false, not_applicable: false,
   })
 
   const statusColor = (s: string) =>
@@ -65,7 +65,7 @@ export default function CredentialsClient({
     if (!form.user_id || !form.credential_type_id || !form.issue_date) {
       alert('Please fill in Staff Member, Credential Type, and Issue Date.'); return
     }
-    if (!form.does_not_expire && !form.expiry_date) {
+    if (!form.does_not_expire && !form.not_applicable && !form.expiry_date) {
       alert('Please enter an expiry date, or check "Does Not Expire".'); return
     }
     setSaving(true)
@@ -73,8 +73,8 @@ export default function CredentialsClient({
     const payload = {
       user_id: form.user_id, credential_type_id: form.credential_type_id,
       issue_date: form.issue_date,
-      expiry_date: form.does_not_expire ? null : (form.expiry_date || null),
-      does_not_expire: form.does_not_expire, notes: form.notes || null,
+      expiry_date: (form.does_not_expire || form.not_applicable) ? null : (form.expiry_date || null),
+      does_not_expire: form.does_not_expire, not_applicable: form.not_applicable, notes: form.notes || null,
       document_url: uploadedFile?.url || null, verified_by: user?.id, review_status: 'approved',
     }
 
@@ -113,7 +113,7 @@ export default function CredentialsClient({
       })
     } catch { /* non-fatal */ }
 
-    setForm({ user_id:'', credential_type_id:'', issue_date: new Date().toISOString().split('T')[0], expiry_date:'', notes:'', does_not_expire: false })
+    setForm({ user_id:'', credential_type_id:'', issue_date: new Date().toISOString().split('T')[0], expiry_date:'', notes:'', does_not_expire: false, not_applicable: false })
     setUploadedFile(null); setSelectedStaff(null); setView('matrix')
     router.refresh(); setSaving(false)
   }
@@ -222,9 +222,9 @@ export default function CredentialsClient({
                       <td key={ct.id} style={{ textAlign:'center', padding:'8px 10px' }}>
                         <div style={{ display:'inline-flex', flexDirection:'column', alignItems:'center', gap:3 }}>
                           <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:12, fontSize:11, fontWeight:700, background:statusBg(cred.status), color:statusColor(cred.status) }}>
-                            {statusIcon(cred.status)}{cred.does_not_expire ? 'No Expiry' : cred.status}
+                            {statusIcon(cred.status)}{cred.not_applicable ? 'N/A' : cred.does_not_expire ? 'No Expiry' : cred.status}
                           </span>
-                          {cred.expiry_date && !cred.does_not_expire && (
+                          {cred.expiry_date && !cred.does_not_expire && !cred.not_applicable && (
                             <span style={{ fontSize:10, color:'#8FA0B0' }}>
                               {new Date(cred.expiry_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'})}
                             </span>
@@ -339,16 +339,22 @@ export default function CredentialsClient({
             <div>
               <label style={lbl}>Expiry Date</label>
               <input type="date" value={form.expiry_date} onChange={e=>setForm(f=>({...f,expiry_date:e.target.value}))}
-                disabled={form.does_not_expire}
-                style={{ ...inp, background: form.does_not_expire ? '#F8FAFB' : '#fff', color: form.does_not_expire ? '#8FA0B0' : '#1A2E44' }}/>
+                disabled={form.does_not_expire || form.not_applicable}
+                style={{ ...inp, background: (form.does_not_expire || form.not_applicable) ? '#F8FAFB' : '#fff', color: (form.does_not_expire || form.not_applicable) ? '#8FA0B0' : '#1A2E44' }}/>
             </div>
           </div>
           <div style={{ marginBottom:16, display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#F8FAFB', borderRadius:8, border:'1px solid #EFF2F5' }}>
             <input type="checkbox" id="doesNotExpire" checked={form.does_not_expire}
-              onChange={e=>setForm(f=>({...f,does_not_expire:e.target.checked, expiry_date:e.target.checked?'':f.expiry_date}))}
+              onChange={e=>setForm(f=>({...f,does_not_expire:e.target.checked, not_applicable: e.target.checked ? false : f.not_applicable, expiry_date:e.target.checked?'':f.expiry_date}))}
               style={{ width:16, height:16, cursor:'pointer', accentColor:'#0E7C7B' }}/>
             <label htmlFor="doesNotExpire" style={{ fontSize:13, fontWeight:600, color:'#1A2E44', cursor:'pointer' }}>Does Not Expire</label>
             <span style={{ fontSize:12, color:'#8FA0B0' }}>(e.g. I-9, background check, SSN card)</span>
+            <span style={{ fontSize:12, color:'#CBD5E0', margin:'0 4px' }}>·</span>
+            <input type="checkbox" id="notApplicable" checked={form.not_applicable}
+              onChange={e=>setForm(f=>({...f,not_applicable:e.target.checked, does_not_expire: e.target.checked ? false : f.does_not_expire, expiry_date:e.target.checked?'':f.expiry_date}))}
+              style={{ width:16, height:16, cursor:'pointer', accentColor:'#8FA0B0' }}/>
+            <label htmlFor="notApplicable" style={{ fontSize:13, fontWeight:600, color:'#1A2E44', cursor:'pointer' }}>N/A</label>
+            <span style={{ fontSize:12, color:'#8FA0B0' }}>(not required for this staff member)</span>
           </div>
           <div style={{ marginBottom:14 }}>
             <label style={lbl}>Upload Document (optional)</label>
