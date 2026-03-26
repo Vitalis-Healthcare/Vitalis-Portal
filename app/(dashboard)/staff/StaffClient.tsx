@@ -16,6 +16,8 @@ interface Props {
   isAdmin: boolean
   profile: Profile|null
   allStaff: Profile[]
+  credSummary?: Record<string, CredSum>
+  refSummary?:  Record<string, RefSum>
   myEnrollments: Enrollment[]
   unsignedPolicies: Policy[]
   myCreds: Cred[]
