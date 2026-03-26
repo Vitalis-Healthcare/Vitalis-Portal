@@ -146,7 +146,7 @@ export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
     setResending(null)
   }
 
-  const receivedCount = refs.filter(r => r.status === 'received').length
+  const myReceivedCount = refs.filter(r => r.status === 'received').length
 
   return (
     <div>
@@ -161,7 +161,7 @@ export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
         </div>
         {!isAdmin && (
           <div style={{ background: '#fff', borderRadius: 10, padding: '12px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', textAlign: 'center' }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: receivedCount === 3 ? '#2A9D8F' : '#F4A261' }}>{receivedCount}/3</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: myReceivedCount === 3 ? '#2A9D8F' : '#F4A261' }}>{myReceivedCount}/3</div>
             <div style={{ fontSize: 11, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Received</div>
           </div>
         )}
