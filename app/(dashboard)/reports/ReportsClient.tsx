@@ -8,8 +8,9 @@ import { useState, useMemo, useCallback } from 'react'
 import {
   BarChart3, Download, FileText, Camera, Calendar, Save,
   RefreshCw, Shield, Search, ChevronDown, ChevronUp,
-  CheckCircle, AlertTriangle, Users, TrendingUp, BookOpen, UserCheck
+  CheckCircle, AlertTriangle, Users, TrendingUp, BookOpen, UserCheck, Sparkles
 } from 'lucide-react'
+import ReportsAITab from './ReportsAITab'
 import type {
   MatrixRow, CredTypeInfo, TimelineItem, CredStatus,
   TrainingGapRow, ProgrammeInfo, HeatmapRow, HeatmapCompetency,
@@ -142,6 +143,7 @@ const TABS = [
   { key: 'training',  label: 'Training Gap',      icon: <BookOpen  size={13}/>,    group: 'INTELLIGENCE' },
   { key: 'heatmap',   label: 'Appraisal Heatmap', icon: <TrendingUp size={13}/>,   group: 'INTELLIGENCE' },
   { key: 'refs',      label: 'Ref. Pipeline',     icon: <UserCheck size={13}/>,    group: 'INTELLIGENCE' },
+  { key: 'ai',        label: 'AI Analyst',         icon: <Sparkles  size={13}/>,    group: 'INTELLIGENCE' },
 ] as const
 
 type TabKey = typeof TABS[number]['key']
@@ -628,7 +630,13 @@ export default function ReportsClient(props: Props) {
         </div>
       )}
 
-      {/* ── TAB 6: REFERENCES PIPELINE ── */}
+
+      {/* ── TAB 7: AI COMPLIANCE ANALYST ── */}
+      {activeTab === 'ai' && (
+        <ReportsAITab />
+      )}
+
+      {/* ── TAB 6: REFERENCES PIPELINE ── */
       {activeTab === 'refs' && (
         <div style={{ marginTop: 20 }}>
           {/* Stats row */}
