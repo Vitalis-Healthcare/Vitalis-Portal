@@ -28,14 +28,14 @@ export default async function MyPoliciesPage() {
     : 'All Staff'
 
   // Get all active policies applicable to this user
-  const { data: allPolicies } = await supabase
+  const { data: allPolicies } = await svc
     .from('pp_policies')
     .select('doc_id, domain, tier, title, version, review_date, applicable_roles, owner_role')
     .in('status', ['active', 'under-review'])
     .order('domain')
     .order('doc_id')
 
-  const { data: myAcks } = await supabase
+  const { data: myAcks } = await svc
     .from('pp_acknowledgments')
     .select('doc_id, doc_version, acknowledged_at')
     .eq('user_id', user?.id||'')

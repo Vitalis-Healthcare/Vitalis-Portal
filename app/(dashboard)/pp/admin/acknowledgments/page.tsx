@@ -16,20 +16,20 @@ export default async function AdminAcknowledgmentsPage() {
   }
 
   // All active policies
-  const { data: policies } = await supabase
+  const { data: policies } = await svc
     .from('pp_policies')
     .select('doc_id, domain, tier, title, version, applicable_roles')
     .in('status', ['active', 'under-review'])
     .order('doc_id')
 
   // All acknowledgments with profile info
-  const { data: acks } = await supabase
+  const { data: acks } = await svc
     .from('pp_acknowledgments')
     .select('id, doc_id, doc_version, user_id, user_role, acknowledged_at')
     .order('acknowledged_at', { ascending: false })
 
   // All staff profiles
-  const { data: staffProfiles } = await supabase
+  const { data: staffProfiles } = await svc
     .from('profiles')
     .select('id, full_name, role, email, status')
     .eq('status', 'active')

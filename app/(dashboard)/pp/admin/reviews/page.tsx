@@ -12,7 +12,7 @@ export default async function ReviewCalendarPage() {
 
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') redirect('/pp')
 
-  const { data: policies } = await supabase
+  const { data: policies } = await svc
     .from('pp_policies')
     .select('doc_id, domain, tier, title, version, review_date, owner_role, status')
     .in('status', ['active', 'under-review'])

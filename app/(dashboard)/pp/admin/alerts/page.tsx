@@ -13,12 +13,12 @@ export default async function AlertsPage() {
   const { data: profile } = await svc.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') redirect('/pp')
 
-  const { data: alerts } = await supabase
+  const { data: alerts } = await svc
     .from('pp_regulatory_alerts')
     .select('*, pp_policies(title)')
     .order('created_at', { ascending: false })
 
-  const { data: policies } = await supabase
+  const { data: policies } = await svc
     .from('pp_policies')
     .select('doc_id, title, domain')
     .in('status', ['active', 'under-review'])
