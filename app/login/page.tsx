@@ -38,16 +38,31 @@ export default function LoginPage() {
     setSuccessMsg('')
 
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
+      // Sign up — email confirmation disabled in Supabase Auth settings,
+      // so the user is immediately active and we sign them in right away.
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { full_name: fullName } }
       })
-      if (error) {
-        setError(error.message)
+      if (signUpError) {
+        setError(signUpError.message)
       } else {
-        setSuccessMsg('Account created! Check your email to confirm, then sign in.')
-        setMode('signin')
+        // Auto sign-in immediately (no confirmation step needed)
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        if (signInError) {
+          // Account created but auto sign-in failed — direct them to sign in manually
+          setSuccessMsg('Account created! Please sign in with your email and password.')
+          setMode('signin')
+        } else {
+          // Send welcome email via Resend (non-blocking — don't wait for it)
+          fetch('/api/notify/welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, fullName }),
+          }).catch(() => {}) // fire-and-forget
+          router.push('/dashboard')
+        }
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
