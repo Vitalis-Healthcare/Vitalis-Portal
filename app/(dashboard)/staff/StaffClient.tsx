@@ -93,16 +93,16 @@ function AdminView({ allStaff }: { allStaff: Profile[] }) {
     s.role.toLowerCase().includes(search.toLowerCase()) ||
     (s.email||'').toLowerCase().includes(search.toLowerCase())
   )
-  const roleColor = (r:string) => r==='admin'?'#1A2E44':r==='supervisor'?'#0E7C7B':'#2A9D8F'
-  const roleBg = (r:string) => r==='admin'?'#EFF2F5':r==='supervisor'?'#E6F4F4':'#E6F6F4'
+  const roleColor = (r:string) => r==='admin'?'#1A2E44':r==='supervisor'?'#0E7C7B':r==='staff'?'#1D4ED8':'#2A9D8F'
+  const roleBg = (r:string) => r==='admin'?'#EFF2F5':r==='supervisor'?'#E6F4F4':r==='staff'?'#EFF6FF':'#E6F6F4'
 
   return (
     <div>
       {showInvite && <InviteModal onClose={()=>setShowInvite(false)}/>}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:28 }}>
         <div>
-          <h1 style={{ fontSize:24, fontWeight:800, color:'#1A2E44', margin:0 }}>Staff Directory</h1>
-          <p style={{ fontSize:14, color:'#8FA0B0', marginTop:4 }}>{allStaff.filter(s=>s.status==='active').length} active staff members</p>
+          <h1 style={{ fontSize:24, fontWeight:800, color:'#1A2E44', margin:0 }}>Caregiver Directory</h1>
+          <p style={{ fontSize:14, color:'#8FA0B0', marginTop:4 }}>{allStaff.filter(s=>s.status==='active').length} active caregivers</p>
         </div>
         <button onClick={()=>setShowInvite(true)} style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 20px', background:'#0E7C7B', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
           <UserPlus size={16}/> Add Staff Member
