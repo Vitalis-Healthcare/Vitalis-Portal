@@ -30,7 +30,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
     return (
       <div style={{ padding: 40 }}>
         <Link href="/staff" style={{ color: '#0E7C7B', fontWeight: 600, textDecoration: 'none' }}>← Back to Caregiver Directory</Link>
-        <p style={{ color: '#8FA0B0', marginTop: 20 }}>Profile not found. ID: {params.id}</p>
+        <p style={{ color: '#8FA0B0', marginTop: 20 }}>Profile not found.</p>
         {memberError && <p style={{ color: '#E63946', fontSize: 12 }}>Error: {memberError.message}</p>}
       </div>
     )
