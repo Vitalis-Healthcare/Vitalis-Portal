@@ -80,7 +80,7 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
 
   const initScores = () => Object.fromEntries(ALL_ITEMS.map(i => [i.key, 0]))
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{ caregiver_id: string; appraisal_period: string; comments: string; [key: string]: any }>({
     caregiver_id: '', appraisal_period: `${new Date().getFullYear()} Annual`, comments: '',
     ...initScores()
   })
