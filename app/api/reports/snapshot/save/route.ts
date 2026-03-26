@@ -43,6 +43,7 @@ export async function POST(request: Request) {
 
   const {
     label,
+    adminName,
     matrixRows,
     caregiverCredTypes,
     generatedAt,
