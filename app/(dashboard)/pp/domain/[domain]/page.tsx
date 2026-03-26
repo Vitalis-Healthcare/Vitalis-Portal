@@ -38,14 +38,14 @@ export default async function DomainPage({ params }: { params: Promise<{ domain:
     : userRole === 'caregiver' ? 'CNA'
     : 'All Staff'
 
-  const { data: policies } = await supabase
+  const { data: policies } = await svc
     .from('pp_policies')
     .select('doc_id, domain, tier, title, status, version, effective_date, review_date, applicable_roles, owner_role')
     .eq('domain', domain.toUpperCase())
     .in('status', isAdmin ? ['draft','active','under-review','superseded'] : ['active','under-review'])
     .order('doc_id')
 
-  const { data: myAcks } = await supabase
+  const { data: myAcks } = await svc
     .from('pp_acknowledgments')
     .select('doc_id, doc_version, acknowledged_at')
     .eq('user_id', user?.id||'')
