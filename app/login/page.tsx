@@ -23,7 +23,7 @@ export default function LoginPage() {
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
-          hd: 'vitalis.care', // restrict to your Google Workspace domain — change to your actual domain
+          hd: 'vitalishealthcare.com', // Vitalis Google Workspace domain
         },
       },
     })
@@ -189,7 +189,7 @@ export default function LoginPage() {
               <div style={{ marginBottom: 16 }}>
                 <label style={lbl}>Email Address</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                  placeholder="you@vitalis.care" style={inp}/>
+                  placeholder="you@vitalishealthcare.com" style={inp}/>
               </div>
               {error && <div style={{ background: '#FDE8E9', color: '#E63946', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{error}</div>}
               {successMsg && <div style={{ background: '#E6F6F4', color: '#2A9D8F', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{successMsg}</div>}
@@ -213,7 +213,7 @@ export default function LoginPage() {
             <div style={{ marginBottom: 14 }}>
               <label style={lbl}>Email Address</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                placeholder="you@vitalis.care" style={inp}/>
+                placeholder="you@vitalishealthcare.com" style={inp}/>
             </div>
             <div style={{ marginBottom: 8 }}>
               <label style={lbl}>Password</label>
