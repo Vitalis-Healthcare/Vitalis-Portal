@@ -1,3 +1,4 @@
+'use client'
 // Inline editable credential name — click to rename
 function EditableCredName({ id, name, onSaved }: { id: string; name: string; onSaved: () => void }) {
   const supabase = createClient()
@@ -33,7 +34,6 @@ function EditableCredName({ id, name, onSaved }: { id: string; name: string; onS
   )
 }
 
-'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
