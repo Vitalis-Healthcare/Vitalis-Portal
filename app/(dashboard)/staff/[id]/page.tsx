@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle } from 'lucide-react'
 import StaffCredentialsCard from './StaffCredentialsCard'
+import StaffReferencesCard from './StaffReferencesCard'
 
 export default async function StaffMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -30,6 +31,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
     { data: enrollments },
     { data: credentials },
     { data: acknowledgments },
+    { data: references },
   ] = await Promise.all([
     svc.from('course_enrollments').select(`
       id, completed_at, due_date, assigned_at,
@@ -45,6 +47,11 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
       id, signed_at, version_signed,
       policy:policy_id(doc_id, title, domain)
     `).eq('user_id', id).order('signed_at', { ascending: false }),
+
+    svc.from('caregiver_references')
+      .select('id, slot, reference_type, referee_name, referee_email, referee_phone, referee_org, status, sent_at, received_at, reminder_count, submission:reference_submissions(submitted_at, overall_recommendation)')
+      .eq('caregiver_id', id)
+      .order('slot'),
   ])
 
   const completedCourses = (enrollments || []).filter(e => e.completed_at)
@@ -165,6 +172,13 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
           viewerRole={viewer?.role || 'staff'}
         />
       </div>
+
+      {/* References */}
+      <StaffReferencesCard
+        references={references || []}
+        caregiverId={id}
+        viewerRole={viewer?.role || 'staff'}
+      />
 
       {/* Policies Acknowledged */}
       <div style={{ ...card, marginBottom: 20 }}>
