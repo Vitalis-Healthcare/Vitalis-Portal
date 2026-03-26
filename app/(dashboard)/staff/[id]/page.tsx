@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { redirect, notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
+import StaffCredentialsCard from './StaffCredentialsCard'
 
 export default async function StaffMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -36,7 +37,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
     `).eq('user_id', id).order('assigned_at', { ascending: false }),
 
     svc.from('staff_credentials').select(`
-      id, status, issue_date, expiry_date, does_not_expire, notes,
+      id, status, issue_date, expiry_date, does_not_expire, notes, document_url,
       credential_type:credential_type_id(name)
     `).eq('user_id', id).order('issue_date', { ascending: false }),
 
@@ -48,7 +49,6 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
 
   const completedCourses = (enrollments || []).filter(e => e.completed_at)
   const pendingCourses   = (enrollments || []).filter(e => !e.completed_at)
-  const currentCreds     = (credentials || []).filter(c => c.status === 'current')
   const expiringCreds    = (credentials || []).filter(c => c.status === 'expiring' || c.status === 'expired')
 
   const roleColor = (r: string) =>
@@ -159,42 +159,11 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
         </div>
 
         {/* Credentials */}
-        <div style={card}>
-          <div style={sectionTitle}>
-            <span>🪪 Credentials</span>
-            <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{(credentials || []).length} on file</span>
-          </div>
-
-          {expiringCreds.length > 0 && (
-            <>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#E63946', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>⚠ Requires Attention</div>
-              {expiringCreds.map((c: any) => {
-                const expDays = c.expiry_date ? Math.ceil((new Date(c.expiry_date).getTime() - Date.now()) / 86400000) : null
-                const col = c.status === 'expiring' ? '#F4A261' : '#E63946'
-                return (
-                  <div key={c.id} style={{ padding: '10px 12px', borderRadius: 8, border: `1px solid ${col}40`, borderLeft: `3px solid ${col}`, marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1A2E44' }}>{c.credential_type?.name}</div>
-                    <div style={{ fontSize: 11, color: col, marginTop: 3 }}>
-                      {c.status === 'expired' ? '✗ Expired' : expDays !== null ? `⚠ Expires in ${expDays} days` : 'Expiring soon'}
-                      {c.expiry_date && ` · ${new Date(c.expiry_date).toLocaleDateString()}`}
-                    </div>
-                  </div>
-                )
-              })}
-              {currentCreds.length > 0 && <div style={{ borderTop: '1px solid #EFF2F5', marginTop: 12, marginBottom: 12 }} />}
-            </>
-          )}
-
-          {currentCreds.map((c: any) => (
-            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#4A6070', marginBottom: 8 }}>
-              <CheckCircle size={13} color="#2A9D8F" style={{ flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>{c.credential_type?.name}</div>
-              {c.expiry_date && <div style={{ fontSize: 11, color: '#8FA0B0' }}>Exp. {new Date(c.expiry_date).toLocaleDateString()}</div>}
-            </div>
-          ))}
-
-          {(credentials || []).length === 0 && <p style={{ color: '#8FA0B0', fontSize: 13 }}>No credentials on file.</p>}
-        </div>
+        <StaffCredentialsCard
+          credentials={credentials || []}
+          memberName={member.full_name}
+          viewerRole={viewer?.role || 'staff'}
+        />
       </div>
 
       {/* Policies Acknowledged */}

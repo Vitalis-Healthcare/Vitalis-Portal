@@ -50,6 +50,7 @@ export default async function CredentialsPage() {
       staff={staff||[]}
       allCreds={allCreds||[]}
       stats={{ current: currentCount||0, expiring: expiringCount||0, expired: expiredCount||0, total: staff?.length||0 }}
+      viewerRole={profile?.role || 'staff'}
     />
   )
 }
