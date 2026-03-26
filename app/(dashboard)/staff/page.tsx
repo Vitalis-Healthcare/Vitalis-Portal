@@ -15,18 +15,18 @@ export default async function StaffPage() {
   if (!isAdmin) {
     // Personal dashboard for caregivers
     const { data: profile } = await svc.from('profiles').select('*').eq('id', user.id).single()
-    const { data: myEnrollments } = await supabase
+    const { data: myEnrollments } = await svc
       .from('course_enrollments')
       .select('*, course:courses(title,category,thumbnail_color)')
       .eq('user_id', user.id)
       .order('assigned_at', { ascending: false })
-    const { data: pendingPolicies } = await supabase
+    const { data: pendingPolicies } = await svc
       .from('policies').select('id, title, version, category, updated_at').eq('status','published')
     const signedIds = new Set(
-      (await supabase.from('policy_acknowledgements').select('policy_id').eq('user_id', user.id)).data?.map(a=>a.policy_id)
+      (await svc.from('policy_acknowledgements').select('policy_id').eq('user_id', user.id)).data?.map(a=>a.policy_id)
     )
     const unsigned = (pendingPolicies||[]).filter(p => !signedIds.has(p.id))
-    const { data: myCreds } = await supabase
+    const { data: myCreds } = await svc
       .from('staff_credentials').select('*, credential_type:credential_types(name)').eq('user_id', user.id)
     return <StaffClient isAdmin={false} profile={profile} myEnrollments={myEnrollments||[]} unsignedPolicies={unsigned} myCreds={myCreds||[]} allStaff={[]} />
   }

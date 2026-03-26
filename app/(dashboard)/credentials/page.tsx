@@ -14,7 +14,7 @@ export default async function CredentialsPage() {
 
   if (!isAdmin) {
     // Staff view — only their own credentials
-    const { data: myCreds } = await supabase
+    const { data: myCreds } = await svc
       .from('staff_credentials')
       .select('*, credential_type:credential_types(name, validity_days)')
       .eq('user_id', user?.id||'')
@@ -32,10 +32,10 @@ export default async function CredentialsPage() {
 
   // Admin view — all staff + pending submissions
   // Credentials matrix shows caregivers only
-  const { data: staff } = await supabase
+  const { data: staff } = await svc
     .from('profiles').select('id, full_name, role, status').eq('status','active').eq('role','caregiver').order('full_name')
 
-  const { data: allCreds } = await supabase
+  const { data: allCreds } = await svc
     .from('staff_credentials')
     .select('*, credential_type:credential_types(name, validity_days), submitter:profiles!staff_credentials_user_id_fkey(full_name)')
     .order('expiry_date', { ascending: true })
