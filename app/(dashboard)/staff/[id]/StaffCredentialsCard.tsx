@@ -33,7 +33,7 @@ interface Props {
 
 export default function StaffCredentialsCard({ credentials, memberName, viewerRole }: Props) {
   const [docViewer, setDocViewer] = useState<{
-    credId: string; credName: string
+    credId: string; credName: string; documentUrl?: string
   } | null>(null)
 
   const currentCreds  = credentials.filter(c => c.status === 'current')
@@ -74,7 +74,7 @@ export default function StaffCredentialsCard({ credentials, memberName, viewerRo
                     </div>
                     {c.document_url && (
                       <button
-                        onClick={() => setDocViewer({ credId: c.id, credName: getName(c) })}
+                        onClick={() => setDocViewer({ credId: c.id, credName: getName(c), documentUrl: c.document_url })}
                         style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#0E7C7B', flexShrink: 0 }}
                       >
                         <FileText size={11}/> Docs
@@ -99,7 +99,7 @@ export default function StaffCredentialsCard({ credentials, memberName, viewerRo
             )}
             {c.document_url && (
               <button
-                onClick={() => setDocViewer({ credId: c.id, credName: getName(c) })}
+                onClick={() => setDocViewer({ credId: c.id, credName: getName(c), documentUrl: c.document_url })}
                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', background: '#E6F4F4', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#0E7C7B', flexShrink: 0 }}
               >
                 <FileText size={11}/> Docs
@@ -118,6 +118,7 @@ export default function StaffCredentialsCard({ credentials, memberName, viewerRo
           credentialId={docViewer.credId}
           credentialName={docViewer.credName}
           staffName={memberName}
+          documentUrl={docViewer.documentUrl}
           viewerRole={viewerRole}
           isOpen={true}
           onClose={() => setDocViewer(null)}

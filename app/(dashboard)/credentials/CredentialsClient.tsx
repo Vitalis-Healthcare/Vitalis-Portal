@@ -31,7 +31,7 @@ export default function CredentialsClient({
   const [uploading, setUploading] = useState(false)
   const [selectedStaff, setSelectedStaff]   = useState<StaffMember|null>(null)
   const [uploadedFile, setUploadedFile]     = useState<{ name: string; url: string } | null>(null)
-  const [docViewer, setDocViewer]           = useState<{ credId: string; credName: string; staffName: string } | null>(null)
+  const [docViewer, setDocViewer]           = useState<{ credId: string; credName: string; staffName: string; documentUrl?: string } | null>(null)
   const [form, setForm] = useState({
     user_id: '', credential_type_id: '', issue_date: new Date().toISOString().split('T')[0],
     expiry_date: '', notes: '', does_not_expire: false,
@@ -231,7 +231,7 @@ export default function CredentialsClient({
                           )}
                           {cred.document_url && (
                             <button
-                              onClick={() => setDocViewer({ credId: cred.id, credName: ct.name, staffName: s.full_name })}
+                              onClick={() => setDocViewer({ credId: cred.id, credName: ct.name, staffName: s.full_name, documentUrl: cred.document_url })}
                               style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:3, color:'#0E7C7B', fontSize:10, fontWeight:700, padding:'2px 0' }}
                             >
                               <FileText size={10}/> docs
@@ -389,6 +389,7 @@ export default function CredentialsClient({
           credentialId={docViewer.credId}
           credentialName={docViewer.credName}
           staffName={docViewer.staffName}
+          documentUrl={docViewer.documentUrl}
           viewerRole={viewerRole}
           isOpen={true}
           onClose={() => setDocViewer(null)}

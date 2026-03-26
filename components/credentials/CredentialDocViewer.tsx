@@ -25,13 +25,14 @@ interface Props {
   credentialId:   string
   credentialName: string
   staffName:      string
-  viewerRole:     string   // 'admin' | 'supervisor' | 'staff' | 'caregiver'
+  documentUrl?:   string
+  viewerRole:     string
   isOpen:         boolean
   onClose:        () => void
 }
 
 export default function CredentialDocViewer({
-  credentialId, credentialName, staffName, viewerRole, isOpen, onClose
+  credentialId, credentialName, staffName, documentUrl, viewerRole, isOpen, onClose
 }: Props) {
   const supabase = createClient()
   const [docs, setDocs]           = useState<CredentialDoc[]>([])
@@ -47,15 +48,35 @@ export default function CredentialDocViewer({
 
     supabase
       .from('credential_documents')
-      .select(`
-        id, document_url, file_name, uploaded_at,
-        version_number, is_latest, notes,
-        uploader:uploaded_by ( full_name )
-      `)
+      .select(`id, document_url, file_name, uploaded_at, version_number, is_latest, notes, uploader:uploaded_by ( full_name )`)
       .eq('staff_credential_id', credentialId)
       .order('version_number', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data) setDocs(data as unknown as CredentialDoc[])
+      .then(async ({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          setDocs(data as unknown as CredentialDoc[])
+          setLoading(false)
+          return
+        }
+        // No versions in table — auto-backfill from document_url if available
+        if (documentUrl) {
+          try {
+            await fetch('/api/credentials/add-document', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                staffCredentialId: credentialId,
+                documentUrl,
+                fileName: 'Document (backfilled)',
+              }),
+            })
+            const { data: refetched } = await supabase
+              .from('credential_documents')
+              .select(`id, document_url, file_name, uploaded_at, version_number, is_latest, notes, uploader:uploaded_by ( full_name )`)
+              .eq('staff_credential_id', credentialId)
+              .order('version_number', { ascending: false })
+            if (refetched) setDocs(refetched as unknown as CredentialDoc[])
+          } catch (e) { console.warn('Backfill failed:', e) }
+        }
         setLoading(false)
       })
   }, [isOpen, credentialId])
