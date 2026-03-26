@@ -13,6 +13,11 @@ export async function POST(req: NextRequest) {
 
   const { docId, sectionId, sectionTitle, originalText, instruction, changeReason } = await req.json()
 
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 503 })
+  }
+
   if (!docId || !originalText || !instruction) {
     return NextResponse.json({ error: 'docId, originalText, and instruction are required' }, { status: 400 })
   }
@@ -50,7 +55,11 @@ IMPORTANT: Return ONLY the rewritten text — no explanation, no preamble, no "H
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
