@@ -1,0 +1,43 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+import AlertsClient from './AlertsClient'
+
+export default async function AlertsPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin' && profile?.role !== 'supervisor') redirect('/pp')
+
+  const { data: alerts } = await supabase
+    .from('pp_regulatory_alerts')
+    .select('*, pp_policies(title)')
+    .order('created_at', { ascending: false })
+
+  const { data: policies } = await supabase
+    .from('pp_policies')
+    .select('doc_id, title, domain')
+    .in('status', ['active', 'under-review'])
+    .order('doc_id')
+
+  return (
+    <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <div style={{ marginBottom: 16 }}>
+        <Link href="/pp/admin" style={{ color: '#8FA0B0', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
+          <ArrowLeft size={13} /> Admin Console
+        </Link>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1A2E44', margin: 0 }}>⚡ Regulatory Alerts</h1>
+          <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>
+            Flag policy changes required by new regulations, OHCQ findings, or personnel changes
+          </p>
+        </div>
+      </div>
+      <AlertsClient alerts={alerts || []} policies={policies || []} userId={user.id} />
+    </div>
+  )
+}
