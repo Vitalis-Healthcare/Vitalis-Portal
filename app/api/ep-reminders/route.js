@@ -9,7 +9,8 @@ import { createClient } from "@supabase/supabase-js";
 // ── CONFIG ────────────────────────────────────────────────────────
 const REMINDER_DAYS = [60, 30, 15, 7, 3];
 const RECIPIENT = "team@vitalishealthcare.com";
-const FROM = "Vitalis EP Portal <reminders@vitalishealthcare.com>";
+const FROM =
+  process.env.NOTIFY_FROM_EMAIL || 'Vitalis Portal <notifications@vitalishealthcare.com>'
 const PORTAL_URL = "https://vitalis-portal.vercel.app/ep";
 
 // All 15 compliance schedule items with their frequencies (months)
