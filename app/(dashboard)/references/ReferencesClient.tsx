@@ -28,8 +28,8 @@ const SLOTS = [
   { slot: 3, type: 'character',    label: 'Character Reference',       desc: 'Not a family member or employer' },
 ]
 
-export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
-  refs: Reference[]; userId: string; fullName: string; isAdmin: boolean
+export default function ReferencesClient({ refs, caregivers = [], userId, fullName, isAdmin }: {
+  refs: Reference[]; caregivers?: { id: string; full_name: string }[]; userId: string; fullName: string; isAdmin: boolean
 }) {
   const router = useRouter()
   const [editSlot, setEditSlot] = useState<number | null>(null)
