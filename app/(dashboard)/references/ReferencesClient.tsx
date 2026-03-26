@@ -3,7 +3,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Send, RefreshCw, CheckCircle, Clock, AlertTriangle, X } from 'lucide-react'
+import { Plus, Send, RefreshCw, CheckCircle, Clock, AlertTriangle, X, Eye } from 'lucide-react'
+import ReferenceSubmissionViewer from '@/components/references/ReferenceSubmissionViewer'
 
 interface Reference {
   id:             string
@@ -34,6 +35,7 @@ export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
   const [editSlot, setEditSlot] = useState<number | null>(null)
   const [saving, setSaving]     = useState(false)
   const [resending, setResending] = useState<string | null>(null)
+  const [viewSub, setViewSub]     = useState<{ id: string; type: 'professional'|'character'; slot: number; name?: string; caregiverName: string } | null>(null)
   const [form, setForm] = useState({ referee_name: '', referee_email: '', referee_phone: '', referee_org: '' })
 
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none', fontFamily: 'inherit', background: '#fff', boxSizing: 'border-box' }
@@ -233,7 +235,14 @@ export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
                             <Send size={11}/> {resending === ref.id ? 'Sending…' : 'Resend'}
                           </button>
                         )}
-                        {ref.status === 'received' && <span style={{ color: '#2A9D8F', fontSize: 12 }}>✓ Complete</span>}
+                        {ref.status === 'received' && (
+                          <button
+                            onClick={() => setViewSub({ id: ref.id, type: ref.reference_type, slot: ref.slot, name: ref.referee_name, caregiverName: (ref.caregiver as any)?.full_name || '' })}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: '#E6F6F4', border: 'none', borderRadius: 7, color: '#2A9D8F', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            <Eye size={11}/> View Response
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )
@@ -297,6 +306,17 @@ export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
             </div>
           </div>
         </div>
+      )}
+      {viewSub && (
+        <ReferenceSubmissionViewer
+          referenceId={viewSub.id}
+          refereeName={viewSub.name}
+          refereeType={viewSub.type}
+          slot={viewSub.slot}
+          caregiverName={viewSub.caregiverName}
+          isOpen={true}
+          onClose={() => setViewSub(null)}
+        />
       )}
     </div>
   )

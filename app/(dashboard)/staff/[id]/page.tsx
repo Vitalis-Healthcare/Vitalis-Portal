@@ -177,6 +177,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
       <StaffReferencesCard
         references={references || []}
         caregiverId={id}
+        caregiverName={member.full_name}
         viewerRole={viewer?.role || 'staff'}
       />
 

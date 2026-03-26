@@ -6,7 +6,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Plus, RefreshCw, X, CheckCircle } from 'lucide-react'
+import { Send, Plus, RefreshCw, X, Eye } from 'lucide-react'
+import ReferenceSubmissionViewer from '@/components/references/ReferenceSubmissionViewer'
 
 interface Reference {
   id?:            string
@@ -30,16 +31,18 @@ const SLOTS = [
 ]
 
 interface Props {
-  references:  Reference[]
-  caregiverId: string
-  viewerRole:  string
+  references:   Reference[]
+  caregiverId:  string
+  caregiverName: string
+  viewerRole:   string
 }
 
-export default function StaffReferencesCard({ references, caregiverId, viewerRole }: Props) {
+export default function StaffReferencesCard({ references, caregiverId, caregiverName, viewerRole }: Props) {
   const router = useRouter()
   const [editSlot, setEditSlot]     = useState<number | null>(null)
   const [saving, setSaving]         = useState(false)
   const [resending, setResending]   = useState<string | null>(null)
+  const [viewSub, setViewSub]         = useState<{ id: string; type: 'professional'|'character'; slot: number; name?: string } | null>(null)
   const [form, setForm] = useState({ referee_name: '', referee_email: '', referee_phone: '', referee_org: '' })
 
   const canEdit = ['admin', 'supervisor', 'staff'].includes(viewerRole)
@@ -158,6 +161,14 @@ export default function StaffReferencesCard({ references, caregiverId, viewerRol
                     )}
                   </div>
 
+                  {ref?.status === 'received' && (
+                    <button
+                      onClick={() => setViewSub({ id: ref.id!, type: ref.reference_type, slot: ref.slot, name: ref.referee_name })}
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#E6F6F4', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#2A9D8F', flexShrink: 0 }}
+                    >
+                      <Eye size={10}/> View
+                    </button>
+                  )}
                   {canEdit && ref?.status !== 'received' && (
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                       {ref?.id && ref.status === 'sent' && (
@@ -232,6 +243,17 @@ export default function StaffReferencesCard({ references, caregiverId, viewerRol
             </div>
           </div>
         </div>
+      )}
+      {viewSub && (
+        <ReferenceSubmissionViewer
+          referenceId={viewSub.id}
+          refereeName={viewSub.name}
+          refereeType={viewSub.type}
+          slot={viewSub.slot}
+          caregiverName={caregiverName}
+          isOpen={true}
+          onClose={() => setViewSub(null)}
+        />
       )}
     </>
   )
