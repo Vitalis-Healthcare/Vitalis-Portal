@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle, AlertTriangle } from 'lucide-react'
 
-export default async function StaffMemberPage({ params }: { params: { id: string } }) {
+export default async function StaffMemberPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -22,7 +23,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
   const { data: member, error: memberError } = await admin
     .from('profiles')
     .select('id, full_name, email, role, status, department, phone')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (!member) {
