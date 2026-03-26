@@ -155,7 +155,7 @@ Tone: Professional, warm, and direct — like a knowledgeable colleague, not a l
     // Extract citations
     const citations: { docId: string; title: string }[] = []
     let cleanAnswer = rawAnswer
-    const citationMatches = rawAnswer.match(/\[CITATIONS:(.*?)\]/gs)
+    const citationMatches = rawAnswer.match(/\[CITATIONS:([\s\S]*?)\]/g)
     if (citationMatches) {
       for (const match of citationMatches) {
         try {
@@ -165,7 +165,7 @@ Tone: Professional, warm, and direct — like a knowledgeable colleague, not a l
           else if (parsed.docId) citations.push(parsed)
         } catch {}
       }
-      cleanAnswer = rawAnswer.replace(/\[CITATIONS:.*?\]/gs, '').trim()
+      cleanAnswer = rawAnswer.replace(/\[CITATIONS:[\s\S]*?\]/g, '').trim()
     }
 
     // Save conversation (best effort)
