@@ -1,3 +1,4 @@
+'use client'
 // Inline editable credential name — click to rename
 function EditableCredName({ id, name, onSaved }: { id: string; name: string; onSaved: () => void }) {
   const supabase = createClient()
@@ -33,7 +34,6 @@ function EditableCredName({ id, name, onSaved }: { id: string; name: string; onS
   )
 }
 
-'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -58,7 +58,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
     department:    profile?.department    || '',
     position_name: profile?.position_name || '',
   })
-  const [newCred, setNewCred] = useState({ name:'' })
+  const [newCred, setNewCred] = useState<{ name:string; validity_days:number }>({ name:'', validity_days:365 })
   const [positions,  setPositions]  = useState<Position[]>([])
   const [posLoading, setPosLoading] = useState(false)
   const [newPos,  setNewPos]  = useState({ name:'', description:'', pp_roles:'' })
