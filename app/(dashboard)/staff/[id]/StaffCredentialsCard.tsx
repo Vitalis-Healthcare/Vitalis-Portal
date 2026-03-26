@@ -27,20 +27,41 @@ function getName(c: Credential): string {
 }
 
 interface Props {
-  credentials: Credential[]
-  credTypes:   { id: string; name: string; validity_days: number }[]
-  caregiverId: string
-  memberName:  string
-  viewerRole:  string
+  credentials:  Credential[]
+  credTypes:    { id: string; name: string; validity_days: number; required_for_roles?: string[] }[]
+  caregiverId:  string
+  memberName:   string
+  memberRole:   string
+  viewerRole:   string
 }
 
-export default function StaffCredentialsCard({ credentials, credTypes, caregiverId, memberName, viewerRole }: Props) {
+export default function StaffCredentialsCard({ credentials, credTypes, caregiverId, memberName, memberRole, viewerRole }: Props) {
   const [docViewer, setDocViewer] = useState<{
     credId: string; credName: string; documentUrl?: string
   } | null>(null)
 
   const currentCreds  = credentials.filter(c => c.status === 'current')
   const expiringCreds = credentials.filter(c => c.status === 'expiring' || c.status === 'expired')
+
+  // Credential types required for this caregiver's role but not yet on file
+  const onFileTypeIds = new Set(credentials.map(c => {
+    // credential_type is an object or array from Supabase
+    return c.id  // we'll match by checking below
+  }))
+  const credentialTypeIds = new Set(credentials.map(c => (c as any).credential_type_id || ''))
+  const missingCreds = credTypes.filter(ct => {
+    const roles = ct.required_for_roles || []
+    const required = Array.isArray(roles) ? roles.includes(memberRole) : false
+    if (!required) return false
+    // Check if any credential exists for this type
+    const hasEntry = credentials.some(cr => {
+      const ctName = Array.isArray((cr as any).credential_type)
+        ? (cr as any).credential_type[0]?.name
+        : (cr as any).credential_type?.name
+      return ctName === ct.name
+    })
+    return !hasEntry
+  })
 
   const sectionTitle = {
     fontSize: 14, fontWeight: 700, color: '#1A2E44', marginBottom: 14,
@@ -114,7 +135,21 @@ export default function StaffCredentialsCard({ credentials, credTypes, caregiver
           </div>
         ))}
 
-        {credentials.length === 0 && (
+        {missingCreds.length > 0 && (
+          <>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9B59B6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8, marginTop: credentials.length > 0 ? 12 : 0, borderTop: credentials.length > 0 ? '1px solid #EFF2F5' : 'none', paddingTop: credentials.length > 0 ? 12 : 0 }}>
+              ⚠ Missing Credentials
+            </div>
+            {missingCreds.map(ct => (
+              <div key={ct.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#4A6070', marginBottom: 8 }}>
+                <span style={{ display: 'inline-block', width: 13, height: 13, borderRadius: '50%', background: '#F3E8FF', border: '2px solid #9B59B6', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>{ct.name}</div>
+                <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, background: '#F3E8FF', color: '#9B59B6' }}>MISSING</span>
+              </div>
+            ))}
+          </>
+        )}
+        {credentials.length === 0 && missingCreds.length === 0 && (
           <p style={{ color: '#8FA0B0', fontSize: 13 }}>No credentials on file.</p>
         )}
       </div>

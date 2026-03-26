@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, AlertTriangle, CheckCircle, Clock, Upload, FileText, X } from 'lucide-react'
 import CredentialDocViewer from '@/components/credentials/CredentialDocViewer'
 
-interface CredType { id: string; name: string; validity_days: number }
+interface CredType { id: string; name: string; validity_days: number; required_for_roles?: string[] }
 interface StaffMember { id: string; full_name: string; role: string }
 interface Cred {
   id: string; user_id: string; credential_type_id: string; issue_date: string;
@@ -228,7 +228,18 @@ export default function CredentialsClient({
                   </td>
                   {credTypes.map(ct=>{
                     const cred = credsByStaff[s.id]?.[ct.id]
-                    if (!cred) return <td key={ct.id} style={{ textAlign:'center', padding:'12px 10px' }}><span style={{ fontSize:18, color:'#D1D9E0' }}>—</span></td>
+                    if (!cred) {
+                      const roles = ct.required_for_roles || []
+                      const isRequired = Array.isArray(roles) ? roles.includes(s.role) : false
+                      return (
+                        <td key={ct.id} style={{ textAlign:'center', padding:'8px 10px' }}>
+                          {isRequired
+                            ? <span style={{ display:'inline-block', padding:'3px 8px', borderRadius:12, fontSize:11, fontWeight:700, background:'#F3E8FF', color:'#9B59B6' }}>MISSING</span>
+                            : <span style={{ fontSize:18, color:'#D1D9E0' }}>—</span>
+                          }
+                        </td>
+                      )
+                    }
                     return (
                       <td key={ct.id} style={{ textAlign:'center', padding:'8px 10px' }}>
                         <div style={{ display:'inline-flex', flexDirection:'column', alignItems:'center', gap:3 }}>
@@ -381,7 +392,7 @@ export default function CredentialsClient({
             <span style={{ fontSize:12, color:'#8FA0B0' }}>(not required for this staff member)</span>
           </div>
           <div style={{ marginBottom:14 }}>
-            <label style={lbl}>Upload Document (optional)</label>
+            <label style={lbl}>Upload Document {!form.not_applicable ? <span style={{color:'#E63946'}}>*</span> : <span style={{color:'#8FA0B0',fontWeight:400}}>(not required for N/A)</span>}</label>
             <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display:'none' }} onChange={handleFileChange}/>
             {uploadedFile ? (
               <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderRadius:8, border:'1px solid #A7F3D0', background:'#F0FDF4' }}>

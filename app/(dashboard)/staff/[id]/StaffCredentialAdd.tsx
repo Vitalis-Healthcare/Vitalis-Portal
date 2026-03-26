@@ -156,7 +156,7 @@ export default function StaffCredentialAdd({ credTypes, caregiverId, viewerRole 
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#4A6070', display: 'block', marginBottom: 5 }}>Upload Document (optional)</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#4A6070', display: 'block', marginBottom: 5 }}>Upload Document {!form.not_applicable && <span style={{color:'#E63946'}}>*</span>}{form.not_applicable && <span style={{color:'#8FA0B0',fontWeight:400}}> (not required for N/A)</span>}</label>
                 <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} onChange={handleFile}/>
                 {uploadedFile ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: '1px solid #A7F3D0', background: '#F0FDF4' }}>

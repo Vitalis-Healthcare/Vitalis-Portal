@@ -64,7 +64,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
       .eq('caregiver_id', id)
       .order('created_at', { ascending: false }),
 
-    svc.from('credential_types').select('id, name, validity_days').order('name'),
+    svc.from('credential_types').select('id, name, validity_days, required_for_roles').order('name'),
 
     svc.from('programmes').select('id, title, slug, est_hours, total_modules').eq('status', 'live').order('title'),
 
@@ -152,6 +152,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
           credTypes={credTypes || []}
           caregiverId={id}
           memberName={member.full_name}
+          memberRole={member.role}
           viewerRole={viewer?.role || 'staff'}
         />
       </div>
