@@ -15,6 +15,7 @@ import type {
   TrainingGapRow, ProgrammeInfo, HeatmapRow, HeatmapCompetency,
   RefPipelineRow,
 } from '@/lib/reports'
+import { CLINICAL_COMPETENCIES, PROFESSIONAL_COMPETENCIES } from '@/lib/reports'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
