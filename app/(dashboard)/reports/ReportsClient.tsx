@@ -636,7 +636,7 @@ export default function ReportsClient(props: Props) {
         <ReportsAITab />
       )}
 
-      {/* ── TAB 6: REFERENCES PIPELINE ── */
+      {/* ── TAB 6: REFERENCES PIPELINE ── */}
       {activeTab === 'refs' && (
         <div style={{ marginTop: 20 }}>
           {/* Stats row */}
