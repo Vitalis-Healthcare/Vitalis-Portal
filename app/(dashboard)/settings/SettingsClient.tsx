@@ -1,3 +1,38 @@
+// Inline editable credential name — click to rename
+function EditableCredName({ id, name, onSaved }: { id: string; name: string; onSaved: () => void }) {
+  const supabase = createClient()
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(name)
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    if (!val.trim() || val === name) { setEditing(false); return }
+    setSaving(true)
+    await supabase.from('credential_types').update({ name: val.trim() }).eq('id', id)
+    setSaving(false)
+    setEditing(false)
+    onSaved()
+  }
+
+  if (editing) return (
+    <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+      <input value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')save();if(e.key==='Escape'){setVal(name);setEditing(false)}}}
+        autoFocus style={{ padding:'4px 8px', borderRadius:6, border:'1.5px solid #0E7C7B', fontSize:13, outline:'none', width:220 }}/>
+      <button onClick={save} disabled={saving} style={{ padding:'4px 10px', background:'#0E7C7B', color:'#fff', border:'none', borderRadius:6, fontSize:12, cursor:'pointer' }}>
+        {saving ? '…' : 'Save'}
+      </button>
+      <button onClick={()=>{setVal(name);setEditing(false)}} style={{ padding:'4px 8px', background:'none', border:'none', color:'#8FA0B0', fontSize:12, cursor:'pointer' }}>✕</button>
+    </div>
+  )
+
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+      <span style={{ fontWeight:600, color:'#1A2E44' }}>{name}</span>
+      <button onClick={()=>setEditing(true)} style={{ padding:'2px 8px', background:'#EFF2F5', border:'none', borderRadius:5, fontSize:11, color:'#4A6070', cursor:'pointer' }}>Rename</button>
+    </div>
+  )
+}
+
 'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -23,7 +58,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
     department:    profile?.department    || '',
     position_name: profile?.position_name || '',
   })
-  const [newCred, setNewCred] = useState({ name:'', validity_days:365 })
+  const [newCred, setNewCred] = useState({ name:'' })
   const [positions,  setPositions]  = useState<Position[]>([])
   const [posLoading, setPosLoading] = useState(false)
   const [newPos,  setNewPos]  = useState({ name:'', description:'', pp_roles:'' })
@@ -47,7 +82,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
 
   const handleAddCredType = async () => {
     if (!newCred.name.trim()) { alert('Enter a credential name.'); return }
-    await supabase.from('credential_types').insert({ name: newCred.name, validity_days: newCred.validity_days, reminder_days: [30,14,7] })
+    await supabase.from('credential_types').insert({ name: newCred.name, validity_days: 365, reminder_days: [90,60,30,14,7] })
     setNewCred({ name:'', validity_days:365 })
     router.refresh()
   }
@@ -127,19 +162,25 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
       {tab === 'credentials' && (
         <div style={{ background:'#fff', borderRadius:12, padding:28, boxShadow:'0 1px 4px rgba(0,0,0,0.07)' }}>
           <h2 style={{ fontSize:16, fontWeight:700, color:'#1A2E44', marginBottom:4 }}>Credential Types</h2>
-          <p style={{ fontSize:13, color:'#8FA0B0', marginBottom:20 }}>Define the certifications tracked for your staff.</p>
+          <p style={{ fontSize:13, color:'#8FA0B0', marginBottom:4 }}>Define the certifications and credentials tracked for your caregivers.</p>
+          <div style={{ fontSize:12, color:'#0A5C5B', background:'#E6F4F4', borderRadius:8, padding:'8px 14px', marginBottom:20 }}>
+            ℹ All credential reminders are sent at <strong>90, 60, 30, 14, and 7 days</strong> before expiry — standard for CMS compliance.
+          </div>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, marginBottom:24 }}>
             <thead><tr style={{ background:'#F8FAFB' }}>
-              {['Credential Name','Validity (days)','Reminders at',''].map(h=>(
+              {['Credential Name','Reminders','Actions'].map(h=>(
                 <th key={h} style={{ textAlign:'left', padding:'10px 14px', fontSize:11, fontWeight:700, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px', borderBottom:'1px solid #EFF2F5' }}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
               {credTypes.map(c=>(
                 <tr key={c.id} style={{ borderBottom:'1px solid #EFF2F5' }}>
-                  <td style={{ padding:'11px 14px', fontWeight:600, color:'#1A2E44' }}>{c.name}</td>
-                  <td style={{ padding:'11px 14px', color:'#4A6070' }}>{c.validity_days===0?'No expiry':`${c.validity_days} days`}</td>
-                  <td style={{ padding:'11px 14px', color:'#8FA0B0', fontSize:12 }}>{Array.isArray(c.reminder_days)?c.reminder_days.map((d:number)=>`${d}d`).join(', '):'—'} before expiry</td>
+                  <td style={{ padding:'11px 14px' }}>
+                    <EditableCredName id={c.id} name={c.name} onSaved={()=>router.refresh()}/>
+                  </td>
+                  <td style={{ padding:'11px 14px', color:'#8FA0B0', fontSize:12 }}>
+                    90d, 60d, 30d, 14d, 7d before expiry
+                  </td>
                   <td style={{ padding:'11px 14px', textAlign:'right' as const }}>
                     <button onClick={async()=>{
                       if(!confirm(`Delete "${c.name}"? This cannot be undone.`))return
@@ -155,9 +196,11 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
           </table>
           <div style={{ borderTop:'1px solid #EFF2F5', paddingTop:20 }}>
             <h3 style={{ fontSize:14, fontWeight:700, color:'#1A2E44', marginBottom:14 }}>Add New Credential Type</h3>
-            <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr auto', gap:12, alignItems:'end' }}>
-              <div><label style={lbl}>Credential Name</label><input value={newCred.name} onChange={e=>setNewCred(f=>({...f,name:e.target.value}))} placeholder="e.g. OSHA Safety Training" style={inp}/></div>
-              <div><label style={lbl}>Valid for (days)</label><input type="number" value={newCred.validity_days} onChange={e=>setNewCred(f=>({...f,validity_days:Number(e.target.value)}))} style={inp}/></div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:12, alignItems:'end' }}>
+              <div>
+                <label style={lbl}>Credential Name</label>
+                <input value={newCred.name} onChange={e=>setNewCred(f=>({...f,name:e.target.value}))} placeholder="e.g. OSHA Safety Training" style={inp}/>
+              </div>
               <button onClick={handleAddCredType} style={{ padding:'9px 18px', background:'#0E7C7B', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' as const }}>Add Type</button>
             </div>
           </div>

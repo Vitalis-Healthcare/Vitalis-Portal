@@ -259,10 +259,17 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
 
   const handleDeleteUser = async (profileId: string, profileName: string) => {
     if (!confirm(`Permanently delete ${profileName}? This cannot be undone.`)) return
-    const supabaseClient = createClient()
-    await supabaseClient.from('profiles').delete().eq('id', profileId)
-    showToast(`${profileName} deleted`)
-    router.refresh()
+    const res = await fetch('/api/admin/delete-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: profileId }),
+    })
+    if (res.ok) {
+      showToast(`${profileName} deleted`)
+      router.refresh()
+    } else {
+      alert('Failed to delete user. Please try again.')
+    }
   }
 
   const filtered = profiles.filter(p => {
