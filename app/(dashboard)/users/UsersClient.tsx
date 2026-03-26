@@ -405,11 +405,20 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
                     {p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}
                   </td>
                   <td style={{ padding: '13px 16px' }}>
-                    <button
-                      onClick={() => setPanel({ type: 'edit', profile: p })}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#EFF2F5', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>
-                      <Edit2 size={12} /> Edit
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => setPanel({ type: 'edit', profile: p })}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#EFF2F5', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>
+                        <Edit2 size={12} /> Edit
+                      </button>
+                      {p.id !== currentUserId && (
+                        <button
+                          onClick={() => handleDeleteUser(p.id, p.full_name)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#B91C1C' }}>
+                          ✕ Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -25,6 +25,7 @@ export default function CredentialsClient({
   const [view, setView]     = useState<'matrix'|'pending'|'alerts'|'add'>('matrix')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [selectedStaff, setSelectedStaff] = useState<StaffMember|null>(null)
   const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null)
   const [form, setForm] = useState({
     user_id: '', credential_type_id: '', issue_date: new Date().toISOString().split('T')[0],
@@ -113,6 +114,7 @@ export default function CredentialsClient({
 
     setForm({ user_id:'', credential_type_id:'', issue_date: new Date().toISOString().split('T')[0], expiry_date:'', notes:'', does_not_expire: false })
     setUploadedFile(null)
+    setSelectedStaff(null)
     setView('matrix')
     router.refresh()
     setSaving(false)
@@ -220,9 +222,12 @@ export default function CredentialsClient({
             <tbody>
               {staff.map((s,i)=>(
                 <tr key={s.id} style={{ borderBottom:'1px solid #EFF2F5' }}>
-                  <td style={{ padding:'12px 16px', fontWeight:600, color:'#1A2E44', position:'sticky', left:0, background:i%2===0?'#fff':'#FAFBFC', whiteSpace:'nowrap' as const }}>
-                    {s.full_name}
-                    <div style={{ fontSize:11, color:'#8FA0B0', fontWeight:400, textTransform:'capitalize' }}>{s.role}</div>
+                  <td style={{ padding:'12px 16px', position:'sticky', left:0, background:i%2===0?'#fff':'#FAFBFC', whiteSpace:'nowrap' as const }}>
+                    <button onClick={()=>{ setSelectedStaff(s); setForm(f=>({...f,user_id:s.id})); setView('add') }}
+                      style={{ background:'none', border:'none', cursor:'pointer', textAlign:'left' as const, padding:0 }}>
+                      <div style={{ fontWeight:700, color:'#0E7C7B', fontSize:13, textDecoration:'underline' }}>{s.full_name}</div>
+                      <div style={{ fontSize:11, color:'#8FA0B0', fontWeight:400, textTransform:'capitalize' }}>{s.role}</div>
+                    </button>
                   </td>
                   {credTypes.map(ct=>{
                     const cred = credsByStaff[s.id]?.[ct.id]
@@ -309,14 +314,23 @@ export default function CredentialsClient({
       {/* ── ADD CREDENTIAL ── */}
       {view === 'add' && (
         <div style={{ background:'#fff', borderRadius:12, padding:28, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', maxWidth:580 }}>
-          <h2 style={{ fontSize:16, fontWeight:700, color:'#1A2E44', marginBottom:20 }}>Add / Update Credential</h2>
+          <h2 style={{ fontSize:16, fontWeight:700, color:'#1A2E44', marginBottom:20 }}>
+            {selectedStaff ? `Add / Update Credential — ${selectedStaff.full_name}` : 'Add / Update Credential'}
+          </h2>
 
           <div style={{ marginBottom:14 }}>
             <label style={lbl}>Staff Member *</label>
-            <select value={form.user_id} onChange={e=>setForm(f=>({...f,user_id:e.target.value}))} style={inp}>
-              <option value="">Select staff member…</option>
-              {staff.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}
-            </select>
+            {selectedStaff ? (
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 12px', borderRadius:8, border:'1.5px solid #0E7C7B', background:'#E6F4F4', fontSize:13, fontWeight:600, color:'#0A5C5B' }}>
+                {selectedStaff.full_name}
+                <button onClick={()=>{ setSelectedStaff(null); setForm(f=>({...f,user_id:''})) }} style={{ background:'none', border:'none', cursor:'pointer', color:'#8FA0B0', fontSize:12 }}>Change</button>
+              </div>
+            ) : (
+              <select value={form.user_id} onChange={e=>setForm(f=>({...f,user_id:e.target.value}))} style={inp}>
+                <option value="">Select staff member…</option>
+                {staff.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}
+              </select>
+            )}
           </div>
 
           <div style={{ marginBottom:14 }}>
@@ -389,7 +403,7 @@ export default function CredentialsClient({
             <button onClick={handleSave} disabled={saving||uploading} style={{ padding:'10px 24px', background:'#0E7C7B', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:700, cursor:'pointer', opacity:(saving||uploading)?0.7:1 }}>
               {saving ? 'Saving…' : 'Save Credential'}
             </button>
-            <button onClick={()=>{setView('matrix');setUploadedFile(null)}} style={{ padding:'10px 20px', background:'#EFF2F5', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer', color:'#4A6070' }}>
+            <button onClick={()=>{setView('matrix');setUploadedFile(null);setSelectedStaff(null)}} style={{ padding:'10px 20px', background:'#EFF2F5', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer', color:'#4A6070' }}>
               Cancel
             </button>
           </div>

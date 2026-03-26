@@ -29,8 +29,9 @@ export default async function CredentialsPage() {
   }
 
   // Admin view — all staff + pending submissions
+  // Credentials matrix shows caregivers only
   const { data: staff } = await supabase
-    .from('profiles').select('id, full_name, role, status').eq('status','active').order('full_name')
+    .from('profiles').select('id, full_name, role, status').eq('status','active').eq('role','caregiver').order('full_name')
 
   const { data: allCreds } = await supabase
     .from('staff_credentials')

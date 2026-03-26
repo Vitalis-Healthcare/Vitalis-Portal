@@ -130,7 +130,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
           <p style={{ fontSize:13, color:'#8FA0B0', marginBottom:20 }}>Define the certifications tracked for your staff.</p>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, marginBottom:24 }}>
             <thead><tr style={{ background:'#F8FAFB' }}>
-              {['Credential Name','Validity (days)','Reminders at'].map(h=>(
+              {['Credential Name','Validity (days)','Reminders at',''].map(h=>(
                 <th key={h} style={{ textAlign:'left', padding:'10px 14px', fontSize:11, fontWeight:700, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px', borderBottom:'1px solid #EFF2F5' }}>{h}</th>
               ))}
             </tr></thead>
@@ -140,6 +140,15 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
                   <td style={{ padding:'11px 14px', fontWeight:600, color:'#1A2E44' }}>{c.name}</td>
                   <td style={{ padding:'11px 14px', color:'#4A6070' }}>{c.validity_days===0?'No expiry':`${c.validity_days} days`}</td>
                   <td style={{ padding:'11px 14px', color:'#8FA0B0', fontSize:12 }}>{Array.isArray(c.reminder_days)?c.reminder_days.map((d:number)=>`${d}d`).join(', '):'—'} before expiry</td>
+                  <td style={{ padding:'11px 14px', textAlign:'right' as const }}>
+                    <button onClick={async()=>{
+                      if(!confirm(`Delete "${c.name}"? This cannot be undone.`))return
+                      await supabase.from('credential_types').delete().eq('id',c.id)
+                      router.refresh()
+                    }} style={{ padding:'4px 10px', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:6, color:'#B91C1C', fontSize:12, cursor:'pointer' }}>
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
