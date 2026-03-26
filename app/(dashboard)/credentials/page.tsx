@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import CredentialsClient from './CredentialsClient'
 import StaffCredentialsClient from './StaffCredentialsClient'
 
 export default async function CredentialsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', user?.id||'').single()
+  const svc = createServiceClient()
+  const { data: profile } = await svc.from('profiles').select('role, full_name').eq('id', user?.id||'').single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
   const { data: credTypes } = await supabase.from('credential_types').select('*').order('name')

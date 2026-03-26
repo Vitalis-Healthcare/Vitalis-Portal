@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import StaffClient from './StaffClient'
 
@@ -7,12 +8,13 @@ export default async function StaffPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: currentProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const svc = createServiceClient()
+  const { data: currentProfile } = await svc.from('profiles').select('role').eq('id', user.id).single()
   const isAdmin = currentProfile?.role === 'admin' || currentProfile?.role === 'supervisor' || currentProfile?.role === 'staff'
 
   if (!isAdmin) {
     // Personal dashboard for caregivers
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    const { data: profile } = await svc.from('profiles').select('*').eq('id', user.id).single()
     const { data: myEnrollments } = await supabase
       .from('course_enrollments')
       .select('*, course:courses(title,category,thumbnail_color)')
@@ -30,7 +32,7 @@ export default async function StaffPage() {
   }
 
   // Admin: caregivers only (not staff/supervisor/admin)
-  const { data: allStaff } = await supabase
+  const { data: allStaff } = await svc
     .from('profiles')
     .select('*')
     .eq('role', 'caregiver')
