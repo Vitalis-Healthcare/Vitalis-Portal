@@ -83,7 +83,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
   const handleAddCredType = async () => {
     if (!newCred.name.trim()) { alert('Enter a credential name.'); return }
     await supabase.from('credential_types').insert({ name: newCred.name, validity_days: 365, reminder_days: [90,60,30,14,7] })
-    setNewCred({ name:'', validity_days:365 })
+    setNewCred({ name:''  })
     router.refresh()
   }
 
