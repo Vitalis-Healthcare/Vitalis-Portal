@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       (p.comar_refs||[]).join(' ').toLowerCase(),
       p.domain?.toLowerCase(),
     ].join(' ')
-    return questionLower.split(' ').some(word =>
+    return questionLower.split(' ').some((word: string) =>
       word.length > 3 && searchFields.includes(word)
     )
   }).slice(0, 5)
