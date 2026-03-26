@@ -10,7 +10,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Service role bypasses RLS — guarantees profile is always readable
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -21,11 +20,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('id', user.id)
     .single()
 
+  const role = profile?.role ?? 'caregiver'
+
   return (
     <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh' }}>
       <Topbar profile={profile as Profile} />
       <div style={{ display:'flex', flex:1 }}>
-        <Sidebar />
+        <Sidebar role={role} />
         <main style={{ flex:1, padding:32, overflowY:'auto', maxHeight:'calc(100vh - 64px)' }}>
           {children}
         </main>

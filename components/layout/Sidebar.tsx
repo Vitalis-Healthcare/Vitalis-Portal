@@ -8,83 +8,46 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
 
-// Admin / Supervisor — full access including admin panel
 const adminSections = [
-  {
-    label: 'MAIN',
-    items: [{ href: '/dashboard', label: 'Overview', icon: LayoutDashboard }]
-  },
-  {
-    label: 'MODULES',
-    items: [
-      { href: '/lms',         label: 'Training Programmes',    icon: GraduationCap },
-      { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
-      { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
-      { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
-      { href: '/staff',       label: 'Staff Portal',           icon: Users },
-    ]
-  },
-  {
-    label: 'ADMIN',
-    items: [
+  { label: 'MAIN', items: [{ href: '/dashboard', label: 'Overview', icon: LayoutDashboard }] },
+  { label: 'MODULES', items: [
+      { href: '/lms',         label: 'Training Programmes',   icon: GraduationCap },
+      { href: '/pp',          label: 'Policies & Procedures', icon: ShieldCheck },
+      { href: '/ep',          label: 'Emergency Preparedness',icon: AlertTriangle },
+      { href: '/credentials', label: 'Credentials',           icon: BadgeCheck },
+      { href: '/staff',       label: 'Staff Portal',          icon: Users },
+  ]},
+  { label: 'ADMIN', items: [
       { href: '/users',    label: 'User Management', icon: UserCog },
-      { href: '/reports',  label: 'Reports',          icon: BarChart3 },
-      { href: '/settings', label: 'Settings',         icon: Settings },
-    ]
-  }
+      { href: '/reports',  label: 'Reports',         icon: BarChart3 },
+      { href: '/settings', label: 'Settings',        icon: Settings },
+  ]}
 ]
 
-// Staff — back-office, sees everything except admin panel
 const staffSections = [
-  {
-    label: 'MAIN',
-    items: [{ href: '/dashboard', label: 'Overview', icon: LayoutDashboard }]
-  },
-  {
-    label: 'MODULES',
-    items: [
-      { href: '/lms',         label: 'Training Programmes',    icon: GraduationCap },
-      { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
-      { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
-      { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
-    ]
-  }
+  { label: 'MAIN', items: [{ href: '/dashboard', label: 'Overview', icon: LayoutDashboard }] },
+  { label: 'MODULES', items: [
+      { href: '/lms',         label: 'Training Programmes',   icon: GraduationCap },
+      { href: '/pp',          label: 'Policies & Procedures', icon: ShieldCheck },
+      { href: '/ep',          label: 'Emergency Preparedness',icon: AlertTriangle },
+      { href: '/credentials', label: 'Credentials',           icon: BadgeCheck },
+  ]}
 ]
 
-// Caregiver — aides, sees only their own training and credentials
 const caregiverSections = [
-  {
-    label: 'MAIN',
-    items: [{ href: '/dashboard', label: 'Overview', icon: LayoutDashboard }]
-  },
-  {
-    label: 'MY PORTAL',
-    items: [
-      { href: '/lms',         label: 'My Training',       icon: GraduationCap },
-      { href: '/pp',          label: 'Policies',          icon: ShieldCheck },
-      { href: '/credentials', label: 'My Credentials',    icon: BadgeCheck },
-    ]
-  }
+  { label: 'MAIN', items: [{ href: '/dashboard', label: 'Overview', icon: LayoutDashboard }] },
+  { label: 'MY PORTAL', items: [
+      { href: '/lms',         label: 'My Training',    icon: GraduationCap },
+      { href: '/pp',          label: 'Policies',       icon: ShieldCheck },
+      { href: '/credentials', label: 'My Credentials', icon: BadgeCheck },
+  ]}
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ role }: { role: string }) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createClient()
-  const [role,   setRole]   = useState<string>('caregiver')
-  const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { setLoaded(true); return }
-      supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
-        setRole(data?.role ?? 'caregiver')
-        setLoaded(true)
-      })
-    })
-  }, [])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -108,7 +71,7 @@ export default function Sidebar() {
       display: 'flex', flexDirection: 'column', flexShrink: 0,
       height: '100vh', position: 'sticky', top: 0, overflowY: 'auto'
     }}>
-      <div style={{ padding: '20px 0', flex: 1, opacity: loaded ? 1 : 0.5, transition: 'opacity 0.2s' }}>
+      <div style={{ padding: '20px 0', flex: 1 }}>
         {navSections.map((section) => (
           <div key={section.label}>
             <div style={{
@@ -142,7 +105,6 @@ export default function Sidebar() {
         ))}
       </div>
 
-      {/* Role badge + sign out */}
       <div style={{ padding: '12px 8px', borderTop: '1px solid #EFF2F5' }}>
         <div style={{
           margin: '0 4px 8px', padding: '5px 10px', borderRadius: 6,
