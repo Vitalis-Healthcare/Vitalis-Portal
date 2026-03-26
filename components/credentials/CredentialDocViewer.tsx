@@ -18,7 +18,7 @@ interface CredentialDoc {
   version_number: number
   is_latest:      boolean
   notes:          string | null
-  uploader:       { full_name: string } | { full_name: string }[] | null
+  uploaded_by:    string | null
 }
 
 interface Props {
@@ -187,11 +187,7 @@ function DocCard({ doc, isCurrent, fmtTime }: {
   isCurrent: boolean
   fmtTime: (iso: string) => string
 }) {
-  const uploaderName = !doc.uploader
-    ? 'System'
-    : Array.isArray(doc.uploader)
-      ? (doc.uploader[0]?.full_name ?? 'System')
-      : doc.uploader.full_name
+  const uploaderName = doc.uploaded_by ? 'Staff member' : 'System'
   const fileName     = doc.file_name || 'Document'
 
   return (
