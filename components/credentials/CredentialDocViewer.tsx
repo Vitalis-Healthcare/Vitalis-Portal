@@ -65,7 +65,7 @@ export default function CredentialDocViewer({
             version_number: 1,
             is_latest:      true,
             notes:          null,
-            uploader:       null,
+            uploaded_by:    null,
           }])
         }
         setLoading(false)
