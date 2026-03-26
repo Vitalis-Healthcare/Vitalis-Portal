@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Clock, CheckCircle, Lock, Play } from 'lucide-react'
@@ -11,28 +12,29 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const svc = createServiceClient()
+  const { data: profile } = await svc
     .from('profiles').select('role').eq('id', user.id).single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
-  const { data: programme } = await supabase
+  const { data: programme } = await svc
     .from('programmes').select('*').eq('slug', slug).single()
   if (!programme) notFound()
 
-  const { data: tracks } = await supabase
+  const { data: tracks } = await svc
     .from('tracks')
     .select('*')
     .eq('programme_id', programme.id)
     .order('order_index')
 
-  const { data: modules } = await supabase
+  const { data: modules } = await svc
     .from('courses')
     .select('id, lms_module_id, track_id, title, badge, status, estimated_minutes, order_index, thumbnail_color, description')
     .eq('programme_id', programme.id)
     .order('order_index')
 
   // My pending enrollment requests for this programme
-  const { data: myRequest } = !isAdmin ? await supabase
+  const { data: myRequest } = !isAdmin ? await svc
     .from('enrollment_requests')
     .select('status')
     .eq('user_id', user?.id || '')
@@ -41,7 +43,7 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
     .maybeSingle() : { data: null }
 
   // My enrollment in this programme
-  const { data: myProgEnrollment } = await supabase
+  const { data: myProgEnrollment } = await svc
     .from('programme_enrollments')
     .select('id, status, completed_at, due_date')
     .eq('programme_id', programme.id)
@@ -49,7 +51,7 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
     .maybeSingle()
 
   // My individual module enrollments
-  const { data: myModEnrollments } = await supabase
+  const { data: myModEnrollments } = await svc
     .from('course_enrollments')
     .select('course_id, progress_pct, completed_at')
     .eq('user_id', user.id)
@@ -57,13 +59,13 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
   const myModMap = Object.fromEntries((myModEnrollments||[]).map(e => [e.course_id, e]))
 
   // For admin: programme enrollment counts
-  const { data: progEnrollments } = isAdmin ? await supabase
+  const { data: progEnrollments } = isAdmin ? await svc
     .from('programme_enrollments')
     .select('user_id, completed_at')
     .eq('programme_id', programme.id) : { data: [] }
 
   // For admin: all staff for assignment
-  const { data: allStaff } = isAdmin ? await supabase
+  const { data: allStaff } = isAdmin ? await svc
     .from('profiles').select('id, full_name, role').order('full_name') : { data: [] }
 
   const enrolledUserIds = new Set((progEnrollments||[]).map((e: any) => e.user_id))
