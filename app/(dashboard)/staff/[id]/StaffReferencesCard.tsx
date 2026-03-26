@@ -20,7 +20,7 @@ interface Reference {
   sent_at?:       string
   received_at?:   string
   reminder_count?: number
-  submission?:    { submitted_at: string; overall_recommendation?: string } | null
+  submission?:    { submitted_at: string; overall_recommendation?: string } | { submitted_at: string; overall_recommendation?: string }[] | null
 }
 
 const SLOTS = [
