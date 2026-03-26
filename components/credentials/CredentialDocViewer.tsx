@@ -51,31 +51,22 @@ export default function CredentialDocViewer({
       .select(`id, document_url, file_name, uploaded_at, version_number, is_latest, notes, uploader:uploaded_by ( full_name )`)
       .eq('staff_credential_id', credentialId)
       .order('version_number', { ascending: false })
-      .then(async ({ data, error }) => {
+      .then(({ data, error }) => {
         if (!error && data && data.length > 0) {
           setDocs(data as unknown as CredentialDoc[])
-          setLoading(false)
-          return
-        }
-        // No versions in table — auto-backfill from document_url if available
-        if (documentUrl) {
-          try {
-            await fetch('/api/credentials/add-document', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                staffCredentialId: credentialId,
-                documentUrl,
-                fileName: 'Document (backfilled)',
-              }),
-            })
-            const { data: refetched } = await supabase
-              .from('credential_documents')
-              .select(`id, document_url, file_name, uploaded_at, version_number, is_latest, notes, uploader:uploaded_by ( full_name )`)
-              .eq('staff_credential_id', credentialId)
-              .order('version_number', { ascending: false })
-            if (refetched) setDocs(refetched as unknown as CredentialDoc[])
-          } catch (e) { console.warn('Backfill failed:', e) }
+        } else if (documentUrl) {
+          // Document exists but not yet in version history — show it directly
+          // as a synthetic v1 entry so the viewer never shows empty
+          setDocs([{
+            id:             'legacy',
+            document_url:   documentUrl,
+            file_name:      'Document',
+            uploaded_at:    new Date().toISOString(),
+            version_number: 1,
+            is_latest:      true,
+            notes:          null,
+            uploader:       null,
+          }])
         }
         setLoading(false)
       })

@@ -15,12 +15,13 @@ interface Cred {
   credential_type?: { name: string; validity_days: number }
 }
 interface Stats { current: number; expiring: number; expired: number; total: number }
+interface RefSummary { caregiver_id: string; received: number; total: number }
 
 export default function CredentialsClient({
-  credTypes, staff, allCreds, stats, viewerRole
+  credTypes, staff, allCreds, stats, viewerRole, refs = []
 }: {
   credTypes: CredType[]; staff: StaffMember[]; allCreds: Cred[]; stats: Stats
-  viewerRole: string
+  viewerRole: string; refs?: RefSummary[]
 }) {
   const supabase = createClient()
   const router   = useRouter()
@@ -136,6 +137,10 @@ export default function CredentialsClient({
     router.refresh()
   }
 
+  // Build refs lookup by caregiver_id
+  const refIndex: Record<string, RefSummary> = {}
+  for (const r of refs) refIndex[r.caregiver_id] = r
+
   const inp = { width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #D1D9E0', fontSize:13, outline:'none', fontFamily:'inherit', background:'#fff', boxSizing:'border-box' as const }
   const lbl = { fontSize:12, fontWeight:600 as const, color:'#4A6070', display:'block' as const, marginBottom:5 }
 
@@ -203,6 +208,9 @@ export default function CredentialsClient({
                     {ct.name}
                   </th>
                 ))}
+                <th style={{ textAlign:'center', padding:'12px 10px', fontSize:11, fontWeight:700, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:'1px solid #EFF2F5', whiteSpace:'nowrap' }}>
+                  References
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -241,6 +249,19 @@ export default function CredentialsClient({
                       </td>
                     )
                   })}
+                  <td style={{ textAlign:'center', padding:'8px 10px' }}>
+                    {(() => {
+                      const r = refIndex[s.id]
+                      if (!r) return <span style={{ fontSize:11, color:'#D1D9E0' }}>—</span>
+                      const color = r.received === r.total ? '#2A9D8F' : r.received > 0 ? '#F4A261' : '#8FA0B0'
+                      const bg    = r.received === r.total ? '#E6F6F4' : r.received > 0 ? '#FEF3EA' : '#EFF2F5'
+                      return (
+                        <span style={{ display:'inline-block', padding:'3px 9px', borderRadius:12, fontSize:11, fontWeight:700, background:bg, color }}>
+                          {r.received}/{r.total}
+                        </span>
+                      )
+                    })()}
+                  </td>
                 </tr>
               ))}
             </tbody>

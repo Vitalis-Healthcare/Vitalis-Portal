@@ -40,6 +40,21 @@ export default async function CredentialsPage() {
     .select('*, credential_type:credential_types(name, validity_days), submitter:profiles!staff_credentials_user_id_fkey(full_name)')
     .order('expiry_date', { ascending: true })
 
+  // Reference summary per caregiver
+  const { data: allRefs } = await svc
+    .from('caregiver_references')
+    .select('caregiver_id, status')
+    .in('caregiver_id', (staff || []).map((s: any) => s.id))
+
+  // Build per-caregiver summary: { caregiver_id, received, total }
+  const refMap: Record<string, { received: number; total: number }> = {}
+  for (const ref of allRefs || []) {
+    if (!refMap[ref.caregiver_id]) refMap[ref.caregiver_id] = { received: 0, total: 0 }
+    refMap[ref.caregiver_id].total++
+    if (ref.status === 'received') refMap[ref.caregiver_id].received++
+  }
+  const refSummaries = Object.entries(refMap).map(([caregiver_id, v]) => ({ caregiver_id, ...v }))
+
   const { count: currentCount } = await svc.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','current').eq('review_status','approved')
   const { count: expiringCount } = await svc.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','expiring').eq('review_status','approved')
   const { count: expiredCount } = await svc.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','expired').eq('review_status','approved')
@@ -51,6 +66,7 @@ export default async function CredentialsPage() {
       allCreds={allCreds||[]}
       stats={{ current: currentCount||0, expiring: expiringCount||0, expired: expiredCount||0, total: staff?.length||0 }}
       viewerRole={profile?.role || 'staff'}
+      refs={refSummaries}
     />
   )
 }
