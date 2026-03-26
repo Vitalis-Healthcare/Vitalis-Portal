@@ -1,14 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react'
 
-export default async function StaffMemberPage({ params }: { params: { id: string } }) {
+export default async function StaffMemberPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
+  const svc = createServiceClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: viewer } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: viewer } = await svc.from('profiles').select('role').eq('id', user.id).single()
   const isAdmin = viewer?.role === 'admin' || viewer?.role === 'supervisor' || viewer?.role === 'staff'
   if (!isAdmin) redirect('/dashboard')
 
@@ -16,7 +19,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
   const { data: member } = await supabase
     .from('profiles')
     .select('id, full_name, email, role, status, department, phone, position_name')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (!member) return <div style={{padding:40,color:'#8FA0B0'}}>Caregiver not found. <a href='/staff'>← Back</a></div>
@@ -27,20 +30,20 @@ export default async function StaffMemberPage({ params }: { params: { id: string
     { data: credentials },
     { data: acknowledgments },
   ] = await Promise.all([
-    supabase.from('course_enrollments').select(`
+    svc.from('course_enrollments').select(`
       id, progress_pct, completed_at, due_date, enrolled_at,
       course:course_id(id, title, category, thumbnail_color)
-    `).eq('user_id', params.id).order('enrolled_at', { ascending: false }),
+    `).eq('user_id', id).order('enrolled_at', { ascending: false }),
 
-    supabase.from('staff_credentials').select(`
+    svc.from('staff_credentials').select(`
       id, status, issue_date, expiry_date, notes, uploaded_at,
       credential_type:credential_type_id(name)
-    `).eq('user_id', params.id).order('uploaded_at', { ascending: false }),
+    `).eq('user_id', id).order('uploaded_at', { ascending: false }),
 
-    supabase.from('policy_acknowledgements').select(`
+    svc.from('policy_acknowledgements').select(`
       id, acknowledged_at, version,
       policy:policy_id(doc_id, title, domain)
-    `).eq('user_id', params.id).order('acknowledged_at', { ascending: false }),
+    `).eq('user_id', id).order('acknowledged_at', { ascending: false }),
   ])
 
   const completedCourses = (enrollments || []).filter(e => e.completed_at)

@@ -10,7 +10,7 @@ export default async function CredentialsPage() {
   const { data: profile } = await svc.from('profiles').select('role, full_name').eq('id', user?.id||'').single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
-  const { data: credTypes } = await supabase.from('credential_types').select('*').order('name')
+  const { data: credTypes } = await svc.from('credential_types').select('*').order('name')
 
   if (!isAdmin) {
     // Staff view — only their own credentials
@@ -40,9 +40,9 @@ export default async function CredentialsPage() {
     .select('*, credential_type:credential_types(name, validity_days), submitter:profiles!staff_credentials_user_id_fkey(full_name)')
     .order('expiry_date', { ascending: true })
 
-  const { count: currentCount } = await supabase.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','current').eq('review_status','approved')
-  const { count: expiringCount } = await supabase.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','expiring').eq('review_status','approved')
-  const { count: expiredCount } = await supabase.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','expired').eq('review_status','approved')
+  const { count: currentCount } = await svc.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','current').eq('review_status','approved')
+  const { count: expiringCount } = await svc.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','expiring').eq('review_status','approved')
+  const { count: expiredCount } = await svc.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','expired').eq('review_status','approved')
 
   return (
     <CredentialsClient

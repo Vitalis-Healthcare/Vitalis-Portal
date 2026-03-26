@@ -11,7 +11,7 @@ export default async function UsersPage() {
 
   if (profile?.role !== 'admin') redirect('/dashboard')
 
-  const { data: profiles } = await supabase
+  const { data: profiles } = await svc
     .from('profiles')
     .select('*')
     .order('full_name')

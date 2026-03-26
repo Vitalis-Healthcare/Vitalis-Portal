@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { GraduationCap, FileText, BadgeCheck, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', user?.id||'').single()
+  const svc = createServiceClient()
+  const { data: profile } = await svc.from('profiles').select('role, full_name').eq('id', user?.id||'').single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
   if (isAdmin) {
@@ -17,11 +19,11 @@ export default async function DashboardPage() {
       { data: expiringCreds },
       { data: recentActivity },
     ] = await Promise.all([
-      supabase.from('profiles').select('*', { count:'exact', head:true }).eq('status','active'),
-      supabase.from('courses').select('*', { count:'exact', head:true }).eq('status','published'),
-      supabase.from('policies').select('*', { count:'exact', head:true }).eq('status','published'),
-      supabase.from('staff_credentials').select('*').eq('status','expiring'),
-      supabase.from('audit_log').select('*').order('created_at', { ascending:false }).limit(8),
+      svc.from('profiles').select('*', { count:'exact', head:true }).eq('status','active'),
+      svc.from('courses').select('*', { count:'exact', head:true }).eq('status','published'),
+      svc.from('policies').select('*', { count:'exact', head:true }).eq('status','published'),
+      svc.from('staff_credentials').select('*').eq('status','expiring'),
+      svc.from('audit_log').select('*').order('created_at', { ascending:false }).limit(8),
     ])
 
     return (
@@ -101,14 +103,14 @@ export default async function DashboardPage() {
     { data: myPolicies },
     { data: myCreds },
   ] = await Promise.all([
-    supabase.from('course_enrollments')
+    svc.from('course_enrollments')
       .select('*, course:courses(id, title, category, thumbnail_color, estimated_minutes, status)')
       .eq('user_id', user?.id||'')
       .order('assigned_at', { ascending:false }),
-    supabase.from('policy_acknowledgements')
+    svc.from('policy_acknowledgements')
       .select('*, policy:policies(id, title, version)')
       .eq('user_id', user?.id||''),
-    supabase.from('staff_credentials')
+    svc.from('staff_credentials')
       .select('*, credential_type:credential_types(name)')
       .eq('user_id', user?.id||''),
   ])
