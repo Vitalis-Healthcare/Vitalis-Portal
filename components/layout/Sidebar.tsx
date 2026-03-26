@@ -69,22 +69,12 @@ const caregiverSections = [
   }
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ role: initialRole }: { role?: string }) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createClient()
-  const [role,   setRole]   = useState<string>('caregiver')
-  const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { setLoaded(true); return }
-      supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
-        setRole(data?.role ?? 'caregiver')
-        setLoaded(true)
-      })
-    })
-  }, [])
+  const [role,   setRole]   = useState<string>(initialRole ?? 'caregiver')
+  const [loaded, setLoaded] = useState(true)
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

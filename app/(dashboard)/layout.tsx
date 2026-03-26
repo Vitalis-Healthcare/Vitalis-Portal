@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh' }}>
       <Topbar profile={profile as Profile} />
       <div style={{ display:'flex', flex:1 }}>
-        <Sidebar />
+        <Sidebar role={profile?.role ?? 'caregiver'} />
         <main style={{ flex:1, padding:32, overflowY:'auto', maxHeight:'calc(100vh - 64px)' }}>
           {children}
         </main>
