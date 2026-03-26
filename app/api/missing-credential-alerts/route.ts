@@ -76,9 +76,10 @@ export async function GET(request: Request) {
       if (existing) {
         if (existing.does_not_expire || existing.not_applicable) continue
         if (existing.status === 'current' || existing.status === 'expiring') continue
-        // If expired → falls through to alert
+        // status = 'expired' or 'missing' → falls through to alert list
+        // 'missing' is set by DB trigger: entry exists but no valid expiry, not N/A, not does_not_expire
       }
-      // No entry at all → missing
+      // No entry at all, or entry with status = 'expired' | 'missing' → alert
 
       missingList.push(ct.name)
     }
