@@ -13,12 +13,8 @@ export default async function StaffMemberPage({ params }: { params: { id: string
   const isAdmin = viewer?.role === 'admin' || viewer?.role === 'supervisor' || viewer?.role === 'staff'
   if (!isAdmin) redirect('/dashboard')
 
-  // Load the staff member's profile
-  const { data: member } = await supabase
-    .from('profiles')
-    .select('id, full_name, email, role, status, department, phone')
-    .eq('id', params.id)
-    .single()
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", process.env.SUPABASE_SERVICE_ROLE_KEY ?? "")
+  const { data: member } = await admin.from('profiles').select('id, full_name, email, role, status, department, phone').eq('id', params.id).single()
 
   if (!member) return <div style={{padding:40,color:'#8FA0B0'}}>Caregiver not found. <a href='/staff'>← Back</a></div>
 
