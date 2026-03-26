@@ -15,10 +15,10 @@ export default async function PolicyEditPage({ params }: { params: Promise<{ doc
   const { data: profile } = await svc.from('profiles').select('role, full_name').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') redirect(`/pp/${docId}`)
 
-  const { data: policy } = await supabase.from('pp_policies').select('*').eq('doc_id', docId.toUpperCase()).single()
+  const { data: policy } = await svc.from('pp_policies').select('*').eq('doc_id', docId.toUpperCase()).single()
   if (!policy) notFound()
 
-  const { data: proposals } = await supabase.from('pp_edit_proposals')
+  const { data: proposals } = await svc.from('pp_edit_proposals')
     .select('*').eq('doc_id', policy.doc_id).order('created_at', { ascending: false }).limit(20)
 
   return (

@@ -11,30 +11,30 @@ export default async function LMSPage() {
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
   // Fetch all programmes with their tracks and modules
-  const { data: programmes } = await supabase
+  const { data: programmes } = await svc
     .from('programmes')
     .select('*')
     .order('id')
 
-  const { data: tracks } = await supabase
+  const { data: tracks } = await svc
     .from('tracks')
     .select('*')
     .order('order_index')
 
-  const { data: modules } = await supabase
+  const { data: modules } = await svc
     .from('courses')
     .select('id, lms_module_id, programme_id, track_id, title, badge, status, estimated_minutes, order_index, thumbnail_color')
     .not('programme_id', 'is', null)
     .order('order_index')
 
   // Staff: my programme enrollments
-  const { data: myProgEnrollments } = await supabase
+  const { data: myProgEnrollments } = await svc
     .from('programme_enrollments')
     .select('programme_id, status, completed_at')
     .eq('user_id', user?.id||'')
 
   // Staff: my individual module enrollments
-  const { data: myModEnrollments } = await supabase
+  const { data: myModEnrollments } = await svc
     .from('course_enrollments')
     .select('course_id, progress_pct, completed_at')
     .eq('user_id', user?.id||'')
@@ -43,9 +43,9 @@ export default async function LMSPage() {
   const myModMap = Object.fromEntries((myModEnrollments||[]).map(e => [e.course_id, e]))
 
   // Count stats for admin
-  const { count: totalEnrollments } = await supabase
+  const { count: totalEnrollments } = await svc
     .from('programme_enrollments').select('*', { count:'exact', head:true })
-  const { count: completedEnrollments } = await supabase
+  const { count: completedEnrollments } = await svc
     .from('programme_enrollments').select('*', { count:'exact', head:true }).not('completed_at','is',null)
 
   // Group tracks by programme, modules by track

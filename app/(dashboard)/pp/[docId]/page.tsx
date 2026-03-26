@@ -16,21 +16,21 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
   if (!user) return notFound()
 
   const { data: profile } = await svc.from('profiles').select('id, role, full_name, email').eq('id', user.id).single()
-  const { data: policy } = await supabase.from('pp_policies').select('*').eq('doc_id', docId.toUpperCase()).single()
+  const { data: policy } = await svc.from('pp_policies').select('*').eq('doc_id', docId.toUpperCase()).single()
   if (!policy) notFound()
 
-  const { data: ack } = await supabase.from('pp_acknowledgments')
+  const { data: ack } = await svc.from('pp_acknowledgments')
     .select('acknowledged_at, doc_version')
     .eq('doc_id', policy.doc_id).eq('user_id', user.id).eq('doc_version', policy.version)
     .maybeSingle()
 
-  const { data: versions } = await supabase.from('pp_policy_versions')
+  const { data: versions } = await svc.from('pp_policy_versions')
     .select('version, change_summary, change_type, created_at, changed_by_role')
     .eq('doc_id', policy.doc_id)
     .order('created_at', { ascending: false })
     .limit(10)
 
-  const { data: openProposals } = await supabase.from('pp_edit_proposals')
+  const { data: openProposals } = await svc.from('pp_edit_proposals')
     .select('id, section_title, status, created_at')
     .eq('doc_id', policy.doc_id)
     .eq('status', 'pending')

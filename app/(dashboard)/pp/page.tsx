@@ -26,11 +26,11 @@ export default async function PPPage() {
     : profile?.role === 'supervisor' ? 'Director of Nursing'
     : profile?.role === 'caregiver' ? 'CNA' : 'All Staff'
 
-  const { data: policies } = await supabase.from('pp_policies')
+  const { data: policies } = await svc.from('pp_policies')
     .select('doc_id, domain, tier, title, version, review_date, applicable_roles, status')
     .in('status', ['active', 'under-review']).order('doc_id')
 
-  const { data: myAcks } = await supabase.from('pp_acknowledgments')
+  const { data: myAcks } = await svc.from('pp_acknowledgments')
     .select('doc_id, doc_version').eq('user_id', user.id)
   const ackedSet = new Set((myAcks||[]).filter(a => {
     const p = (policies||[]).find(p => p.doc_id === a.doc_id)
@@ -48,8 +48,8 @@ export default async function PPPage() {
     return days >= 0 && days <= 30 && p.status === 'active'
   })
 
-  const { data: proposals } = isAdmin ? await supabase.from('pp_edit_proposals').select('id').eq('status', 'pending') : { data: [] }
-  const { data: recentAcks } = isAdmin ? await supabase.from('pp_acknowledgments').select('doc_id, acknowledged_at, user_role').order('acknowledged_at', { ascending: false }).limit(6) : { data: [] }
+  const { data: proposals } = isAdmin ? await svc.from('pp_edit_proposals').select('id').eq('status', 'pending') : { data: [] }
+  const { data: recentAcks } = isAdmin ? await svc.from('pp_acknowledgments').select('doc_id, acknowledged_at, user_role').order('acknowledged_at', { ascending: false }).limit(6) : { data: [] }
   const domainCounts = Object.fromEntries(DOMAINS.map(d => [d.id, (policies||[]).filter(p => p.domain === d.id).length]))
 
   return (

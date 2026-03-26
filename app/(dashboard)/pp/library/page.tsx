@@ -23,12 +23,12 @@ export default async function LibraryPage() {
   const ppRole = profile?.role === 'admin' ? 'Administrator' : profile?.role === 'supervisor' ? 'Director of Nursing' : profile?.role === 'caregiver' ? 'CNA' : 'All Staff'
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
-  const { data: policies } = await supabase.from('pp_policies')
+  const { data: policies } = await svc.from('pp_policies')
     .select('doc_id, domain, tier, title, version, status, applicable_roles, review_date')
     .in('status', isAdmin ? ['draft','active','under-review','superseded'] : ['active','under-review'])
     .order('doc_id')
 
-  const { data: myAcks } = await supabase.from('pp_acknowledgments')
+  const { data: myAcks } = await svc.from('pp_acknowledgments')
     .select('doc_id, doc_version').eq('user_id', user?.id||'')
   const ackedSet = new Set((myAcks||[]).filter(a => {
     const p = (policies||[]).find(p => p.doc_id === a.doc_id)

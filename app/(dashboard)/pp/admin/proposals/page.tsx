@@ -13,7 +13,7 @@ export default async function ProposalsPage() {
   const { data: profile } = await svc.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') redirect('/pp')
 
-  const { data: proposals } = await supabase.from('pp_edit_proposals')
+  const { data: proposals } = await svc.from('pp_edit_proposals')
     .select('*, pp_policies(title)')
     .order('created_at', { ascending: false })
 
