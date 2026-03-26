@@ -138,6 +138,9 @@ export default function LoginPage() {
             </svg>
             {googleLoading ? 'Redirecting to Google…' : 'Sign in with Google Workspace'}
           </button>
+          <div style={{ textAlign: 'center', fontSize: 11, color: '#8FA0B0', marginTop: -14, marginBottom: 6, fontWeight: 500 }}>
+            for Vitalis Staff
+          </div>
 
           {/* Divider */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
