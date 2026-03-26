@@ -51,7 +51,8 @@ export async function GET(request: Request) {
     .in('user_id', caregivers.map(c => c.id))
 
   // Index credentials by user_id + credential_type_id for fast lookup
-  const credIndex: Record<string, typeof allCreds[0]> = {}
+  type CredRow = { id: string; user_id: string; credential_type_id: string; status: string; does_not_expire: boolean; not_applicable: boolean }
+  const credIndex: Record<string, CredRow> = {}
   for (const cred of allCreds ?? []) {
     credIndex[`${cred.user_id}:${cred.credential_type_id}`] = cred
   }
