@@ -273,72 +273,121 @@ function Dashboard({dates,actions,markComplete}){
 }
 
 // ── CONTACTS EDITOR ───────────────────────────────────────────────
-function ContactsEditor({contacts,setContacts,markComplete,dates}){
-  const [saved,setSaved]=useState("");
-  const internal=contacts.filter(c=>c.contact_type==="internal");
-  const external=contacts.filter(c=>c.contact_type==="external");
+// ContactRow: top-level component with LOCAL state.
+// onChange updates local state only. onBlur saves to Supabase.
+// This prevents the one-letter-at-a-time bug caused by Supabase
+// writes on every keystroke triggering parent re-renders.
+function ContactRow({contact, type, onSave}){
+  const secondaryField = type === "internal" ? "secondary_phone" : "use_during_emergency";
+  const [vals, setVals] = useState({
+    role_title: contact.role_title || "",
+    name: contact.name || "",
+    primary_phone: contact.primary_phone || "",
+    [secondaryField]: contact[secondaryField] || "",
+  });
+  useEffect(() => {
+    setVals({
+      role_title: contact.role_title || "",
+      name: contact.name || "",
+      primary_phone: contact.primary_phone || "",
+      [secondaryField]: contact[secondaryField] || "",
+    });
+  }, [contact.id]);
 
-  async function updateContact(id,field,val){
-    const updated=contacts.map(c=>c.id===id?{...c,[field]:val}:c);
-    setContacts(updated);
-    await supabase.from("ep_contacts").update({[field]:val,updated_at:new Date().toISOString()}).eq("id",id);
+  const cellStyle = {padding:"6px 8px", borderBottom:`1px solid ${T.border}`};
+  const inputStyle = {...S.input, padding:"4px 8px", fontSize:12, border:"1px solid transparent", background:"transparent"};
+
+  return (
+    <tr>
+      <td style={cellStyle}>
+        <input value={vals.role_title}
+          onChange={e => setVals(v => ({...v, role_title: e.target.value}))}
+          onBlur={e => onSave(contact.id, "role_title", e.target.value)}
+          style={inputStyle}
+          onFocus={e => e.target.style.border = `1px solid ${T.borderMd}`}/>
+      </td>
+      <td style={cellStyle}>
+        <input value={vals.name}
+          onChange={e => setVals(v => ({...v, name: e.target.value}))}
+          onBlur={e => onSave(contact.id, "name", e.target.value)}
+          style={inputStyle}
+          placeholder={type === "external" ? "Contact name…" : "Name…"}
+          onFocus={e => e.target.style.border = `1px solid ${T.borderMd}`}/>
+      </td>
+      <td style={cellStyle}>
+        <input value={vals.primary_phone}
+          onChange={e => setVals(v => ({...v, primary_phone: e.target.value}))}
+          onBlur={e => onSave(contact.id, "primary_phone", e.target.value)}
+          style={{...inputStyle, fontFamily:"IBM Plex Mono,monospace"}}
+          placeholder="Phone…"
+          onFocus={e => e.target.style.border = `1px solid ${T.borderMd}`}/>
+      </td>
+      <td style={cellStyle}>
+        <input value={vals[secondaryField]}
+          onChange={e => setVals(v => ({...v, [secondaryField]: e.target.value}))}
+          onBlur={e => onSave(contact.id, secondaryField, e.target.value)}
+          style={inputStyle}
+          placeholder={type === "internal" ? "Secondary phone…" : "Use during emergency…"}
+          onFocus={e => e.target.style.border = `1px solid ${T.borderMd}`}/>
+      </td>
+    </tr>
+  );
+}
+
+function ContactTable({rows, type, onSave}){
+  return(
+    <div style={{overflowX:"auto"}}>
+      <table style={{width:"100%", borderCollapse:"collapse", fontSize:13}}>
+        <thead><tr style={{background:T.navy}}>
+          <th style={{color:"#fff",padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700}}>{type==="internal"?"Role":"Organization"}</th>
+          <th style={{color:"#fff",padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700}}>{type==="internal"?"Name":"Contact / Role"}</th>
+          <th style={{color:"#fff",padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700}}>Primary Phone</th>
+          <th style={{color:"#fff",padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700}}>{type==="internal"?"Secondary Phone":"Use During Emergency"}</th>
+        </tr></thead>
+        <tbody>
+          {rows.map(c => <ContactRow key={c.id} contact={c} type={type} onSave={onSave}/>)}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ContactsEditor({contacts, setContacts, markComplete, dates}){
+  const [saved, setSaved] = useState("");
+  const internal = contacts.filter(c => c.contact_type === "internal");
+  const external = contacts.filter(c => c.contact_type === "external");
+
+  async function saveContact(id, field, val){
+    setContacts(contacts.map(c => c.id === id ? {...c, [field]: val} : c));
+    await supabase.from("ep_contacts").update({[field]:val, updated_at:new Date().toISOString()}).eq("id", id);
   }
 
-  async function save(){
+  async function markReviewed(){
     await markComplete("contacts");
-    setSaved("Contacts saved & marked complete");setTimeout(()=>setSaved(""),4000);
-  }
-
-  function ContactTable({rows,type}){
-    return(
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-          <thead><tr style={{background:T.navy}}>
-            <th style={{color:"#fff",padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700}}>{type==="internal"?"Role":"Organization"}</th>
-            <th style={{color:"#fff",padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700}}>{type==="internal"?"Name":"Contact / Role"}</th>
-            <th style={{color:"#fff",padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700}}>Primary Phone</th>
-            <th style={{color:"#fff",padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700}}>{type==="internal"?"Secondary Phone":"Use During Emergency"}</th>
-          </tr></thead>
-          <tbody>
-            {rows.map((c,i)=>(
-              <tr key={c.id} style={{background:i%2?"#F8FAFC":"transparent"}}>
-                <td style={{padding:"6px 8px",borderBottom:`1px solid ${T.border}`}}>
-                  <input value={c.role_title} onChange={e=>updateContact(c.id,"role_title",e.target.value)} style={{...S.input,padding:"4px 8px",fontSize:12,border:"1px solid transparent",background:"transparent"}} onFocus={e=>e.target.style.border=`1px solid ${T.borderMd}`} onBlur={e=>e.target.style.border="1px solid transparent"}/>
-                </td>
-                <td style={{padding:"6px 8px",borderBottom:`1px solid ${T.border}`}}>
-                  <input value={c.name} onChange={e=>updateContact(c.id,"name",e.target.value)} style={{...S.input,padding:"4px 8px",fontSize:12,border:"1px solid transparent",background:"transparent"}} placeholder={type==="external"?"Contact name…":"Name…"} onFocus={e=>e.target.style.border=`1px solid ${T.borderMd}`} onBlur={e=>e.target.style.border="1px solid transparent"}/>
-                </td>
-                <td style={{padding:"6px 8px",borderBottom:`1px solid ${T.border}`}}>
-                  <input value={c.primary_phone} onChange={e=>updateContact(c.id,"primary_phone",e.target.value)} style={{...S.input,padding:"4px 8px",fontSize:12,fontFamily:"IBM Plex Mono,monospace",border:"1px solid transparent",background:"transparent"}} placeholder="Phone…" onFocus={e=>e.target.style.border=`1px solid ${T.borderMd}`} onBlur={e=>e.target.style.border="1px solid transparent"}/>
-                </td>
-                <td style={{padding:"6px 8px",borderBottom:`1px solid ${T.border}`}}>
-                  <input value={type==="internal"?c.secondary_phone:c.use_during_emergency} onChange={e=>updateContact(c.id,type==="internal"?"secondary_phone":"use_during_emergency",e.target.value)} style={{...S.input,padding:"4px 8px",fontSize:12,border:"1px solid transparent",background:"transparent"}} placeholder={type==="internal"?"Secondary phone…":"Use during emergency…"} onFocus={e=>e.target.style.border=`1px solid ${T.borderMd}`} onBlur={e=>e.target.style.border="1px solid transparent"}/>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+    setSaved("Contacts saved & marked complete");
+    setTimeout(() => setSaved(""), 4000);
   }
 
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:20}}>
-      <SectionHeader title="Key Contacts" docRef="Section 1.5" subtitle="Click any cell to edit. Changes save instantly to the database and appear in the Live Plan Document." lastUpdated={dates.contacts}/>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{fontSize:13,color:T.textLight}}>Edit any cell directly — saves automatically</div>
-        <div style={{display:"flex",gap:10,alignItems:"center"}}><SaveBadge msg={saved}/><button onClick={save} style={S.btnPrimary}>✓ Mark Annual Review Complete</button></div>
+    <div style={{display:"flex", flexDirection:"column", gap:20}}>
+      <SectionHeader title="Key Contacts" docRef="Section 1.5" subtitle="Click any cell to edit. Saves to database when you leave the field (Tab or click away)." lastUpdated={dates.contacts}/>
+      <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+        <div style={{fontSize:13, color:T.textLight}}>Tab through fields — each saves on exit</div>
+        <div style={{display:"flex", gap:10, alignItems:"center"}}>
+          <SaveBadge msg={saved}/>
+          <button onClick={markReviewed} style={S.btnPrimary}>✓ Mark Annual Review Complete</button>
+        </div>
       </div>
       <div style={S.card}>
-        <h3 style={{...S.h3,marginBottom:14,color:T.navy}}>Internal Contacts</h3>
-        <div style={{background:T.amberBg,border:`1px solid ${T.amber}30`,borderRadius:8,padding:"10px 14px",fontSize:12,color:T.amber,marginBottom:14}}>
+        <h3 style={{...S.h3, marginBottom:14, color:T.navy}}>Internal Contacts</h3>
+        <div style={{background:T.amberBg, border:`1px solid ${T.amber}30`, borderRadius:8, padding:"10px 14px", fontSize:12, color:T.amber, marginBottom:14}}>
           ⚠ Safety/Security Officer, Maintenance Director, and Staff Dev. Coordinator are unfilled. These must be designated to meet Joint Commission EM standards.
         </div>
-        <ContactTable rows={internal} type="internal"/>
+        <ContactTable rows={internal} type="internal" onSave={saveContact}/>
       </div>
       <div style={S.card}>
-        <h3 style={{...S.h3,marginBottom:14}}>External Contacts</h3>
-        <ContactTable rows={external} type="external"/>
+        <h3 style={{...S.h3, marginBottom:14}}>External Contacts</h3>
+        <ContactTable rows={external} type="external" onSave={saveContact}/>
       </div>
     </div>
   );
@@ -428,31 +477,45 @@ function HVAEditor({hvaScores,setHvaScores,markComplete,dates}){
 }
 
 // ── ICS ROLES EDITOR ──────────────────────────────────────────────
+// ICSRoleRow at top level — local state, saves on blur
+function ICSRoleRow({role,index,onSave}){
+  const [vals,setVals]=useState({
+    ics_position:role.ics_position||"",
+    primary_person:role.primary_person||"",
+    backup_person:role.backup_person||"",
+    key_responsibilities:role.key_responsibilities||"",
+  });
+  useEffect(()=>{
+    setVals({ics_position:role.ics_position||"",primary_person:role.primary_person||"",backup_person:role.backup_person||"",key_responsibilities:role.key_responsibilities||""});
+  },[role.id]);
+  function blur(field,val){onSave(role.id,field,val);}
+  return(
+    <div style={{...S.card,borderLeft:index===0?`4px solid ${T.teal}`:`4px solid ${T.border}`}}>
+      <div style={{display:"grid",gridTemplateColumns:"180px 1fr 1fr",gap:12,marginBottom:10}}>
+        <div><label style={S.label}>ICS Position</label><input value={vals.ics_position} onChange={e=>setVals(v=>({...v,ics_position:e.target.value}))} onBlur={e=>blur("ics_position",e.target.value)} style={{...S.input,fontWeight:700}}/></div>
+        <div><label style={S.label}>Primary Person</label><input value={vals.primary_person} onChange={e=>setVals(v=>({...v,primary_person:e.target.value}))} onBlur={e=>blur("primary_person",e.target.value)} style={S.input} placeholder="Name / title…"/></div>
+        <div><label style={S.label}>Backup Person</label><input value={vals.backup_person} onChange={e=>setVals(v=>({...v,backup_person:e.target.value}))} onBlur={e=>blur("backup_person",e.target.value)} style={S.input} placeholder="Name / title…"/></div>
+      </div>
+      <div><label style={S.label}>Key Responsibilities</label><textarea value={vals.key_responsibilities} onChange={e=>setVals(v=>({...v,key_responsibilities:e.target.value}))} onBlur={e=>blur("key_responsibilities",e.target.value)} style={{...S.textarea,minHeight:50}}/></div>
+    </div>
+  );
+}
+
 function ICSEditor({icsRoles,setIcsRoles}){
   const [saved,setSaved]=useState("");
 
-  async function update(id,field,val){
-    const updated=icsRoles.map(r=>r.id===id?{...r,[field]:val}:r);
-    setIcsRoles(updated);
+  async function saveRole(id,field,val){
+    setIcsRoles(icsRoles.map(r=>r.id===id?{...r,[field]:val}:r));
     await supabase.from("ep_ics_roles").update({[field]:val,updated_at:new Date().toISOString()}).eq("id",id);
     setSaved("Saved");setTimeout(()=>setSaved(""),2000);
   }
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
-      <SectionHeader title="ICS Roles & Succession" docRef="Section 3.1" subtitle="Edit any field directly. Changes save instantly."/>
+      <SectionHeader title="ICS Roles & Succession" docRef="Section 3.1" subtitle="Edit any field. Saves when you leave a field."/>
       <div style={{display:"flex",justifyContent:"flex-end"}}><SaveBadge msg={saved}/></div>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {icsRoles.map((role,i)=>(
-          <div key={role.id} style={{...S.card,borderLeft:i===0?`4px solid ${T.teal}`:`4px solid ${T.border}`}}>
-            <div style={{display:"grid",gridTemplateColumns:"180px 1fr 1fr",gap:12,marginBottom:10}}>
-              <div><label style={S.label}>ICS Position</label><input value={role.ics_position} onChange={e=>update(role.id,"ics_position",e.target.value)} style={{...S.input,fontWeight:700}}/></div>
-              <div><label style={S.label}>Primary Person</label><input value={role.primary_person} onChange={e=>update(role.id,"primary_person",e.target.value)} style={S.input} placeholder="Name / title…"/></div>
-              <div><label style={S.label}>Backup Person</label><input value={role.backup_person} onChange={e=>update(role.id,"backup_person",e.target.value)} style={S.input} placeholder="Name / title…"/></div>
-            </div>
-            <div><label style={S.label}>Key Responsibilities</label><textarea value={role.key_responsibilities} onChange={e=>update(role.id,"key_responsibilities",e.target.value)} style={{...S.textarea,minHeight:50}}/></div>
-          </div>
-        ))}
+        {icsRoles.map((role,i)=><ICSRoleRow key={role.id} role={role} index={i} onSave={saveRole}/>)}
       </div>
     </div>
   );
@@ -509,14 +572,36 @@ function Inventory({dates,onMark,onSaveSnapshot}){
   );
 }
 
+// EquipmentRow at top level — local state, saves on blur
+function EquipmentRow({item,index,currentQ,onSave}){
+  const [loc,setLoc]=useState(item.location||"");
+  const [counts,setCounts]=useState({q1_count:item.q1_count||"",q2_count:item.q2_count||"",q3_count:item.q3_count||"",q4_count:item.q4_count||""});
+  useEffect(()=>{
+    setLoc(item.location||"");
+    setCounts({q1_count:item.q1_count||"",q2_count:item.q2_count||"",q3_count:item.q3_count||"",q4_count:item.q4_count||""});
+  },[item.id]);
+  const td={padding:"6px 10px",borderBottom:`1px solid ${T.border}`};
+  return(
+    <tr style={{background:index%2?"#F8FAFC":"transparent"}}>
+      <td style={td}>{item.item_name}</td>
+      <td style={td}><input value={loc} onChange={e=>setLoc(e.target.value)} onBlur={e=>onSave(item.id,"location",e.target.value)} style={{...S.input,padding:"3px 6px",fontSize:12,width:120,border:`1px solid ${T.borderMd}`}}/></td>
+      <td style={{...td,textAlign:"center",fontWeight:600}}>{item.target_qty}</td>
+      {["q1_count","q2_count","q3_count","q4_count"].map((f,qi)=>(
+        <td key={f} style={{...td,textAlign:"center",background:currentQ===`Q${qi+1}`?"#FFF9C4":"transparent"}}>
+          <input type="number" min={0} value={counts[f]} onChange={e=>setCounts(c=>({...c,[f]:e.target.value}))} onBlur={e=>onSave(item.id,f,e.target.value)} style={{...S.input,padding:"3px 6px",fontSize:12,textAlign:"center",width:55,border:`1px solid ${T.borderMd}`}} placeholder="—"/>
+        </td>
+      ))}
+    </tr>
+  );
+}
+
 // ── EQUIPMENT EDITOR ──────────────────────────────────────────────
 function EquipmentEditor({equipInv,setEquipInv,markComplete,dates}){
   const [saved,setSaved]=useState("");
   const [verifiedBy,setVerifiedBy]=useState("");
 
-  async function update(id,field,val){
-    const updated=equipInv.map(e=>e.id===id?{...e,[field]:val}:e);
-    setEquipInv(updated);
+  async function saveEquip(id,field,val){
+    setEquipInv(equipInv.map(e=>e.id===id?{...e,[field]:val}:e));
     await supabase.from("ep_equipment_inventory").update({[field]:val,updated_at:new Date().toISOString()}).eq("id",id);
   }
 
@@ -552,21 +637,7 @@ function EquipmentEditor({equipInv,setEquipInv,markComplete,dates}){
               <th style={{color:"#fff",padding:"8px 10px",textAlign:"center",fontSize:11,fontWeight:700}}>Q4</th>
             </tr></thead>
             <tbody>
-              {equipInv.map((item,i)=>(
-                <tr key={item.id} style={{background:i%2?"#F8FAFC":"transparent"}}>
-                  <td style={{padding:"6px 10px",borderBottom:`1px solid ${T.border}`}}>{item.item_name}</td>
-                  <td style={{padding:"6px 10px",borderBottom:`1px solid ${T.border}`}}>
-                    <input value={item.location||""} onChange={e=>update(item.id,"location",e.target.value)} style={{...S.input,padding:"3px 6px",fontSize:12,width:120,border:`1px solid ${T.borderMd}`}}/>
-                  </td>
-                  <td style={{padding:"6px 10px",borderBottom:`1px solid ${T.border}`,textAlign:"center",fontWeight:600}}>{item.target_qty}</td>
-                  {["q1_count","q2_count","q3_count","q4_count"].map((f,qi)=>(
-                    <td key={f} style={{padding:"6px 10px",borderBottom:`1px solid ${T.border}`,textAlign:"center",background:currentQ===`Q${qi+1}`?"#FFF9C4":"transparent"}}>
-                      <input type="number" min={0} value={item[f]||""} onChange={e=>update(item.id,f,e.target.value)}
-                        style={{...S.input,padding:"3px 6px",fontSize:12,textAlign:"center",width:55,border:`1px solid ${T.borderMd}`}} placeholder="—"/>
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {equipInv.map((item,i)=><EquipmentRow key={item.id} item={item} index={i} currentQ={currentQ} onSave={saveEquip}/>)}
             </tbody>
           </table>
         </div>
@@ -586,9 +657,10 @@ function GoBoxEditor({goBox,setGoBox,markComplete,dates}){
     await supabase.from("ep_gobox_items").update({checked,updated_at:new Date().toISOString()}).eq("id",id);
   }
 
-  async function updateNote(id,notes){
-    const updated=goBox.map(g=>g.id===id?{...g,notes}:g);
-    setGoBox(updated);
+  function updateNoteLocal(id,notes){
+    setGoBox(goBox.map(g=>g.id===id?{...g,notes}:g));
+  }
+  async function saveNote(id,notes){
     await supabase.from("ep_gobox_items").update({notes,updated_at:new Date().toISOString()}).eq("id",id);
   }
 
@@ -618,7 +690,7 @@ function GoBoxEditor({goBox,setGoBox,markComplete,dates}){
             <div key={item.id} style={{display:"grid",gridTemplateColumns:"auto 1fr auto",gap:12,alignItems:"center",padding:"10px 12px",background:item.checked?"#F0FDF4":i%2?"#F8FAFC":"transparent",borderRadius:8,border:`1px solid ${item.checked?"#A7F3D0":T.border}`}}>
               <input type="checkbox" checked={item.checked||false} onChange={e=>toggle(item.id,e.target.checked)} style={{width:18,height:18,cursor:"pointer",accentColor:T.teal}}/>
               <div style={{fontSize:13,color:item.checked?T.green:T.text,textDecoration:item.checked?"line-through":"none",fontWeight:item.checked?400:500}}>{item.item_name}</div>
-              <input value={item.notes||""} onChange={e=>updateNote(item.id,e.target.value)} style={{...S.input,width:200,padding:"4px 8px",fontSize:12}} placeholder="Notes…"/>
+              <input value={item.notes||""} onChange={e=>updateNoteLocal(item.id,e.target.value)} onBlur={e=>saveNote(item.id,e.target.value)} style={{...S.input,width:200,padding:"4px 8px",fontSize:12}} placeholder="Notes…"/>
             </div>
           ))}
         </div>
@@ -631,9 +703,10 @@ function GoBoxEditor({goBox,setGoBox,markComplete,dates}){
 function DrillsEditor({drills,setDrills,markComplete,dates}){
   const [saved,setSaved]=useState("");
 
-  async function update(id,field,val){
-    const updated=drills.map(d=>d.id===id?{...d,[field]:val}:d);
-    setDrills(updated);
+  function updateLocal(id,field,val){
+    setDrills(drills.map(d=>d.id===id?{...d,[field]:val}:d));
+  }
+  async function saveDrill(id,field,val){
     await supabase.from("ep_drill_records").update({[field]:val,updated_at:new Date().toISOString()}).eq("id",id);
   }
 
@@ -668,7 +741,7 @@ function DrillsEditor({drills,setDrills,markComplete,dates}){
                 </div>
                 <div style={{textAlign:"center"}}>
                   <div style={{fontSize:11,color:T.textLight,marginBottom:3}}>Last Conducted</div>
-                  <input type="date" value={drill.last_conducted||""} onChange={e=>update(drill.id,"last_conducted",e.target.value)} style={{...S.input,padding:"4px 8px",fontSize:12,width:140}}/>
+                  <input type="date" value={drill.last_conducted||""} onChange={e=>updateLocal(drill.id,"last_conducted",e.target.value)} onBlur={e=>saveDrill(drill.id,"last_conducted",e.target.value)} style={{...S.input,padding:"4px 8px",fontSize:12,width:140}}/>
                 </div>
                 <div style={{textAlign:"center"}}>
                   <div style={{fontSize:11,color:T.textLight,marginBottom:3}}>Next Due</div>
