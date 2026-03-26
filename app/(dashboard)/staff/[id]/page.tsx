@@ -15,7 +15,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
   // Load the staff member's profile
   const { data: member } = await supabase
     .from('profiles')
-    .select('id, full_name, email, role, status, department, phone, position_name')
+    .select('id, full_name, email, role, status, department, phone')
     .eq('id', params.id)
     .single()
 
@@ -86,7 +86,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
           </div>
           <div style={{ fontSize: 13, color: '#8FA0B0', marginTop: 4, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <span>{member.email}</span>
-            {member.position_name && <span>📋 {member.position_name}</span>}
+            
             {member.department && <span>🏢 {member.department}</span>}
             {member.phone && <span>📞 {member.phone}</span>}
           </div>
