@@ -15,11 +15,11 @@ export default async function StaffMemberPage({ params }: { params: { id: string
   // Load the staff member's profile
   const { data: member } = await supabase
     .from('profiles')
-    .select('*, position:position_id(name)')
+    .select('id, full_name, email, role, status, department, phone, position_name')
     .eq('id', params.id)
     .single()
 
-  if (!member) notFound()
+  if (!member) return <div style={{padding:40,color:'#8FA0B0'}}>Caregiver not found. <a href='/staff'>← Back</a></div>
 
   // Load all their activity in parallel
   const [
@@ -35,7 +35,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
     supabase.from('staff_credentials').select(`
       id, status, issue_date, expiry_date, notes, uploaded_at,
       credential_type:credential_type_id(name)
-    `).eq('staff_id', params.id).order('uploaded_at', { ascending: false }),
+    `).eq('user_id', params.id).order('uploaded_at', { ascending: false }),
 
     supabase.from('policy_acknowledgements').select(`
       id, acknowledged_at, version,
