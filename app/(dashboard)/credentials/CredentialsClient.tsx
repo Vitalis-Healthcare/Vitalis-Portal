@@ -91,28 +91,15 @@ export default function CredentialsClient({
       review_status:       'approved',
     }
 
-    // Upsert credential — select() returns the row so we get the id for document history
-    const { data: savedCred, error } = await supabase.from('staff_credentials')
+    // Try upsert first, fall back to insert if constraint not yet in place
+    const { error } = await supabase.from('staff_credentials')
       .upsert(payload, { onConflict: 'user_id,credential_type_id' })
-      .select('id')
-      .single()
 
     if (error) {
       console.error('Credential save error:', error)
       alert(`Error saving credential: ${error.message}`)
       setSaving(false)
       return
-    }
-
-    // If a document was uploaded, record it in credential_documents history
-    if (uploadedFile && savedCred?.id) {
-      await supabase.from('credential_documents').insert({
-        credential_id: savedCred.id,
-        user_id:       form.user_id,
-        uploaded_by:   user?.id,
-        file_name:     uploadedFile.name,
-        file_url:      uploadedFile.url,
-      })
     }
 
     const staffName = staff.find(s => s.id === form.user_id)?.full_name

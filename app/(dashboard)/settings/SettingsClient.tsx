@@ -1,4 +1,3 @@
-'use client'
 // Inline editable credential name — click to rename
 function EditableCredName({ id, name, onSaved }: { id: string; name: string; onSaved: () => void }) {
   const supabase = createClient()
@@ -34,6 +33,7 @@ function EditableCredName({ id, name, onSaved }: { id: string; name: string; onS
   )
 }
 
+'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -45,48 +45,6 @@ interface Position  { id:string; name:string; description:string; pp_roles:strin
 
 const inp = { width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #D1D9E0', fontSize:13, outline:'none', fontFamily:'inherit', background:'#fff', boxSizing:'border-box' as const }
 const lbl = { fontSize:12, fontWeight:600 as const, color:'#4A6070', display:'block' as const, marginBottom:5 }
-
-
-function AlertTestButton() {
-  const [status, setStatus] = useState<'idle'|'running'|'done'|'error'>('idle')
-  const [result, setResult] = useState<string>('')
-
-  const runTest = async () => {
-    setStatus('running')
-    setResult('')
-    try {
-      const res = await fetch('/api/credential-alerts', {
-        headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || 'vitalis-ep-cron-2026'}` }
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setResult(data.message || `Sent ${data.sent ?? 0} alert(s)`)
-        setStatus('done')
-      } else {
-        setResult(data.error || 'Unknown error')
-        setStatus('error')
-      }
-    } catch (e: any) {
-      setResult(e.message)
-      setStatus('error')
-    }
-    setTimeout(() => setStatus('idle'), 8000)
-  }
-
-  return (
-    <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' as const }}>
-      <button
-        onClick={runTest}
-        disabled={status === 'running'}
-        style={{ padding:'9px 18px', background: status==='running'?'#8FA0B0':'#1A2E44', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:status==='running'?'not-allowed':'pointer' }}
-      >
-        {status === 'running' ? '⏳ Running…' : '▶ Run Alert Check Now'}
-      </button>
-      {status === 'done'  && <span style={{ fontSize:12, color:'#2A9D8F', fontWeight:600 }}>✓ {result}</span>}
-      {status === 'error' && <span style={{ fontSize:12, color:'#E63946', fontWeight:600 }}>✗ {result}</span>}
-    </div>
-  )
-}
 
 export default function SettingsClient({ profile, credTypes, isAdmin }: { profile:Profile|null; credTypes:CredType[]; isAdmin?:boolean }) {
   const supabase = createClient()
@@ -100,7 +58,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
     department:    profile?.department    || '',
     position_name: profile?.position_name || '',
   })
-  const [newCred, setNewCred] = useState<{ name:string; validity_days:number }>({ name:'', validity_days:365 })
+  const [newCred, setNewCred] = useState({ name:'' })
   const [positions,  setPositions]  = useState<Position[]>([])
   const [posLoading, setPosLoading] = useState(false)
   const [newPos,  setNewPos]  = useState({ name:'', description:'', pp_roles:'' })
@@ -246,22 +204,6 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
               <button onClick={handleAddCredType} style={{ padding:'9px 18px', background:'#0E7C7B', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' as const }}>Add Type</button>
             </div>
           </div>
-
-          {/* ── Email Alerts ──────────────────────────────────── */}
-          <div style={{ borderTop:'1px solid #EFF2F5', marginTop:28, paddingTop:24 }}>
-            <h3 style={{ fontSize:14, fontWeight:700, color:'#1A2E44', marginBottom:4 }}>Credential Expiry Alerts</h3>
-            <p style={{ fontSize:12, color:'#8FA0B0', marginBottom:16, lineHeight:1.6 }}>
-              Automated reminders run daily at 9:00 AM UTC. Each staff member receives a personal email when their
-              credential hits a reminder threshold. An admin digest goes to{' '}
-              <strong style={{ color:'#4A6070' }}>team@vitalishealthcare.com</strong>.
-            </p>
-            <div style={{ background:'#F8FAFB', borderRadius:8, padding:'14px 16px', marginBottom:16, fontSize:12, color:'#4A6070', lineHeight:1.7 }}>
-              <strong>Schedule:</strong> Runs every day at 09:00 UTC (5:00 AM ET)<br/>
-              <strong>Thresholds:</strong> Per credential type — CPR &amp; TB: 30/14/7 days · First Aid &amp; Background: 60/30/14 days<br/>
-              <strong>Dedup:</strong> Each alert sent once per credential per threshold — no repeated emails
-            </div>
-            <AlertTestButton />
-          </div>
         </div>
       )}
 
@@ -332,7 +274,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
             { label:'Address',       value:'8757 Georgia Avenue, Suite 440, Silver Spring, MD 20910' },
             { label:'Phone',         value:'(240) 716-6874' },
             { label:'Contract',      value:'Baltimore City Health Department (BCHD)' },
-            { label:'Portal Version',value:'v2.9.2 — Vitalis Staff & Compliance Hub' },
+            { label:'Portal Version',value:'v2.6 — Vitalis Staff & Compliance Hub' },
           ].map((f,i)=>(
             <div key={i} style={{ marginBottom:16 }}>
               <label style={lbl}>{f.label}</label>

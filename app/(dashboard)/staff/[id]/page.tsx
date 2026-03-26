@@ -1,19 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdmin } from '@supabase/supabase-js'
-import { redirect } from 'next/navigation'
+import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react'
 
-export default async function StaffMemberPage({ params }: { params: Promise<{ id: string }> }) {
-  // Fix 1: await params (Next.js 15+)
-  const { id } = await params
-
-  // Fix 2: use service role for profiles query (bypasses RLS)
-  const admin = createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
-  )
-
+export default async function StaffMemberPage({ params }: { params: { id: string } }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -22,45 +12,41 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
   const isAdmin = viewer?.role === 'admin' || viewer?.role === 'supervisor' || viewer?.role === 'staff'
   if (!isAdmin) redirect('/dashboard')
 
-  // Fix 3: service role client reads any profile regardless of RLS
-  const { data: member } = await admin
+  // Load the staff member's profile
+  const { data: member } = await supabase
     .from('profiles')
     .select('id, full_name, email, role, status, department, phone, position_name')
-    .eq('id', id)
+    .eq('id', params.id)
     .single()
 
-  if (!member) return (
-    <div style={{ padding: 40, color: '#8FA0B0', fontSize: 14 }}>
-      Caregiver not found. <Link href="/staff" style={{ color: '#0E7C7B' }}>← Back to directory</Link>
-    </div>
-  )
+  if (!member) return <div style={{padding:40,color:'#8FA0B0'}}>Caregiver not found. <a href='/staff'>← Back</a></div>
 
-  // Fix 4: correct table names
+  // Load all their activity in parallel
   const [
     { data: enrollments },
     { data: credentials },
     { data: acknowledgments },
   ] = await Promise.all([
-    admin.from('course_enrollments').select(`
+    supabase.from('course_enrollments').select(`
       id, progress_pct, completed_at, due_date, enrolled_at,
       course:course_id(id, title, category, thumbnail_color)
-    `).eq('user_id', id).order('enrolled_at', { ascending: false }),
+    `).eq('user_id', params.id).order('enrolled_at', { ascending: false }),
 
-    admin.from('staff_credentials').select(`
-      id, status, issue_date, expiry_date, does_not_expire, notes,
+    supabase.from('staff_credentials').select(`
+      id, status, issue_date, expiry_date, notes, uploaded_at,
       credential_type:credential_type_id(name)
-    `).eq('user_id', id),
+    `).eq('user_id', params.id).order('uploaded_at', { ascending: false }),
 
-    admin.from('policy_acknowledgements').select(`
+    supabase.from('policy_acknowledgements').select(`
       id, acknowledged_at, version,
       policy:policy_id(doc_id, title, domain)
-    `).eq('user_id', id).order('acknowledged_at', { ascending: false }),
+    `).eq('user_id', params.id).order('acknowledged_at', { ascending: false }),
   ])
 
-  const completedCourses = (enrollments || []).filter((e: any) => e.completed_at)
-  const pendingCourses   = (enrollments || []).filter((e: any) => !e.completed_at)
-  const expiringCreds    = (credentials || []).filter((c: any) => !c.does_not_expire && (c.status === 'expiring' || c.status === 'expired'))
-  const currentCreds     = (credentials || []).filter((c: any) => c.does_not_expire || c.status === 'current')
+  const completedCourses = (enrollments || []).filter(e => e.completed_at)
+  const pendingCourses   = (enrollments || []).filter(e => !e.completed_at)
+  const currentCreds     = (credentials || []).filter(c => c.status === 'current')
+  const expiringCreds    = (credentials || []).filter(c => c.status === 'expiring' || c.status === 'expired')
 
   const roleColor = (r: string) =>
     r === 'admin' ? '#1A2E44' : r === 'supervisor' ? '#0E7C7B' : r === 'staff' ? '#1D4ED8' : '#2A9D8F'
@@ -73,11 +59,12 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
+      {/* Back nav */}
       <Link href="/staff" style={{ fontSize: 13, color: '#0E7C7B', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
         ← Back to Caregiver Directory
       </Link>
 
-      {/* Header */}
+      {/* Header card */}
       <div style={{ ...card, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20 }}>
         <div style={{
           width: 60, height: 60, borderRadius: '50%', flexShrink: 0,
@@ -104,12 +91,14 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
             {member.phone && <span>📞 {member.phone}</span>}
           </div>
         </div>
+
+        {/* Summary stats */}
         <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
           {[
-            { label: 'Courses done',      value: completedCourses.length, color: '#2A9D8F' },
-            { label: 'Pending training',  value: pendingCourses.length,   color: pendingCourses.length > 0 ? '#F4A261' : '#2A9D8F' },
-            { label: 'Credential alerts', value: expiringCreds.length,    color: expiringCreds.length > 0 ? '#E63946' : '#2A9D8F' },
-            { label: 'Policies signed',   value: (acknowledgments || []).length, color: '#0E7C7B' },
+            { label: 'Courses done', value: completedCourses.length, color: '#2A9D8F' },
+            { label: 'Pending training', value: pendingCourses.length, color: pendingCourses.length > 0 ? '#F4A261' : '#2A9D8F' },
+            { label: 'Credential alerts', value: expiringCreds.length, color: expiringCreds.length > 0 ? '#E63946' : '#2A9D8F' },
+            { label: 'Policies signed', value: (acknowledgments || []).length, color: '#0E7C7B' },
           ].map((s, i) => (
             <div key={i} style={{ textAlign: 'center', minWidth: 70 }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -119,7 +108,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* Training + Credentials */}
+      {/* GRID */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
 
         {/* Training */}
@@ -128,6 +117,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
             <span>🎓 Training</span>
             <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{(enrollments || []).length} total</span>
           </div>
+
           {pendingCourses.length > 0 && (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#F4A261', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>In Progress</div>
@@ -146,6 +136,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
               {completedCourses.length > 0 && <div style={{ borderTop: '1px solid #EFF2F5', marginTop: 12, marginBottom: 12 }} />}
             </>
           )}
+
           {completedCourses.length > 0 && (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#2A9D8F', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Completed</div>
@@ -158,7 +149,10 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
               ))}
             </>
           )}
-          {(enrollments || []).length === 0 && <p style={{ color: '#8FA0B0', fontSize: 13 }}>No courses assigned yet.</p>}
+
+          {(enrollments || []).length === 0 && (
+            <p style={{ color: '#8FA0B0', fontSize: 13 }}>No courses assigned yet.</p>
+          )}
         </div>
 
         {/* Credentials */}
@@ -167,6 +161,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
             <span>🪪 Credentials</span>
             <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{(credentials || []).length} on file</span>
           </div>
+
           {expiringCreds.length > 0 && (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#E63946', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>⚠ Requires Attention</div>
@@ -186,24 +181,26 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
               {currentCreds.length > 0 && <div style={{ borderTop: '1px solid #EFF2F5', marginTop: 12, marginBottom: 12 }} />}
             </>
           )}
+
           {currentCreds.map((c: any) => (
             <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#4A6070', marginBottom: 8 }}>
               <CheckCircle size={13} color="#2A9D8F" style={{ flexShrink: 0 }} />
               <div style={{ flex: 1 }}>{c.credential_type?.name}</div>
-              {!c.does_not_expire && c.expiry_date && <div style={{ fontSize: 11, color: '#8FA0B0' }}>Exp. {new Date(c.expiry_date).toLocaleDateString()}</div>}
-              {c.does_not_expire && <div style={{ fontSize: 11, color: '#8FA0B0' }}>No expiry</div>}
+              {c.expiry_date && <div style={{ fontSize: 11, color: '#8FA0B0' }}>Exp. {new Date(c.expiry_date).toLocaleDateString()}</div>}
             </div>
           ))}
+
           {(credentials || []).length === 0 && <p style={{ color: '#8FA0B0', fontSize: 13 }}>No credentials on file.</p>}
         </div>
       </div>
 
-      {/* Policies */}
+      {/* Policies Acknowledged */}
       <div style={{ ...card, marginBottom: 20 }}>
         <div style={sectionTitle}>
           <span>📋 Policies & Procedures Acknowledged</span>
           <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{(acknowledgments || []).length} signed</span>
         </div>
+
         {(acknowledgments || []).length === 0 ? (
           <p style={{ color: '#8FA0B0', fontSize: 13 }}>No policies acknowledged yet.</p>
         ) : (
@@ -222,7 +219,6 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
           </div>
         )}
       </div>
-
     </div>
   )
 }
