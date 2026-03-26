@@ -332,7 +332,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
             { label:'Address',       value:'8757 Georgia Avenue, Suite 440, Silver Spring, MD 20910' },
             { label:'Phone',         value:'(240) 716-6874' },
             { label:'Contract',      value:'Baltimore City Health Department (BCHD)' },
-            { label:'Portal Version',value:'v2.9.4 — Vitalis Staff & Compliance Hub' },
+            { label:'Portal Version',value:'v2.9.3 — Vitalis Staff & Compliance Hub' },
           ].map((f,i)=>(
             <div key={i} style={{ marginBottom:16 }}>
               <label style={lbl}>{f.label}</label>
