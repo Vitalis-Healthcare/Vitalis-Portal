@@ -1,12 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   if (!user) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await svc.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') {
     return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Fetch the full policy for context
-  const { data: policy } = await supabase
+  const { data: policy } = await svc
     .from('pp_policies')
     .select('doc_id, title, domain, comar_refs, version')
     .eq('doc_id', docId)
@@ -75,7 +77,7 @@ IMPORTANT: Return ONLY the rewritten text — no explanation, no preamble, no "H
     const proposedText = data.content?.[0]?.text || ''
 
     // Save as a proposal in the database
-    const { data: proposal, error } = await supabase
+    const { data: proposal, error } = await svc
       .from('pp_edit_proposals')
       .insert({
         doc_id: docId,

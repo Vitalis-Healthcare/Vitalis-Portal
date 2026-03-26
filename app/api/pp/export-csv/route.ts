@@ -1,29 +1,31 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   if (!user) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const { data: profile } = await svc
     .from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   // Get all acknowledgments with policy and user details
-  const { data: acks } = await supabase
+  const { data: acks } = await svc
     .from('pp_acknowledgments')
     .select('doc_id, doc_version, user_id, user_role, acknowledged_at, ip_address')
     .order('acknowledged_at', { ascending: false })
 
-  const { data: policies } = await supabase
+  const { data: policies } = await svc
     .from('pp_policies')
     .select('doc_id, title, domain, tier')
 
-  const { data: profiles } = await supabase
+  const { data: profiles } = await svc
     .from('profiles')
     .select('id, full_name, email, role')
 

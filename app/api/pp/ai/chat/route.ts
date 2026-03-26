@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   if (!user) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
 
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -18,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (!message) return NextResponse.json({ error: 'Message required' }, { status: 400 })
 
   // Fetch all active policies — metadata for the catalogue
-  const { data: allPolicies } = await supabase
+  const { data: allPolicies } = await svc
     .from('pp_policies')
     .select('doc_id, domain, tier, title, applicable_roles, comar_refs, keywords, owner_role, version, review_date, status')
     .in('status', ['active', 'under-review'])
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
   // Fetch full HTML content for relevant policies
   let policyContext = ''
   if (topRelevant.length > 0) {
-    const { data: fullPolicies } = await supabase
+    const { data: fullPolicies } = await svc
       .from('pp_policies')
       .select('doc_id, title, html_content')
       .in('doc_id', topRelevant.map(p => p.doc_id))
@@ -170,7 +172,7 @@ Tone: Professional, warm, and direct — like a knowledgeable colleague, not a l
 
     // Save conversation (best effort)
     try {
-      await supabase.from('pp_ai_conversations').insert({
+      await svc.from('pp_ai_conversations').insert({
         user_id: user.id,
         title: message.slice(0, 80),
         messages: [

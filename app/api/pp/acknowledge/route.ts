@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
@@ -6,11 +7,12 @@ export async function POST(request: Request) {
 
   // Always verify server-side — never trust the client payload alone
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   if (!user) {
     return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await svc
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
   }
 
   // Verify the policy exists
-  const { data: policy } = await supabase
+  const { data: policy } = await svc
     .from('pp_policies')
     .select('doc_id, version, applicable_roles')
     .eq('doc_id', docId)
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
   }
 
   // Insert acknowledgment — ON CONFLICT DO NOTHING prevents duplicate taps on mobile
-  const { error } = await supabase
+  const { error } = await svc
     .from('pp_acknowledgments')
     .insert({
       doc_id: docId,
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
 
   // Audit log — best effort, non-blocking
   try {
-    await supabase.from('audit_log').insert({
+    await svc.from('audit_log').insert({
       user_id: user.id,
       action: `Acknowledged policy ${docId} v${docVersion}`,
       entity_type: 'policy',

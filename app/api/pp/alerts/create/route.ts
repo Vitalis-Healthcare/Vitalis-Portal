@@ -1,13 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   if (!user) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await svc.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const body = await req.json()
-  const { data: alert, error } = await supabase.from('pp_regulatory_alerts').insert({
+  const { data: alert, error } = await svc.from('pp_regulatory_alerts').insert({
     doc_id: body.doc_id || null,
     alert_type: body.alert_type || 'regulation_change',
     title: body.title,
