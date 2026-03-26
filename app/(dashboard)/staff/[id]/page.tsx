@@ -27,7 +27,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
     { data: credentials },
     { data: acknowledgments },
   ] = await Promise.all([
-    supabase.from('enrollments').select(`
+    supabase.from('course_enrollments').select(`
       id, progress_pct, completed_at, due_date, enrolled_at,
       course:course_id(id, title, category, thumbnail_color)
     `).eq('user_id', params.id).order('enrolled_at', { ascending: false }),
@@ -37,7 +37,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
       credential_type:credential_type_id(name)
     `).eq('staff_id', params.id).order('uploaded_at', { ascending: false }),
 
-    supabase.from('policy_acknowledgments').select(`
+    supabase.from('policy_acknowledgements').select(`
       id, acknowledged_at, version,
       policy:policy_id(doc_id, title, domain)
     `).eq('user_id', params.id).order('acknowledged_at', { ascending: false }),
