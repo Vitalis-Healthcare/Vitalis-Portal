@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -12,7 +13,9 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new NextResponse('Unauthorized', { status: 401 })
 
-  const { data: policy } = await supabase
+  const svc = createServiceClient()
+
+  const { data: policy } = await svc
     .from('pp_policies')
     .select('doc_id, html_content, version, applicable_roles, status')
     .eq('doc_id', docId.toUpperCase())
@@ -20,7 +23,7 @@ export async function GET(
 
   if (!policy) return new NextResponse('Not found', { status: 404 })
 
-  const { data: profile } = await supabase
+  const { data: profile } = await svc
     .from('profiles')
     .select('role, full_name')
     .eq('id', user.id)
@@ -35,7 +38,7 @@ export async function GET(
   const appliesToUser = roles.includes('All Staff') || roles.includes(ppRole)
 
   // Check existing ack
-  const { data: ack } = await supabase
+  const { data: ack } = await svc
     .from('pp_acknowledgments')
     .select('acknowledged_at')
     .eq('doc_id', policy.doc_id)
