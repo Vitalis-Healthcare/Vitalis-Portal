@@ -107,7 +107,7 @@ export default function CredentialsClient({
       user_id:     user?.id,
       action:      `Credential recorded: ${staffName} — ${credName}`,
       entity_type: 'credential'
-    }).throwOnError().catch(() => {}) // non-fatal
+    }).then(() => {}).catch(() => {}) // non-fatal — ignore audit log errors
 
     setForm({ user_id:'', credential_type_id:'', issue_date: new Date().toISOString().split('T')[0], expiry_date:'', notes:'', does_not_expire: false })
     setUploadedFile(null)
