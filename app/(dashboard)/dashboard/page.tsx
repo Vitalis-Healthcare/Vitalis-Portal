@@ -18,13 +18,35 @@ export default async function DashboardPage() {
       { count: publishedPolicies },
       { data: expiringCreds },
       { data: recentActivity },
+      { data: allStaff },
+      { data: allCredTypes },
+      { data: allStaffCreds },
     ] = await Promise.all([
       svc.from('profiles').select('*', { count:'exact', head:true }).eq('status','active'),
       svc.from('courses').select('*', { count:'exact', head:true }).eq('status','published'),
       svc.from('policies').select('*', { count:'exact', head:true }).eq('status','published'),
       svc.from('staff_credentials').select('*').eq('status','expiring'),
       svc.from('audit_log').select('*').order('created_at', { ascending:false }).limit(8),
+      svc.from('profiles').select('id, role').eq('status', 'active'),
+      svc.from('credential_types').select('id, name, required_for_roles'),
+      svc.from('staff_credentials').select('user_id, credential_type_id, status, not_applicable, does_not_expire'),
     ])
+
+    // Compute missing: required cred types per staff member not on file or not N/A
+    let missingCount = 0
+    const credsByUser: Record<string, Set<string>> = {}
+    for (const sc of allStaffCreds || []) {
+      if (!credsByUser[sc.user_id]) credsByUser[sc.user_id] = new Set()
+      credsByUser[sc.user_id].add(sc.credential_type_id)
+    }
+    for (const staff of allStaff || []) {
+      for (const ct of allCredTypes || []) {
+        const roles: string[] = Array.isArray(ct.required_for_roles) ? ct.required_for_roles : []
+        if (!roles.includes(staff.role)) continue
+        const userCreds = credsByUser[staff.id]
+        if (!userCreds || !userCreds.has(ct.id)) missingCount++
+      }
+    }
 
     return (
       <div>
@@ -33,12 +55,13 @@ export default async function DashboardPage() {
           <p style={{ fontSize:14, color:'#8FA0B0', marginTop:4 }}>Vitalis Healthcare Services · Compliance Overview</p>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:28 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:16, marginBottom:28 }}>
           {[
-            { label:'Active Staff', value: totalStaff ?? 0, icon: <GraduationCap size={20}/>, color:'#0E7C7B' },
-            { label:'Published Courses', value: publishedCourses ?? 0, icon: <GraduationCap size={20}/>, color:'#2A9D8F' },
-            { label:'Live Policies', value: publishedPolicies ?? 0, icon: <FileText size={20}/>, color:'#1A2E44' },
-            { label:'Expiring Credentials', value: expiringCreds?.length ?? 0, icon: <AlertTriangle size={20}/>, color: (expiringCreds?.length ?? 0) > 0 ? '#E63946' : '#2A9D8F' },
+            { label:'Active Staff',         value: totalStaff ?? 0,               icon: <GraduationCap size={20}/>, color:'#0E7C7B' },
+            { label:'Published Courses',    value: publishedCourses ?? 0,         icon: <GraduationCap size={20}/>, color:'#2A9D8F' },
+            { label:'Live Policies',        value: publishedPolicies ?? 0,        icon: <FileText size={20}/>,      color:'#1A2E44' },
+            { label:'Expiring Credentials', value: expiringCreds?.length ?? 0,    icon: <AlertTriangle size={20}/>, color:(expiringCreds?.length ?? 0) > 0 ? '#E63946' : '#2A9D8F' },
+            { label:'Missing Credentials',  value: missingCount,                  icon: <BadgeCheck size={20}/>,    color: missingCount > 0 ? '#9B59B6' : '#2A9D8F' },
           ].map((s,i) => (
             <div key={i} style={{ background:'#fff', borderRadius:12, padding:'20px', borderLeft:`4px solid ${s.color}`, boxShadow:'0 1px 4px rgba(0,0,0,0.07)' }}>
               <div style={{ color:s.color, marginBottom:8 }}>{s.icon}</div>
@@ -49,11 +72,20 @@ export default async function DashboardPage() {
         </div>
 
         {(expiringCreds?.length ?? 0) > 0 && (
-          <div style={{ background:'#FEF3EA', border:'1px solid #F4A261', borderRadius:12, padding:'16px 20px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ background:'#FEF3EA', border:'1px solid #F4A261', borderRadius:12, padding:'16px 20px', marginBottom:12, display:'flex', alignItems:'center', gap:12 }}>
             <AlertTriangle size={20} color="#F4A261"/>
             <div>
               <strong style={{ color:'#1A2E44', fontSize:14 }}>{expiringCreds?.length} credential(s) expiring soon.</strong>
               <span style={{ color:'#8FA0B0', fontSize:14 }}> Review the <a href="/credentials" style={{ color:'#0E7C7B' }}>Credentials</a> module to take action.</span>
+            </div>
+          </div>
+        )}
+        {missingCount > 0 && (
+          <div style={{ background:'#FAF0FF', border:'1px solid #C084FC', borderRadius:12, padding:'16px 20px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
+            <BadgeCheck size={20} color="#9B59B6"/>
+            <div>
+              <strong style={{ color:'#1A2E44', fontSize:14 }}>{missingCount} credential slot{missingCount !== 1 ? 's' : ''} missing across your staff.</strong>
+              <span style={{ color:'#8FA0B0', fontSize:14 }}> <a href="/credentials" style={{ color:'#9B59B6', fontWeight:600 }}>View Credentials Matrix →</a></span>
             </div>
           </div>
         )}
@@ -102,6 +134,7 @@ export default async function DashboardPage() {
     { data: myEnrollments },
     { data: myPolicies },
     { data: myCreds },
+    { data: allCredTypes4 },
   ] = await Promise.all([
     svc.from('course_enrollments')
       .select('*, course:courses(id, title, category, thumbnail_color, estimated_minutes, status)')
@@ -111,9 +144,26 @@ export default async function DashboardPage() {
       .select('*, policy:policies(id, title, version)')
       .eq('user_id', user?.id||''),
     svc.from('staff_credentials')
-      .select('*, credential_type:credential_types(name)')
+      .select('*, credential_type:credential_types(name, required_for_roles)')
       .eq('user_id', user?.id||''),
+    svc.from('credential_types').select('id, name, required_for_roles').then(r => ({ data: r.data as any[], error: r.error })),
   ])
+
+  // Missing credentials for caregiver: required types not on file
+  const myCredTypeIds = new Set((myCreds||[]).map((c:any) => {
+    // get type id from join
+    return c.credential_type_id
+  }))
+  // Actually use credential_type name match since we don't have type_id directly
+  const myCredNames = new Set((myCreds||[]).map((c:any) =>
+    Array.isArray(c.credential_type) ? c.credential_type[0]?.name : c.credential_type?.name
+  ))
+  // Need to query credTypes properly
+  // Use the allCredTypes4 data:
+  const missingMyCreds = (allCredTypes4 || []).filter((ct:any) => {
+    const roles: string[] = Array.isArray(ct.required_for_roles) ? ct.required_for_roles : []
+    return roles.includes(profile?.role || '') && !myCredNames.has(ct.name)
+  })
 
   const pendingCourses = (myEnrollments||[]).filter(e => !e.completed_at)
   const completedCourses = (myEnrollments||[]).filter(e => e.completed_at)
@@ -130,11 +180,12 @@ export default async function DashboardPage() {
       </div>
 
       {/* Personal stat cards */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:28 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:28 }}>
         {[
-          { label:'Courses Assigned', value: (myEnrollments||[]).length, icon: <GraduationCap size={20}/>, color:'#0E7C7B' },
-          { label:'Completed', value: completedCourses.length, icon: <CheckCircle size={20}/>, color:'#2A9D8F' },
-          { label:'Credential Alerts', value: expiringMyCreds.length, icon: <AlertTriangle size={20}/>, color: expiringMyCreds.length > 0 ? '#E63946' : '#2A9D8F' },
+          { label:'Courses Assigned',    value: (myEnrollments||[]).length, icon: <GraduationCap size={20}/>, color:'#0E7C7B' },
+          { label:'Completed',           value: completedCourses.length,    icon: <CheckCircle size={20}/>,   color:'#2A9D8F' },
+          { label:'Credential Alerts',   value: expiringMyCreds.length,     icon: <AlertTriangle size={20}/>, color: expiringMyCreds.length > 0 ? '#E63946' : '#2A9D8F' },
+          { label:'Missing Credentials', value: missingMyCreds.length,      icon: <BadgeCheck size={20}/>,    color: missingMyCreds.length > 0 ? '#9B59B6' : '#2A9D8F' },
         ].map((s,i) => (
           <div key={i} style={{ background:'#fff', borderRadius:12, padding:'20px', borderLeft:`4px solid ${s.color}`, boxShadow:'0 1px 4px rgba(0,0,0,0.07)' }}>
             <div style={{ color:s.color, marginBottom:8 }}>{s.icon}</div>
@@ -143,6 +194,20 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Missing credentials banner */}
+      {missingMyCreds.length > 0 && (
+        <div style={{ background:'#FAF0FF', border:'1px solid #C084FC', borderRadius:12, padding:'16px 20px', marginBottom:12, display:'flex', alignItems:'center', gap:12 }}>
+          <BadgeCheck size={20} color="#9B59B6"/>
+          <div>
+            <strong style={{ color:'#1A2E44', fontSize:14 }}>
+              {missingMyCreds.length} required credential{missingMyCreds.length !== 1 ? 's' : ''} missing:
+            </strong>
+            <span style={{ color:'#8FA0B0', fontSize:13 }}> {missingMyCreds.map((c:any) => c.name).join(', ')}.</span>
+            <Link href="/credentials" style={{ color:'#9B59B6', fontSize:13, marginLeft:6, fontWeight:600 }}>Upload now →</Link>
+          </div>
+        </div>
+      )}
 
       {/* Credential alerts */}
       {expiringMyCreds.length > 0 && (
