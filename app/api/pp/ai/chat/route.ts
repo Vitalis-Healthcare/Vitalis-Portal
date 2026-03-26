@@ -169,16 +169,18 @@ Tone: Professional, warm, and direct — like a knowledgeable colleague, not a l
     }
 
     // Save conversation (best effort)
-    supabase.from('pp_ai_conversations').insert({
-      user_id: user.id,
-      title: message.slice(0, 80),
-      messages: [
-        ...(history || []),
-        { role: 'user', content: message },
-        { role: 'assistant', content: cleanAnswer, citations }
-      ],
-      doc_ids: citations.map((c: { docId: string }) => c.docId),
-    }).then(() => {}).catch(() => {})
+    try {
+      await supabase.from('pp_ai_conversations').insert({
+        user_id: user.id,
+        title: message.slice(0, 80),
+        messages: [
+          ...(history || []),
+          { role: 'user', content: message },
+          { role: 'assistant', content: cleanAnswer, citations }
+        ],
+        doc_ids: citations.map((c: { docId: string }) => c.docId),
+      })
+    } catch {}
 
     return NextResponse.json({ answer: cleanAnswer, citations })
 
