@@ -43,7 +43,7 @@ export default function LoginPage() {
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } }
+        options: { data: { full_name: fullName, role: 'caregiver' } }
       })
       if (signUpError) {
         setError(signUpError.message)
