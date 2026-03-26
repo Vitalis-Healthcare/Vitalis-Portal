@@ -14,8 +14,8 @@ export async function POST(request: Request) {
   if (!userId || userId === user.id) return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 })
 
   const admin = createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
   )
   await admin.from('profiles').delete().eq('id', userId)
 
