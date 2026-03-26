@@ -31,7 +31,7 @@ export default async function StaffPage() {
     return <StaffClient isAdmin={false} profile={profile} myEnrollments={myEnrollments||[]} unsignedPolicies={unsigned} myCreds={myCreds||[]} allStaff={[]} />
   }
 
-  // Admin: caregivers only (not staff/supervisor/admin)
+  // Admin: caregivers only
   const { data: allStaff } = await svc
     .from('profiles')
     .select('*')
@@ -39,5 +39,47 @@ export default async function StaffPage() {
     .eq('status', 'active')
     .order('full_name')
 
-  return <StaffClient isAdmin={true} allStaff={allStaff||[]} profile={null} myEnrollments={[]} unsignedPolicies={[]} myCreds={[]} />
+  const staffIds = (allStaff || []).map((s: any) => s.id)
+
+  // Credential summaries per caregiver
+  const { data: allStaffCreds } = staffIds.length > 0
+    ? await svc.from('staff_credentials').select('user_id, status, not_applicable, does_not_expire').in('user_id', staffIds)
+    : { data: [] }
+
+  // Credential types for missing computation
+  const { data: credTypes } = await svc.from('credential_types').select('id, name, required_for_roles')
+
+  // Reference summaries per caregiver
+  const { data: allRefs } = staffIds.length > 0
+    ? await svc.from('caregiver_references').select('caregiver_id, status').in('caregiver_id', staffIds)
+    : { data: [] }
+
+  // Build per-caregiver summaries
+  type CredSummary = { current: number; expiring: number; expired: number; missing: number }
+  type RefSummary  = { received: number; total: number }
+
+  const credSummary: Record<string, CredSummary> = {}
+  const refSummary:  Record<string, RefSummary>  = {}
+
+  for (const s of allStaff || []) {
+    const userCreds = (allStaffCreds || []).filter((c: any) => c.user_id === s.id)
+    const credTypeIds = new Set(userCreds.map((c: any) => c.credential_type_id))
+    const missing = (credTypes || []).filter((ct: any) => {
+      const roles: string[] = Array.isArray(ct.required_for_roles) ? ct.required_for_roles : []
+      return roles.includes(s.role) && !credTypeIds.has(ct.id)
+    }).length
+    credSummary[s.id] = {
+      current:  userCreds.filter((c: any) => c.status === 'current').length,
+      expiring: userCreds.filter((c: any) => c.status === 'expiring').length,
+      expired:  userCreds.filter((c: any) => c.status === 'expired').length,
+      missing,
+    }
+    const userRefs = (allRefs || []).filter((r: any) => r.caregiver_id === s.id)
+    refSummary[s.id] = {
+      received: userRefs.filter((r: any) => r.status === 'received').length,
+      total: 3,
+    }
+  }
+
+  return <StaffClient isAdmin={true} allStaff={allStaff||[]} credSummary={credSummary} refSummary={refSummary} profile={null} myEnrollments={[]} unsignedPolicies={[]} myCreds={[]} />
 }

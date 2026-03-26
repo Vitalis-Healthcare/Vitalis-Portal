@@ -59,6 +59,23 @@ export default async function CredentialsPage() {
   }
   const refSummaries = Object.entries(refMap).map(([caregiver_id, v]) => ({ caregiver_id, ...v }))
 
+  // Compute missing: required cred types per caregiver not on file
+  const { data: allCredTypes } = await svc.from('credential_types').select('id, name, required_for_roles')
+  let missingCount = 0
+  const credTypesByUser: Record<string, Set<string>> = {}
+  for (const sc of allCreds || []) {
+    if (!credTypesByUser[sc.user_id]) credTypesByUser[sc.user_id] = new Set()
+    credTypesByUser[sc.user_id].add(sc.credential_type_id)
+  }
+  for (const s of staff || []) {
+    for (const ct of allCredTypes || []) {
+      const roles: string[] = Array.isArray(ct.required_for_roles) ? ct.required_for_roles : []
+      if (!roles.includes(s.role)) continue
+      const userCreds = credTypesByUser[s.id]
+      if (!userCreds || !userCreds.has(ct.id)) missingCount++
+    }
+  }
+
   const { count: currentCount } = await svc.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','current').eq('review_status','approved')
   const { count: expiringCount } = await svc.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','expiring').eq('review_status','approved')
   const { count: expiredCount } = await svc.from('staff_credentials').select('*', { count:'exact', head:true }).eq('status','expired').eq('review_status','approved')
@@ -68,7 +85,7 @@ export default async function CredentialsPage() {
       credTypes={credTypes||[]}
       staff={staff||[]}
       allCreds={allCreds||[]}
-      stats={{ current: currentCount||0, expiring: expiringCount||0, expired: expiredCount||0, total: staff?.length||0 }}
+      stats={{ current: currentCount||0, expiring: expiringCount||0, expired: expiredCount||0, total: staff?.length||0, missing: missingCount }}
       viewerRole={profile?.role || 'staff'}
       refs={refSummaries}
     />

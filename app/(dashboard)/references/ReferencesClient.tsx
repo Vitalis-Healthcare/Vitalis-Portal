@@ -36,6 +36,9 @@ export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
   const [saving, setSaving]     = useState(false)
   const [resending, setResending] = useState<string | null>(null)
   const [viewSub, setViewSub]     = useState<{ id: string; type: 'professional'|'character'; slot: number; name?: string; caregiverName: string } | null>(null)
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterCaregiver, setFilterCaregiver] = useState<string>('all')
+  const [filterType, setFilterType] = useState<string>('all')
   const [form, setForm] = useState({ referee_name: '', referee_email: '', referee_phone: '', referee_org: '' })
 
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none', fontFamily: 'inherit', background: '#fff', boxSizing: 'border-box' }
@@ -47,6 +50,46 @@ export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
     if (!ref.submission) return null
     return Array.isArray(ref.submission) ? ref.submission[0] : ref.submission
   }
+
+  // For admin: build full grid of all caregiver × 3 slots, filling in from refs
+  const SLOTS_DEF = [
+    { slot: 1, reference_type: 'professional', label: 'Professional 1' },
+    { slot: 2, reference_type: 'professional', label: 'Professional 2' },
+    { slot: 3, reference_type: 'character',    label: 'Character' },
+  ]
+
+  const allRows: Array<{
+    caregiver_id: string; caregiver_name: string
+    slot: number; reference_type: string; slot_label: string
+    ref: Reference | null
+  }> = []
+
+  if (isAdmin) {
+    for (const cg of caregivers) {
+      for (const slotDef of SLOTS_DEF) {
+        const ref = refs.find(r =>
+          (Array.isArray(r.caregiver) ? r.caregiver[0]?.id : (r.caregiver as any)?.id) === cg.id &&
+          r.slot === slotDef.slot
+        ) || null
+        allRows.push({ caregiver_id: cg.id, caregiver_name: cg.full_name, slot: slotDef.slot, reference_type: slotDef.reference_type, slot_label: slotDef.label, ref })
+      }
+    }
+  }
+
+  // Apply filters
+  const filteredRows = allRows.filter(row => {
+    const status = row.ref?.status || 'not_sent'
+    if (filterStatus !== 'all' && status !== filterStatus) return false
+    if (filterCaregiver !== 'all' && row.caregiver_id !== filterCaregiver) return false
+    if (filterType !== 'all' && row.reference_type !== filterType) return false
+    return true
+  })
+
+  // Summary counts
+  const totalSlots    = allRows.length
+  const notSentCount  = allRows.filter(r => !r.ref || r.ref.status === 'not_sent').length
+  const sentCount     = allRows.filter(r => r.ref?.status === 'sent' || r.ref?.status === 'pending').length
+  const receivedCount = allRows.filter(r => r.ref?.status === 'received').length
 
   const statusColor = (s: string) =>
     s === 'received' ? '#2A9D8F' : s === 'sent' ? '#457B9D' : s === 'expired' ? '#E63946' : '#8FA0B0'
@@ -183,63 +226,102 @@ export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
 
       {/* ── ADMIN VIEW ── */}
       {isAdmin && (
-        <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
-          {refs.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', color: '#8FA0B0', fontSize: 14 }}>No references on file yet.</div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div>
+          {/* Summary stats */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:20 }}>
+            {[
+              { label:'Total Slots',    value: totalSlots,    color:'#1A2E44' },
+              { label:'Not Sent',       value: notSentCount,  color:'#8FA0B0' },
+              { label:'Sent / Pending', value: sentCount,     color:'#457B9D' },
+              { label:'Received',       value: receivedCount, color:'#2A9D8F' },
+            ].map((s,i) => (
+              <div key={i} style={{ background:'#fff', borderRadius:12, padding:'16px 18px', borderLeft:`4px solid ${s.color}`, boxShadow:'0 1px 4px rgba(0,0,0,0.07)' }}>
+                <div style={{ fontSize:28, fontWeight:800, color:'#1A2E44', lineHeight:1 }}>{s.value}</div>
+                <div style={{ fontSize:11, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px', marginTop:4 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Filter panel */}
+          <div style={{ background:'#fff', borderRadius:12, padding:'16px 20px', marginBottom:16, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+            <span style={{ fontSize:12, fontWeight:700, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.5px' }}>Filter:</span>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              style={{ padding:'7px 12px', borderRadius:7, border:'1.5px solid #D1D9E0', fontSize:13, outline:'none', fontFamily:'inherit', background:'#fff', cursor:'pointer' }}>
+              <option value="all">All Statuses</option>
+              <option value="not_sent">Not Sent</option>
+              <option value="sent">Sent</option>
+              <option value="received">Received</option>
+              <option value="expired">Expired</option>
+            </select>
+            <select value={filterCaregiver} onChange={e => setFilterCaregiver(e.target.value)}
+              style={{ padding:'7px 12px', borderRadius:7, border:'1.5px solid #D1D9E0', fontSize:13, outline:'none', fontFamily:'inherit', background:'#fff', cursor:'pointer' }}>
+              <option value="all">All Caregivers</option>
+              {caregivers.map(cg => <option key={cg.id} value={cg.id}>{cg.full_name}</option>)}
+            </select>
+            <select value={filterType} onChange={e => setFilterType(e.target.value)}
+              style={{ padding:'7px 12px', borderRadius:7, border:'1.5px solid #D1D9E0', fontSize:13, outline:'none', fontFamily:'inherit', background:'#fff', cursor:'pointer' }}>
+              <option value="all">All Types</option>
+              <option value="professional">Professional</option>
+              <option value="character">Character</option>
+            </select>
+            {(filterStatus !== 'all' || filterCaregiver !== 'all' || filterType !== 'all') && (
+              <button onClick={() => { setFilterStatus('all'); setFilterCaregiver('all'); setFilterType('all') }}
+                style={{ padding:'7px 12px', background:'#EFF2F5', border:'none', borderRadius:7, fontSize:12, fontWeight:600, color:'#4A6070', cursor:'pointer' }}>
+                Clear filters
+              </button>
+            )}
+            <span style={{ marginLeft:'auto', fontSize:12, color:'#8FA0B0' }}>{filteredRows.length} of {totalSlots} slots</span>
+          </div>
+
+          {/* Table */}
+          <div style={{ background:'#fff', borderRadius:12, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', overflow:'hidden' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
-                <tr style={{ background: '#F8FAFB' }}>
-                  {['Caregiver', 'Slot', 'Referee', 'Type', 'Status', 'Sent', 'Action'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.8px', borderBottom: '1px solid #EFF2F5' }}>{h}</th>
+                <tr style={{ background:'#F8FAFB', borderBottom:'1px solid #EFF2F5' }}>
+                  {['Caregiver','Slot','Type','Referee','Status','Sent','Action'].map(h => (
+                    <th key={h} style={{ textAlign:'left', padding:'12px 16px', fontSize:11, fontWeight:700, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {refs.map((ref, i) => {
-                  const sub = getSubmission(ref)
+                {filteredRows.length === 0 ? (
+                  <tr><td colSpan={7} style={{ padding:'40px', textAlign:'center', color:'#8FA0B0', fontSize:14 }}>No references match these filters.</td></tr>
+                ) : filteredRows.map((row, i) => {
+                  const ref = row.ref
+                  const status = ref?.status || 'not_sent'
+                  const sub = ref ? getSubmission(ref) : null
                   return (
-                    <tr key={ref.id} style={{ borderBottom: '1px solid #EFF2F5', background: i % 2 === 0 ? '#fff' : '#FAFBFC' }}>
-                      <td style={{ padding: '12px 16px', fontWeight: 600, color: '#1A2E44' }}>
-                        {(ref.caregiver as any)?.full_name || '—'}
+                    <tr key={`${row.caregiver_id}-${row.slot}`} style={{ borderBottom:'1px solid #EFF2F5', background: i % 2 === 0 ? '#fff' : '#FAFBFC' }}>
+                      <td style={{ padding:'12px 16px', fontWeight:600, color:'#1A2E44' }}>{row.caregiver_name}</td>
+                      <td style={{ padding:'12px 16px', color:'#4A6070' }}>{row.slot_label}</td>
+                      <td style={{ padding:'12px 16px', color:'#4A6070', textTransform:'capitalize' }}>{row.reference_type}</td>
+                      <td style={{ padding:'12px 16px' }}>
+                        {ref?.referee_name
+                          ? <><div style={{ color:'#1A2E44', fontWeight:600 }}>{ref.referee_name}</div><div style={{ fontSize:11, color:'#8FA0B0' }}>{ref.referee_email}</div></>
+                          : <span style={{ color:'#D1D9E0' }}>No referee added</span>
+                        }
                       </td>
-                      <td style={{ padding: '12px 16px', color: '#4A6070' }}>
-                        {ref.slot === 3 ? 'Character' : `Professional ${ref.slot}`}
-                      </td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ color: '#1A2E44' }}>{ref.referee_name || '—'}</div>
-                        <div style={{ fontSize: 11, color: '#8FA0B0' }}>{ref.referee_email}</div>
-                      </td>
-                      <td style={{ padding: '12px 16px', color: '#4A6070', textTransform: 'capitalize' }}>{ref.reference_type}</td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: statusBg(ref.status), color: statusColor(ref.status) }}>
-                          {statusLabel(ref.status)}
+                      <td style={{ padding:'12px 16px' }}>
+                        <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:statusBg(status), color:statusColor(status) }}>
+                          {status === 'not_sent' ? '— Not Sent' : statusLabel(status)}
                         </span>
-                        {sub && <div style={{ fontSize: 11, color: '#2A9D8F', marginTop: 3 }}>
-                          {sub.overall_recommendation?.replace(/_/g, ' ')}
-                        </div>}
-                        {ref.reminder_count > 0 && (
-                          <div style={{ fontSize: 11, color: '#F4A261', marginTop: 2 }}>{ref.reminder_count} reminder{ref.reminder_count !== 1 ? 's' : ''}</div>
-                        )}
+                        {sub && <div style={{ fontSize:11, color:'#2A9D8F', marginTop:3 }}>{sub.overall_recommendation?.replace(/_/g,' ')}</div>}
+                        {ref && ref.reminder_count > 0 && <div style={{ fontSize:11, color:'#F4A261', marginTop:2 }}>{ref.reminder_count} reminder{ref.reminder_count !== 1 ? 's' : ''} sent</div>}
                       </td>
-                      <td style={{ padding: '12px 16px', color: '#8FA0B0', fontSize: 12 }}>
-                        {ref.sent_at ? new Date(ref.sent_at).toLocaleDateString() : '—'}
+                      <td style={{ padding:'12px 16px', color:'#8FA0B0', fontSize:12 }}>
+                        {ref?.sent_at ? new Date(ref.sent_at).toLocaleDateString() : '—'}
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
-                        {ref.status !== 'received' && (
-                          <button
-                            onClick={() => handleResend(ref.id)}
-                            disabled={resending === ref.id}
-                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: '#EFF2F5', border: 'none', borderRadius: 7, color: '#4A6070', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: resending === ref.id ? 0.6 : 1 }}
-                          >
+                      <td style={{ padding:'12px 16px' }}>
+                        {ref && status !== 'received' && (
+                          <button onClick={() => handleResend(ref.id)} disabled={resending === ref.id}
+                            style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#EFF2F5', border:'none', borderRadius:7, color:'#4A6070', fontSize:12, fontWeight:600, cursor:'pointer', opacity: resending === ref.id ? 0.6 : 1 }}>
                             <Send size={11}/> {resending === ref.id ? 'Sending…' : 'Resend'}
                           </button>
                         )}
-                        {ref.status === 'received' && (
+                        {status === 'received' && ref && (
                           <button
-                            onClick={() => setViewSub({ id: ref.id, type: ref.reference_type, slot: ref.slot, name: ref.referee_name, caregiverName: (ref.caregiver as any)?.full_name || '' })}
-                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: '#E6F6F4', border: 'none', borderRadius: 7, color: '#2A9D8F', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                          >
+                            onClick={() => setViewSub({ id: ref.id, type: ref.reference_type, slot: ref.slot, name: ref.referee_name, caregiverName: row.caregiver_name })}
+                            style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#E6F6F4', border:'none', borderRadius:7, color:'#2A9D8F', fontSize:12, fontWeight:600, cursor:'pointer' }}>
                             <Eye size={11}/> View Response
                           </button>
                         )}
@@ -249,7 +331,7 @@ export default function ReferencesClient({ refs, userId, fullName, isAdmin }: {
                 })}
               </tbody>
             </table>
-          )}
+          </div>
         </div>
       )}
 

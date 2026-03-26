@@ -7,6 +7,8 @@ import { Plus, CheckCircle, AlertTriangle, UserPlus } from 'lucide-react'
 
 interface Profile { id:string; full_name:string; role:string; email:string; hire_date?:string; status:string; department?:string; phone?:string }
 interface Enrollment { id:string; course_id:string; progress_pct:number; completed_at?:string; due_date?:string; course?:{title:string;category:string;thumbnail_color:string} }
+interface CredSum { current:number; expiring:number; expired:number; missing:number }
+interface RefSum  { received:number; total:number }
 interface Policy { id:string; title:string; version:string; category:string; updated_at:string }
 interface Cred { id:string; status:string; expiry_date?:string; credential_type?:{name:string} }
 
@@ -85,7 +87,7 @@ function InviteModal({ onClose }: { onClose: ()=>void }) {
 }
 
 // ── Admin: staff directory ──────────────────────────────────────────────────
-function AdminView({ allStaff }: { allStaff: Profile[] }) {
+function AdminView({ allStaff, credSummary, refSummary }: { allStaff: Profile[]; credSummary: Record<string,CredSum>; refSummary: Record<string,RefSum> }) {
   const [showInvite, setShowInvite] = useState(false)
   const [search, setSearch] = useState('')
   const filtered = allStaff.filter(s =>
@@ -123,7 +125,7 @@ function AdminView({ allStaff }: { allStaff: Profile[] }) {
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:14 }}>
             <thead>
               <tr style={{ background:'#F8FAFB', borderBottom:'1px solid #EFF2F5' }}>
-                {['Name','Email','Role','Department','Status','Actions'].map(h=>(
+                {['Name','Email','Role','Credentials','References','Status','Actions'].map(h=>(
                   <th key={h} style={{ textAlign:'left', padding:'12px 16px', fontSize:11, fontWeight:700, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px' }}>{h}</th>
                 ))}
               </tr>
@@ -136,7 +138,29 @@ function AdminView({ allStaff }: { allStaff: Profile[] }) {
                   <td style={{ padding:'14px 16px' }}>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:roleBg(s.role), color:roleColor(s.role), textTransform:'capitalize' }}>{s.role}</span>
                   </td>
-                  <td style={{ padding:'14px 16px', color:'#8FA0B0', fontSize:13 }}>{s.department||'—'}</td>
+                  <td style={{ padding:'14px 16px' }}>
+                    {(() => {
+                      const cs = credSummary[s.id]
+                      if (!cs) return <span style={{ color:'#D1D9E0' }}>—</span>
+                      return (
+                        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                          {cs.current > 0 && <span style={{ padding:'2px 7px', borderRadius:10, fontSize:10, fontWeight:700, background:'#E6F6F4', color:'#2A9D8F' }}>{cs.current} ok</span>}
+                          {cs.expiring > 0 && <span style={{ padding:'2px 7px', borderRadius:10, fontSize:10, fontWeight:700, background:'#FEF3EA', color:'#C96B15' }}>{cs.expiring} exp</span>}
+                          {cs.expired > 0 && <span style={{ padding:'2px 7px', borderRadius:10, fontSize:10, fontWeight:700, background:'#FDE8E9', color:'#E63946' }}>{cs.expired} exp!</span>}
+                          {cs.missing > 0 && <span style={{ padding:'2px 7px', borderRadius:10, fontSize:10, fontWeight:700, background:'#F3E8FF', color:'#9B59B6' }}>{cs.missing} miss</span>}
+                        </div>
+                      )
+                    })()}
+                  </td>
+                  <td style={{ padding:'14px 16px' }}>
+                    {(() => {
+                      const rs = refSummary[s.id]
+                      if (!rs) return <span style={{ color:'#D1D9E0' }}>—</span>
+                      const color = rs.received === rs.total ? '#2A9D8F' : rs.received > 0 ? '#F4A261' : '#8FA0B0'
+                      const bg    = rs.received === rs.total ? '#E6F6F4' : rs.received > 0 ? '#FEF3EA' : '#EFF2F5'
+                      return <span style={{ padding:'3px 10px', borderRadius:12, fontSize:11, fontWeight:700, background:bg, color }}>{rs.received}/{rs.total}</span>
+                    })()}
+                  </td>
                   <td style={{ padding:'14px 16px' }}>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:s.status==='active'?'#E6F6F4':'#EFF2F5', color:s.status==='active'?'#2A9D8F':'#8FA0B0' }}>
                       {s.status}

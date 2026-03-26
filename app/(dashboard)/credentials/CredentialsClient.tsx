@@ -14,7 +14,7 @@ interface Cred {
   submitter?: { full_name: string };
   credential_type?: { name: string; validity_days: number }
 }
-interface Stats { current: number; expiring: number; expired: number; total: number }
+interface Stats { current: number; expiring: number; expired: number; total: number; missing?: number }
 interface RefSummary { caregiver_id: string; received: number; total: number }
 
 export default function CredentialsClient({
@@ -160,12 +160,13 @@ export default function CredentialsClient({
       </div>
 
       {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:16, marginBottom:24 }}>
         {[
-          { label:'Active Staff', value:stats.total, color:'#1A2E44' },
-          { label:'Current', value:stats.current, color:'#2A9D8F' },
-          { label:'Expiring Soon', value:stats.expiring, color:'#F4A261' },
-          { label:'Expired', value:stats.expired, color:'#E63946' },
+          { label:'Active Staff',    value:stats.total,           color:'#1A2E44' },
+          { label:'Current',         value:stats.current,         color:'#2A9D8F' },
+          { label:'Expiring Soon',   value:stats.expiring,        color:'#F4A261' },
+          { label:'Expired',         value:stats.expired,         color:'#E63946' },
+          { label:'Missing',         value:stats.missing ?? 0,    color:'#9B59B6' },
         ].map((s,i)=>(
           <div key={i} style={{ background:'#fff', borderRadius:12, padding:'18px 20px', borderLeft:`4px solid ${s.color}`, boxShadow:'0 1px 4px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize:30, fontWeight:800, color:'#1A2E44', lineHeight:1 }}>{s.value}</div>

@@ -16,6 +16,11 @@ export default async function ReferencesPage() {
 
   // Load references — own for caregiver, all for admin
   let refs: any[] = []
+  // Fetch all caregivers for admin to show "not sent" slots too
+  const { data: allCaregivers } = isAdmin
+    ? await svc.from('profiles').select('id, full_name').eq('role', 'caregiver').eq('status', 'active').order('full_name')
+    : { data: [] }
+
   if (isAdmin) {
     const { data } = await svc
       .from('caregiver_references')
@@ -34,6 +39,7 @@ export default async function ReferencesPage() {
   return (
     <ReferencesClient
       refs={refs}
+      caregivers={allCaregivers || []}
       userId={user.id}
       fullName={profile?.full_name || ''}
       isAdmin={isAdmin}
