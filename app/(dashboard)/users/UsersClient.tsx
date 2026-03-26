@@ -88,7 +88,7 @@ function InvitePanel({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
       <div style={{ marginBottom: 14 }}>
         <label style={lbl}>Email Address *</label>
         <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-          placeholder="staff@vitalis.care" style={inp} />
+          placeholder="staff@vitalishealthcare.com" style={inp} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
         <div>
@@ -336,8 +336,7 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
           <path fill="#EA4335" d="M8.98 3.58c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.82 5.4L4.51 7.48C5.14 5.59 6.9 3.58 8.98 3.58z"/>
         </svg>
         <div style={{ fontSize: 13, color: '#0A5C5B', lineHeight: 1.6 }}>
-          <strong>Google Workspace SSO is ready.</strong> Once configured in Supabase, invited staff with a <em>@vitalis.care</em> Google account can sign in instantly with one click — no separate password needed.
-          {' '}<a href="#google-setup" style={{ color: '#0E7C7B', fontWeight: 700 }}>Setup guide below ↓</a>
+          <strong>Google Workspace SSO is active.</strong> Staff with a <em>@vitalishealthcare.com</em> Google account can sign in instantly with one click — no password needed.
         </div>
       </div>
 
@@ -418,61 +417,6 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
         )}
       </div>
 
-      {/* Google SSO Setup Guide */}
-      <div id="google-setup" style={{ background: '#fff', borderRadius: 12, padding: 28, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-        <h2 style={{ fontSize: 17, fontWeight: 800, color: '#1A2E44', marginBottom: 6 }}>
-          <svg width="20" height="20" viewBox="0 0 18 18" style={{ verticalAlign: 'middle', marginRight: 8 }}>
-            <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
-            <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.76-2.7.76-2.08 0-3.84-1.4-4.47-3.29H1.82v2.07A8 8 0 0 0 8.98 17z"/>
-            <path fill="#FBBC05" d="M4.51 10.52A4.8 4.8 0 0 1 4.26 9c0-.53.09-1.04.25-1.52V5.41H1.82a8 8 0 0 0 0 7.18l2.69-2.07z"/>
-            <path fill="#EA4335" d="M8.98 3.58c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.82 5.4L4.51 7.48C5.14 5.59 6.9 3.58 3.58z"/>
-          </svg>
-          Google Workspace SSO — Setup Guide
-        </h2>
-        <p style={{ color: '#8FA0B0', fontSize: 13, marginBottom: 20 }}>One-time 10-minute setup. Once done, all Vitalis Google accounts can sign in with one click.</p>
-
-        {[
-          {
-            step: '1', title: 'Create a Google OAuth App',
-            body: 'Go to console.cloud.google.com → New Project → name it "Vitalis Portal". Then APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID. Set application type to "Web application".',
-          },
-          {
-            step: '2', title: 'Add Authorised Redirect URI',
-            body: 'In the OAuth client settings, add this Authorised redirect URI:',
-            code: 'https://ttojfvyfxqyzwvuzhvtd.supabase.co/auth/v1/callback',
-          },
-          {
-            step: '3', title: 'Copy Client ID and Secret',
-            body: 'Copy the Client ID and Client Secret from Google Cloud Console.',
-          },
-          {
-            step: '4', title: 'Enable Google in Supabase',
-            body: 'Go to supabase.com → your project → Authentication → Providers → Google. Toggle it on, paste your Client ID and Secret, save.',
-          },
-          {
-            step: '5', title: 'Restrict to your Google Workspace domain (recommended)',
-            body: 'In the login page code (app/login/page.tsx), the hd parameter is already set. Change "vitalis.care" to your actual Google Workspace domain so only your staff can sign in with Google.',
-            code: "queryParams: { hd: 'vitalis.care' }  // ← change to your domain",
-          },
-          {
-            step: '6', title: 'Test it',
-            body: 'Visit the login page and click "Sign in with Google Workspace". It should prompt for your Google account and redirect back to the dashboard.',
-          },
-        ].map((s, i) => (
-          <div key={i} style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#0E7C7B', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>{s.step}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#1A2E44', marginBottom: 4 }}>{s.title}</div>
-              <div style={{ fontSize: 13, color: '#4A6070', lineHeight: 1.6 }}>{s.body}</div>
-              {s.code && (
-                <div style={{ background: '#1A2E44', color: '#E6F4F4', padding: '8px 14px', borderRadius: 6, fontSize: 12, fontFamily: 'monospace', marginTop: 8, wordBreak: 'break-all' as const }}>
-                  {s.code}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
