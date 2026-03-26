@@ -103,11 +103,13 @@ export default function CredentialsClient({
 
     const staffName = staff.find(s => s.id === form.user_id)?.full_name
     const credName  = credTypes.find(c => c.id === form.credential_type_id)?.name
-    await supabase.from('audit_log').insert({
-      user_id:     user?.id,
-      action:      `Credential recorded: ${staffName} — ${credName}`,
-      entity_type: 'credential'
-    }).then(() => {}).catch(() => {}) // non-fatal — ignore audit log errors
+    try {
+      await supabase.from('audit_log').insert({
+        user_id:     user?.id,
+        action:      `Credential recorded: ${staffName} — ${credName}`,
+        entity_type: 'credential'
+      })
+    } catch { /* non-fatal */ }
 
     setForm({ user_id:'', credential_type_id:'', issue_date: new Date().toISOString().split('T')[0], expiry_date:'', notes:'', does_not_expire: false })
     setUploadedFile(null)
