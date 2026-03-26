@@ -24,11 +24,11 @@ export default async function DashboardPage() {
       { data: expiringCreds },
       { data: recentActivity },
     ] = await Promise.all([
-      supabase.from('profiles').select('*', { count:'exact', head:true }).eq('status','active'),
-      supabase.from('courses').select('*', { count:'exact', head:true }).eq('status','published'),
-      supabase.from('policies').select('*', { count:'exact', head:true }).eq('status','published'),
-      supabase.from('staff_credentials').select('*').eq('status','expiring'),
-      supabase.from('audit_log').select('*').order('created_at', { ascending:false }).limit(8),
+      adminClient.from('profiles').select('*', { count:'exact', head:true }).eq('status','active'),
+      adminClient.from('courses').select('*', { count:'exact', head:true }).eq('status','published'),
+      adminClient.from('policies').select('*', { count:'exact', head:true }).eq('status','published'),
+      adminClient.from('staff_credentials').select('*').eq('status','expiring'),
+      adminClient.from('audit_log').select('*').order('created_at', { ascending:false }).limit(8),
     ])
 
     return (
@@ -108,14 +108,14 @@ export default async function DashboardPage() {
     { data: myPolicies },
     { data: myCreds },
   ] = await Promise.all([
-    supabase.from('course_enrollments')
+    adminClient.from('course_enrollments')
       .select('*, course:courses(id, title, category, thumbnail_color, estimated_minutes, status)')
       .eq('user_id', user?.id||'')
       .order('assigned_at', { ascending:false }),
-    supabase.from('policy_acknowledgements')
+    adminClient.from('policy_acknowledgements')
       .select('*, policy:policies(id, title, version)')
       .eq('user_id', user?.id||''),
-    supabase.from('staff_credentials')
+    adminClient.from('staff_credentials')
       .select('*, credential_type:credential_types(name)')
       .eq('user_id', user?.id||''),
   ])
