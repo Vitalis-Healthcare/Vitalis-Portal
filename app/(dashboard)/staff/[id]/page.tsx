@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle } from 'lucide-react'
-import ProfileCredentialsCard from './ProfileCredentialsCard'
+import { CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react'
 
 export default async function StaffMemberPage({ params }: { params: { id: string } }) {
   const supabase = await createClient()
@@ -13,19 +12,20 @@ export default async function StaffMemberPage({ params }: { params: { id: string
   const isAdmin = viewer?.role === 'admin' || viewer?.role === 'supervisor' || viewer?.role === 'staff'
   if (!isAdmin) redirect('/dashboard')
 
+  // Load the staff member's profile
   const { data: member } = await supabase
     .from('profiles')
     .select('id, full_name, email, role, status, department, phone, position_name')
     .eq('id', params.id)
     .single()
 
-  if (!member) return <div style={{ padding: 40, color: '#8FA0B0' }}>Caregiver not found. <a href='/staff'>← Back</a></div>
+  if (!member) return <div style={{padding:40,color:'#8FA0B0'}}>Caregiver not found. <a href='/staff'>← Back</a></div>
 
+  // Load all their activity in parallel
   const [
     { data: enrollments },
     { data: credentials },
     { data: acknowledgments },
-    { data: credDocs },
   ] = await Promise.all([
     supabase.from('course_enrollments').select(`
       id, progress_pct, completed_at, due_date, enrolled_at,
@@ -33,46 +33,20 @@ export default async function StaffMemberPage({ params }: { params: { id: string
     `).eq('user_id', params.id).order('enrolled_at', { ascending: false }),
 
     supabase.from('staff_credentials').select(`
-      id, status, issue_date, expiry_date, does_not_expire, notes,
+      id, status, issue_date, expiry_date, notes, uploaded_at,
       credential_type:credential_type_id(name)
-    `).eq('user_id', params.id),
+    `).eq('user_id', params.id).order('uploaded_at', { ascending: false }),
 
     supabase.from('policy_acknowledgements').select(`
       id, acknowledged_at, version,
       policy:policy_id(doc_id, title, domain)
     `).eq('user_id', params.id).order('acknowledged_at', { ascending: false }),
-
-    // All uploaded documents for this caregiver, with uploader name
-    supabase.from('credential_documents').select(`
-      id, credential_id, file_name, file_url, uploaded_at,
-      uploader:uploaded_by(full_name)
-    `).eq('user_id', params.id).order('uploaded_at', { ascending: false }),
   ])
 
-  // Attach documents to each credential, sorted newest first
-  const credentialsWithDocs = (credentials || []).map((cred: any) => {
-    const docs = (credDocs || [])
-      .filter((d: any) => d.credential_id === cred.id)
-      .map((d: any) => ({
-        id:               d.id,
-        file_name:        d.file_name,
-        file_url:         d.file_url,
-        uploaded_at:      d.uploaded_at,
-        uploaded_by_name: (d.uploader as any)?.full_name ?? null,
-      }))
-    return { ...cred, documents: docs }
-  }).sort((a: any, b: any) => {
-    // Sort: expired first, then expiring, then current — alphabetical within each group
-    const order: Record<string, number> = { expired: 0, expiring: 1, current: 2, missing: 3 }
-    const ao = order[a.status] ?? 4
-    const bo = order[b.status] ?? 4
-    if (ao !== bo) return ao - bo
-    return (a.credential_type?.name ?? '').localeCompare(b.credential_type?.name ?? '')
-  })
-
-  const completedCourses = (enrollments || []).filter((e: any) => e.completed_at)
-  const pendingCourses   = (enrollments || []).filter((e: any) => !e.completed_at)
-  const expiringCreds    = credentialsWithDocs.filter((c: any) => !c.does_not_expire && (c.status === 'expiring' || c.status === 'expired'))
+  const completedCourses = (enrollments || []).filter(e => e.completed_at)
+  const pendingCourses   = (enrollments || []).filter(e => !e.completed_at)
+  const currentCreds     = (credentials || []).filter(c => c.status === 'current')
+  const expiringCreds    = (credentials || []).filter(c => c.status === 'expiring' || c.status === 'expired')
 
   const roleColor = (r: string) =>
     r === 'admin' ? '#1A2E44' : r === 'supervisor' ? '#0E7C7B' : r === 'staff' ? '#1D4ED8' : '#2A9D8F'
@@ -85,11 +59,12 @@ export default async function StaffMemberPage({ params }: { params: { id: string
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
+      {/* Back nav */}
       <Link href="/staff" style={{ fontSize: 13, color: '#0E7C7B', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
         ← Back to Caregiver Directory
       </Link>
 
-      {/* Header */}
+      {/* Header card */}
       <div style={{ ...card, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20 }}>
         <div style={{
           width: 60, height: 60, borderRadius: '50%', flexShrink: 0,
@@ -116,12 +91,14 @@ export default async function StaffMemberPage({ params }: { params: { id: string
             {member.phone && <span>📞 {member.phone}</span>}
           </div>
         </div>
+
+        {/* Summary stats */}
         <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
           {[
-            { label: 'Courses done',      value: completedCourses.length, color: '#2A9D8F' },
-            { label: 'Pending training',  value: pendingCourses.length,   color: pendingCourses.length > 0 ? '#F4A261' : '#2A9D8F' },
-            { label: 'Credential alerts', value: expiringCreds.length,    color: expiringCreds.length > 0 ? '#E63946' : '#2A9D8F' },
-            { label: 'Policies signed',   value: (acknowledgments || []).length, color: '#0E7C7B' },
+            { label: 'Courses done', value: completedCourses.length, color: '#2A9D8F' },
+            { label: 'Pending training', value: pendingCourses.length, color: pendingCourses.length > 0 ? '#F4A261' : '#2A9D8F' },
+            { label: 'Credential alerts', value: expiringCreds.length, color: expiringCreds.length > 0 ? '#E63946' : '#2A9D8F' },
+            { label: 'Policies signed', value: (acknowledgments || []).length, color: '#0E7C7B' },
           ].map((s, i) => (
             <div key={i} style={{ textAlign: 'center', minWidth: 70 }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -131,7 +108,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
         </div>
       </div>
 
-      {/* Training + Credentials grid */}
+      {/* GRID */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
 
         {/* Training */}
@@ -140,6 +117,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
             <span>🎓 Training</span>
             <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{(enrollments || []).length} total</span>
           </div>
+
           {pendingCourses.length > 0 && (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#F4A261', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>In Progress</div>
@@ -158,6 +136,7 @@ export default async function StaffMemberPage({ params }: { params: { id: string
               {completedCourses.length > 0 && <div style={{ borderTop: '1px solid #EFF2F5', marginTop: 12, marginBottom: 12 }} />}
             </>
           )}
+
           {completedCourses.length > 0 && (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#2A9D8F', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Completed</div>
@@ -170,27 +149,58 @@ export default async function StaffMemberPage({ params }: { params: { id: string
               ))}
             </>
           )}
-          {(enrollments || []).length === 0 && <p style={{ color: '#8FA0B0', fontSize: 13 }}>No courses assigned yet.</p>}
+
+          {(enrollments || []).length === 0 && (
+            <p style={{ color: '#8FA0B0', fontSize: 13 }}>No courses assigned yet.</p>
+          )}
         </div>
 
-        {/* Credentials — now uses client component with document history */}
+        {/* Credentials */}
         <div style={card}>
           <div style={sectionTitle}>
             <span>🪪 Credentials</span>
-            <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>
-              {credentialsWithDocs.length} on file · {(credDocs || []).length} document{(credDocs || []).length !== 1 ? 's' : ''}
-            </span>
+            <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{(credentials || []).length} on file</span>
           </div>
-          <ProfileCredentialsCard credentials={credentialsWithDocs} />
+
+          {expiringCreds.length > 0 && (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#E63946', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>⚠ Requires Attention</div>
+              {expiringCreds.map((c: any) => {
+                const expDays = c.expiry_date ? Math.ceil((new Date(c.expiry_date).getTime() - Date.now()) / 86400000) : null
+                const col = c.status === 'expiring' ? '#F4A261' : '#E63946'
+                return (
+                  <div key={c.id} style={{ padding: '10px 12px', borderRadius: 8, border: `1px solid ${col}40`, borderLeft: `3px solid ${col}`, marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1A2E44' }}>{c.credential_type?.name}</div>
+                    <div style={{ fontSize: 11, color: col, marginTop: 3 }}>
+                      {c.status === 'expired' ? '✗ Expired' : expDays !== null ? `⚠ Expires in ${expDays} days` : 'Expiring soon'}
+                      {c.expiry_date && ` · ${new Date(c.expiry_date).toLocaleDateString()}`}
+                    </div>
+                  </div>
+                )
+              })}
+              {currentCreds.length > 0 && <div style={{ borderTop: '1px solid #EFF2F5', marginTop: 12, marginBottom: 12 }} />}
+            </>
+          )}
+
+          {currentCreds.map((c: any) => (
+            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#4A6070', marginBottom: 8 }}>
+              <CheckCircle size={13} color="#2A9D8F" style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>{c.credential_type?.name}</div>
+              {c.expiry_date && <div style={{ fontSize: 11, color: '#8FA0B0' }}>Exp. {new Date(c.expiry_date).toLocaleDateString()}</div>}
+            </div>
+          ))}
+
+          {(credentials || []).length === 0 && <p style={{ color: '#8FA0B0', fontSize: 13 }}>No credentials on file.</p>}
         </div>
       </div>
 
-      {/* Policies */}
+      {/* Policies Acknowledged */}
       <div style={{ ...card, marginBottom: 20 }}>
         <div style={sectionTitle}>
           <span>📋 Policies & Procedures Acknowledged</span>
           <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 400 }}>{(acknowledgments || []).length} signed</span>
         </div>
+
         {(acknowledgments || []).length === 0 ? (
           <p style={{ color: '#8FA0B0', fontSize: 13 }}>No policies acknowledged yet.</p>
         ) : (
