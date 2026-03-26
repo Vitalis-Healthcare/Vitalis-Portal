@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, GraduationCap, FileText,
   BadgeCheck, Users, BarChart3, Settings,
-  LogOut, UserCog, ShieldCheck
+  LogOut, UserCog, ShieldCheck, AlertTriangle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -20,6 +20,7 @@ const adminSections = [
     items: [
       { href: '/lms', label: 'Training Programmes', icon: GraduationCap },
       { href: '/pp', label: 'Policies & Procedures', icon: ShieldCheck },
+      { href: '/ep', label: 'Emergency Preparedness', icon: AlertTriangle },
       { href: '/credentials', label: 'Credentials', icon: BadgeCheck },
       { href: '/staff', label: 'Staff Portal', icon: Users },
     ]
@@ -44,6 +45,7 @@ const staffSections = [
     items: [
       { href: '/lms', label: 'Training Programmes', icon: GraduationCap },
       { href: '/pp', label: 'Policies & Procedures', icon: ShieldCheck },
+      { href: '/ep', label: 'Emergency Preparedness', icon: AlertTriangle },
       { href: '/credentials', label: 'My Credentials', icon: BadgeCheck },
     ]
   }
