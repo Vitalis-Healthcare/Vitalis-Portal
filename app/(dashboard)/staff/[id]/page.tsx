@@ -16,7 +16,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
   if (!isAdmin) redirect('/dashboard')
 
   // Load the staff member's profile
-  const { data: member } = await supabase
+  const { data: member } = await svc
     .from('profiles')
     .select('id, full_name, email, role, status, department, phone, position_name')
     .eq('id', id)
