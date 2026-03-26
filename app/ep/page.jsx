@@ -280,7 +280,7 @@ function LivePlanDocument({dates,actions,versions,latestSupply,onSaveVersion}){
                   {v.generated_by&&<div style={{marginTop:1}}>{v.generated_by}</div>}
                 </div>
                 <div style={{fontSize:13,color:T.textMid}}>{v.changes_summary}</div>
-                <div style={{display:"flex",gap:6"}}>
+                <div style={{display:"flex",gap:6}}>
                   {v.html_content&&<button onClick={()=>openVersion(v.html_content)} style={S.btnSm}>Open</button>}
                   {v.html_content&&<button onClick={()=>{const b=new Blob([v.html_content],{type:"text/html"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`Vitalis_EP_Plan_v${v.version_num}.html`;a.click();}} style={S.btnSm}>Download</button>}
                 </div>
