@@ -115,7 +115,7 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
                   </button>
                 </Link>
               )}
-              <PrintButton />
+              <PrintButton docId={policy.doc_id} />
               <PolicyAcknowledgeButton
                 docId={policy.doc_id} docVersion={policy.version}
                 ackState={ackState} acknowledgedAt={ack?.acknowledged_at || null}
