@@ -18,7 +18,7 @@ interface CredentialDoc {
   version_number: number
   is_latest:      boolean
   notes:          string | null
-  uploader:       { full_name: string } | null
+  uploader:       { full_name: string } | { full_name: string }[] | null
 }
 
 interface Props {
@@ -55,7 +55,7 @@ export default function CredentialDocViewer({
       .eq('staff_credential_id', credentialId)
       .order('version_number', { ascending: false })
       .then(({ data, error }) => {
-        if (!error && data) setDocs(data as CredentialDoc[])
+        if (!error && data) setDocs(data as unknown as CredentialDoc[])
         setLoading(false)
       })
   }, [isOpen, credentialId])
@@ -175,7 +175,11 @@ function DocCard({ doc, isCurrent, fmtTime }: {
   isCurrent: boolean
   fmtTime: (iso: string) => string
 }) {
-  const uploaderName = (doc.uploader as any)?.full_name ?? 'System'
+  const uploaderName = !doc.uploader
+    ? 'System'
+    : Array.isArray(doc.uploader)
+      ? (doc.uploader[0]?.full_name ?? 'System')
+      : doc.uploader.full_name
   const fileName     = doc.file_name || 'Document'
 
   return (
