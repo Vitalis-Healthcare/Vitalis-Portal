@@ -33,17 +33,17 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
     svc.from('course_enrollments').select(`
       id, progress_pct, completed_at, due_date, enrolled_at,
       course:course_id(id, title, category, thumbnail_color)
-    `).eq('user_id', id).order('enrolled_at', { ascending: false }),
+    `).eq('user_id', id).order('assigned_at', { ascending: false }),
 
     svc.from('staff_credentials').select(`
       id, status, issue_date, expiry_date, notes, uploaded_at,
       credential_type:credential_type_id(name)
-    `).eq('user_id', id).order('uploaded_at', { ascending: false }),
+    `).eq('user_id', id).order('updated_at', { ascending: false }),
 
     svc.from('policy_acknowledgements').select(`
-      id, acknowledged_at, version,
+      id, signed_at, version_signed,
       policy:policy_id(doc_id, title, domain)
-    `).eq('user_id', id).order('acknowledged_at', { ascending: false }),
+    `).eq('user_id', id).order('signed_at', { ascending: false }),
   ])
 
   const completedCourses = (enrollments || []).filter(e => e.completed_at)
@@ -214,7 +214,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#1A2E44', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.policy?.title}</div>
                   <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 2 }}>
-                    {a.policy?.doc_id} · v{a.version} · {new Date(a.acknowledged_at).toLocaleDateString()}
+                    {a.policy?.doc_id} · v{a.version_signed} · {new Date(a.signed_at).toLocaleDateString()}
                   </div>
                 </div>
               </div>
