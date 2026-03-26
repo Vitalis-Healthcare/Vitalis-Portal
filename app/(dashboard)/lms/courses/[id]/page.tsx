@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Users, Clock, BookOpen, CheckCircle } from 'lucide-react'
@@ -25,6 +26,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     .order('assigned_at', { ascending: false })
 
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user?.id || '').single()
 

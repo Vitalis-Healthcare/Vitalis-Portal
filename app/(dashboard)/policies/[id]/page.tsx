@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -8,6 +9,7 @@ export default async function PolicyDetailPage({ params }: { params: Promise<{ i
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
 
   const { data: policy } = await supabase.from('policies').select('*').eq('id', id).single()
   if (!policy) notFound()
@@ -27,7 +29,7 @@ export default async function PolicyDetailPage({ params }: { params: Promise<{ i
     .eq('version_signed', policy.version)
     .order('signed_at', { ascending: false })
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id||'').single()
+  const { data: profile } = await svc.from('profiles').select('role').eq('id', user?.id||'').single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
   return (

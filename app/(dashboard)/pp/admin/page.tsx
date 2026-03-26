@@ -1,12 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export default async function PPAdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   if (!user) redirect('/login')
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await svc.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') redirect('/pp')
 
   const [{ data: policies }, { data: acks }, { data: proposals }, { data: staff }] = await Promise.all([

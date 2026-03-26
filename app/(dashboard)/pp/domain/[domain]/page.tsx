@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, CheckCircle, Clock, FileText } from 'lucide-react'
@@ -27,7 +28,8 @@ export default async function DomainPage({ params }: { params: Promise<{ domain:
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id||'').single()
+  const svc = createServiceClient()
+  const { data: profile } = await svc.from('profiles').select('role').eq('id', user?.id||'').single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
   const userRole = profile?.role || ''
 

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -8,9 +9,10 @@ export default async function PolicyEditPage({ params }: { params: Promise<{ doc
   const { docId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', user.id).single()
+  const { data: profile } = await svc.from('profiles').select('role, full_name').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') redirect(`/pp/${docId}`)
 
   const { data: policy } = await supabase.from('pp_policies').select('*').eq('doc_id', docId.toUpperCase()).single()

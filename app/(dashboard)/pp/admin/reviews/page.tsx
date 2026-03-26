@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, AlertTriangle, Clock, CheckCircle, Calendar } from 'lucide-react'
@@ -6,7 +7,8 @@ import { ArrowLeft, AlertTriangle, Clock, CheckCircle, Calendar } from 'lucide-r
 export default async function ReviewCalendarPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id||'').single()
+  const svc = createServiceClient()
+  const { data: profile } = await svc.from('profiles').select('role').eq('id', user?.id||'').single()
 
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') redirect('/pp')
 

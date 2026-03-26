@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { CheckCircle, Clock, BookOpen, Users, Lock } from 'lucide-react'
 
 export default async function LMSPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id||'').single()
+  const svc = createServiceClient()
+  const { data: profile } = await svc.from('profiles').select('role').eq('id', user?.id||'').single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
   // Fetch all programmes with their tracks and modules

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import PPAIChat from './PPAIChat'
@@ -16,9 +17,10 @@ const DOMAINS = [
 export default async function PPPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', user.id).single()
+  const { data: profile } = await svc.from('profiles').select('role, full_name').eq('id', user.id).single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
   const ppRole = profile?.role === 'admin' ? 'Administrator'
     : profile?.role === 'supervisor' ? 'Director of Nursing'

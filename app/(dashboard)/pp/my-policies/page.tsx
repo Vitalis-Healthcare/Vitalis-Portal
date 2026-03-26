@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { CheckCircle, Clock, ArrowLeft, FileText } from 'lucide-react'
 
@@ -17,7 +18,8 @@ const DOMAIN_COLORS: Record<string, { bg: string; text: string }> = {
 export default async function MyPoliciesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', user?.id||'').single()
+  const svc = createServiceClient()
+  const { data: profile } = await svc.from('profiles').select('role, full_name').eq('id', user?.id||'').single()
 
   const userRole = profile?.role || ''
   const ppRole = userRole === 'admin' ? 'Administrator'

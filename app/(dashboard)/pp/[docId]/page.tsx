@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
@@ -11,9 +12,10 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
   const { docId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const svc = createServiceClient()
   if (!user) return notFound()
 
-  const { data: profile } = await supabase.from('profiles').select('id, role, full_name, email').eq('id', user.id).single()
+  const { data: profile } = await svc.from('profiles').select('id, role, full_name, email').eq('id', user.id).single()
   const { data: policy } = await supabase.from('pp_policies').select('*').eq('doc_id', docId.toUpperCase()).single()
   if (!policy) notFound()
 

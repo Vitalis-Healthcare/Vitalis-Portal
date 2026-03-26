@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
@@ -17,7 +18,8 @@ const TIER_LABELS: Record<number, string> = { 1: 'Policy', 2: 'Procedure', 3: 'W
 export default async function LibraryPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id||'').single()
+  const svc = createServiceClient()
+  const { data: profile } = await svc.from('profiles').select('role').eq('id', user?.id||'').single()
   const ppRole = profile?.role === 'admin' ? 'Administrator' : profile?.role === 'supervisor' ? 'Director of Nursing' : profile?.role === 'caregiver' ? 'CNA' : 'All Staff'
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
