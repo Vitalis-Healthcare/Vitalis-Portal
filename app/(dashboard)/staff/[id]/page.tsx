@@ -39,15 +39,15 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
   const [enrollRes, credRes, ackRes] = await Promise.all([
     admin.from('course_enrollments')
       .select('id, progress_pct, completed_at, due_date, assigned_at, course:courses(id, title, category)')
-      .eq('user_id', params.id)
+      .eq('user_id', id)
       .order('assigned_at', { ascending: false }),
     admin.from('staff_credentials')
       .select('id, status, issue_date, expiry_date, does_not_expire, credential_type:credential_types(name)')
-      .eq('user_id', params.id)
+      .eq('user_id', id)
       .order('created_at', { ascending: false }),
     admin.from('policy_acknowledgements')
       .select('id, acknowledged_at, version, policy:policies(id, title, category)')
-      .eq('user_id', params.id)
+      .eq('user_id', id)
       .order('acknowledged_at', { ascending: false }),
   ])
 
