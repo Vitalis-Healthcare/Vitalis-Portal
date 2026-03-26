@@ -294,6 +294,6 @@ function CaregiverView({ profile, myEnrollments, unsignedPolicies, myCreds }: Om
 }
 
 export default function StaffClient(props: Props) {
-  if (props.isAdmin) return <AdminView allStaff={props.allStaff}/>
+  if (props.isAdmin) return <AdminView allStaff={props.allStaff} credSummary={props.credSummary||{}} refSummary={props.refSummary||{}}/>
   return <CaregiverView profile={props.profile} myEnrollments={props.myEnrollments} unsignedPolicies={props.unsignedPolicies} myCreds={props.myCreds}/>
 }
