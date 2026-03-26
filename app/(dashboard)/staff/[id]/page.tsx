@@ -31,14 +31,14 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
     { data: acknowledgments },
   ] = await Promise.all([
     svc.from('course_enrollments').select(`
-      id, progress_pct, completed_at, due_date, enrolled_at,
-      course:course_id(id, title, category, thumbnail_color)
+      id, completed_at, due_date, assigned_at,
+      course:course_id(id, title, category)
     `).eq('user_id', id).order('assigned_at', { ascending: false }),
 
     svc.from('staff_credentials').select(`
-      id, status, issue_date, expiry_date, notes, uploaded_at,
+      id, status, issue_date, expiry_date, does_not_expire, notes,
       credential_type:credential_type_id(name)
-    `).eq('user_id', id).order('updated_at', { ascending: false }),
+    `).eq('user_id', id).order('issue_date', { ascending: false }),
 
     svc.from('policy_acknowledgements').select(`
       id, signed_at, version_signed,
@@ -128,10 +128,10 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
                 <div key={e.id} style={{ marginBottom: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
                     <span style={{ fontWeight: 600, color: '#1A2E44' }}>{e.course?.title}</span>
-                    <span style={{ fontSize: 11, color: '#8FA0B0' }}>{e.progress_pct}%</span>
+                    <span style={{ fontSize: 11, color: '#8FA0B0' }}>{0}%</span>
                   </div>
                   <div style={{ height: 5, borderRadius: 3, background: '#EFF2F5' }}>
-                    <div style={{ height: '100%', width: `${e.progress_pct}%`, background: '#0E7C7B', borderRadius: 3 }} />
+                    <div style={{ height: '100%', width: `${0}%`, background: '#0E7C7B', borderRadius: 3 }} />
                   </div>
                   {e.due_date && <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 3 }}>Due {new Date(e.due_date).toLocaleDateString()}</div>}
                 </div>
