@@ -210,9 +210,11 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: isLive || isAdmin ? '#1A2E44' : '#8FA0B0' }}>
-                          {mod.title}
-                        </span>
+                        <Link href={`/lms/courses/${mod.id}`} style={{ textDecoration: 'none' }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: isLive || isAdmin ? '#1A2E44' : '#8FA0B0', cursor: isLive || isAdmin ? 'pointer' : 'default' }}>
+                            {mod.title}
+                          </span>
+                        </Link>
                         <span style={{
                           padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700,
                           background: badgeBg(mod.badge||''), color: badgeColor(mod.badge||'')
