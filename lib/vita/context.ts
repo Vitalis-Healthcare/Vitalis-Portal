@@ -59,7 +59,7 @@ export async function buildTrainingContext(userId: string, svc: any): Promise<st
     lines.push(`\nSummary: ${completedCount} completed, ${inProgressCount} in progress, ${enrollments.length - completedCount - inProgressCount} not started`)
 
     // Also fetch section-level quiz scores for completed modules
-    const enrollmentIds = enrollments.filter(e => e.completed_at).map(e => e.id).slice(0, 5)
+    const enrollmentIds = enrollments.filter((e: any) => e.completed_at).map((e: any) => e.id).slice(0, 5)
     if (enrollmentIds.length > 0) {
       const { data: quizProgress } = await svc
         .from('section_progress')
