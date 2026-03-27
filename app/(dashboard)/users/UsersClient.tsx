@@ -30,28 +30,32 @@ function InvitePanel({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
   const handleInvite = async () => {
     if (!form.full_name.trim() || !form.email.trim()) { alert('Name and email are required.'); return }
     setSending(true)
-    // Send magic-link invite — user clicks link, auto-logs in, profile auto-created
-    const { error } = await supabase.auth.signInWithOtp({
-      email: form.email,
-      options: {
-        shouldCreateUser: true,
-        data: { full_name: form.full_name, role: form.role },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    if (error) { alert(error.message); setSending(false); return }
-
-    // Pre-create profile row so admin can set role before first login
-    await supabase.from('profiles').upsert({
-      id: crypto.randomUUID(),
-      email: form.email,
-      full_name: form.full_name,
-      role: form.role,
-      department: form.department || null,
-      status: 'active',
-    }, { onConflict: 'email' })
-
-    setStep('sent')
+    try {
+      const res = await fetch('/api/staff/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: form.full_name,
+          email: form.email,
+          role: form.role,
+          department: form.department,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || 'Failed to send invite. Please try again.')
+        setSending(false)
+        return
+      }
+      if (data.status === 'already_exists') {
+        alert('An account with this email already exists in the portal.')
+        setSending(false)
+        return
+      }
+      setStep('sent')
+    } catch {
+      alert('Network error. Please check your connection and try again.')
+    }
     setSending(false)
   }
 

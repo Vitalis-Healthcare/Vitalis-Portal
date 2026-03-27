@@ -81,11 +81,21 @@ export default function LoginPage() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true); setError(''); setSuccessMsg('')
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/update-password`
-    })
-    if (error) { setError(error.message) }
-    else { setSuccessMsg('Password reset link sent. Check your email.') }
+    try {
+      const res = await fetch('/api/auth/send-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Failed to send reset email. Please try again.')
+      } else {
+        setSuccessMsg('Password reset link sent! Check your email — it may take a minute to arrive.')
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.')
+    }
     setLoading(false)
   }
 
