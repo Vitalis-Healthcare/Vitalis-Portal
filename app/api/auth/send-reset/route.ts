@@ -1,11 +1,9 @@
 // app/api/auth/send-reset/route.ts
 // Sends a password reset email via Resend.
-// Called by the login page "Forgot password?" form.
-// No authentication required — user is not logged in.
+// Called by login page "Forgot password?" — no auth required.
 //
-// Uses svc.auth.admin.generateLink({ type: 'recovery' }) to get the reset URL,
-// then sends a branded Resend email. The existing /update-password page
-// handles the token exchange — no changes needed there.
+// Uses hashed_token → /auth/confirm (server-side token exchange)
+// instead of action_link (which lands as hash fragment in browser).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -38,14 +36,15 @@ function buildResetEmail(opts: { firstName: string; email: string; resetLink: st
     </p>
 
     <div style="text-align:center;margin-bottom:28px;">
-      <a href="${resetLink}" style="display:inline-block;padding:14px 40px;background:#0E7C7B;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">
+      <a href="${resetLink}"
+        style="display:inline-block;padding:14px 40px;background:#0E7C7B;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">
         Reset My Password →
       </a>
     </div>
 
     <div style="background:#F8FAFC;border-radius:8px;padding:14px 18px;margin-bottom:20px;">
       <div style="font-size:12px;color:#8FA0B0;line-height:1.8;">
-        <strong>Account email:</strong> ${email}<br>
+        <strong>Account:</strong> ${email}<br>
         <strong>Portal:</strong> <a href="${PORTAL_URL}/login" style="color:#0E7C7B;">${PORTAL_URL}</a>
       </div>
     </div>
@@ -56,13 +55,12 @@ function buildResetEmail(opts: { firstName: string; email: string; resetLink: st
     </div>
 
     <p style="color:#94A3B8;font-size:12px;margin:0;line-height:1.6;">
-      If you didn't request a password reset, you can safely ignore this email — your password won't change.
+      If you didn't request this, you can safely ignore it — your password won't change.
     </p>
   </div>
 
   <div style="text-align:center;padding:20px 0;font-size:11px;color:#94A3B8;line-height:1.8;">
-    Vitalis Healthcare Services, LLC<br>
-    8757 Georgia Avenue, Suite 440 · Silver Spring, MD 20910<br>
+    Vitalis Healthcare Services, LLC · 8757 Georgia Avenue, Suite 440 · Silver Spring, MD 20910<br>
     This is an automated message — please do not reply directly.
   </div>
 </div>
@@ -76,36 +74,32 @@ export async function POST(req: NextRequest) {
   }
 
   const { email } = await req.json()
-  if (!email?.trim()) {
-    return NextResponse.json({ error: 'Email is required.' }, { status: 400 })
-  }
-
+  if (!email?.trim()) return NextResponse.json({ error: 'Email is required.' }, { status: 400 })
   const cleanEmail = email.trim().toLowerCase()
 
-  // ── Generate reset link via admin API ─────────────────────────────────────
-  // IMPORTANT: We always return success to the user even if the email doesn't
-  // exist — this prevents email enumeration attacks.
   const svc = createServiceClient()
+
+  // Generate hashed token — always return success to prevent email enumeration
   const { data: linkData, error: linkError } = await svc.auth.admin.generateLink({
     type: 'recovery',
     email: cleanEmail,
-    options: { redirectTo: `${PORTAL_URL}/auth/callback?next=/update-password` },
+    options: { redirectTo: `${PORTAL_URL}/update-password` },
   })
 
-  // If user doesn't exist or other error — return success anyway (security)
-  if (linkError || !linkData?.properties?.action_link) {
-    console.warn('[send-reset] generateLink failed:', linkError?.message, '— returning success to prevent enumeration')
+  if (linkError || !linkData?.properties?.hashed_token) {
+    // User doesn't exist or other error — return success silently
+    console.warn('[send-reset] generateLink failed:', linkError?.message)
     return NextResponse.json({ success: true })
   }
 
-  const resetLink = linkData.properties.action_link
+  // Build link to our server route — token exchange on the server, no hash fragments
+  const resetLink = `${PORTAL_URL}/auth/confirm?token_hash=${linkData.properties.hashed_token}&type=recovery&next=/update-password`
 
-  // ── Build name from email prefix if no profile found ─────────────────────
+  // Get first name for personalisation
   const { data: profile } = await svc
     .from('profiles').select('full_name').eq('email', cleanEmail).single()
   const firstName = profile?.full_name?.split(' ')[0] || cleanEmail.split('@')[0]
 
-  // ── Send via Resend ───────────────────────────────────────────────────────
   const html = buildResetEmail({ firstName, email: cleanEmail, resetLink })
 
   const resendRes = await fetch('https://api.resend.com/emails', {

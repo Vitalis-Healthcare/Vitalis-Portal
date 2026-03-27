@@ -1,5 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+// app/update-password/page.tsx
+// Simple password update form.
+// Session is already established by /auth/confirm before landing here.
+// No token handling needed — just call updateUser().
+
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -11,21 +16,6 @@ export default function UpdatePasswordPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
-  const [sessionReady, setSessionReady] = useState(false)
-
-  // Wait for Supabase to exchange the token from the URL hash into a session
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
-        if (session) setSessionReady(true)
-      }
-    })
-    // Also check if session already exists (e.g. user navigated back)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSessionReady(true)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,29 +65,33 @@ export default function UpdatePasswordPage() {
           {done ? (
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-              <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1A2E44', marginBottom: 8 }}>Password Updated</h3>
-              <p style={{ color: '#8FA0B0', fontSize: 14 }}>Redirecting you to the dashboard…</p>
-            </div>
-          ) : !sessionReady ? (
-            <div style={{ textAlign: 'center', padding: '32px 0' }}>
-              <div style={{ fontSize: 32, marginBottom: 14 }}>⏳</div>
-              <p style={{ color: '#8FA0B0', fontSize: 14 }}>Verifying your link…</p>
-              <p style={{ color: '#C0CCD4', fontSize: 12, marginTop: 8 }}>
-                If this takes more than 10 seconds, your link may have expired.<br/>
-                <a href="/login" style={{ color: '#0E7C7B' }}>Request a new one</a>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1A2E44', marginBottom: 8 }}>
+                Password Updated
+              </h3>
+              <p style={{ color: '#8FA0B0', fontSize: 14 }}>
+                Redirecting you to the dashboard…
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
+              <p style={{ color: '#4A6070', fontSize: 13, marginBottom: 20, marginTop: 0, lineHeight: 1.6 }}>
+                Choose a strong password for your Vitalis Portal account.
+              </p>
               <div style={{ marginBottom: 16 }}>
                 <label style={lbl}>New Password</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="Min 8 characters" required style={inp} autoFocus />
+                <input
+                  type="password" value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Min 8 characters" required style={inp} autoFocus
+                />
               </div>
               <div style={{ marginBottom: 20 }}>
                 <label style={lbl}>Confirm Password</label>
-                <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
-                  placeholder="Repeat password" required style={inp} />
+                <input
+                  type="password" value={confirm}
+                  onChange={e => setConfirm(e.target.value)}
+                  placeholder="Repeat password" required style={inp}
+                />
               </div>
               {error && (
                 <div style={{ background: '#FDE8E9', color: '#E63946', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>
