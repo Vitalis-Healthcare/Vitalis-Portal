@@ -9,6 +9,7 @@ import CourseAssignModal from './CourseAssignModal'
 export default async function CourseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const svc = createServiceClient()
 
   const { data: course } = await svc
     .from('courses')
@@ -26,7 +27,6 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     .order('assigned_at', { ascending: false })
 
   const { data: { user } } = await supabase.auth.getUser()
-  const svc = createServiceClient()
   const { data: profile } = await svc
     .from('profiles').select('role').eq('id', user?.id || '').single()
 
