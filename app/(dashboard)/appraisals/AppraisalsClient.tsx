@@ -189,7 +189,7 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
         </div>
 
         {/* Form header */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '20px 24px', marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: '20px 24px', marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#4A6070', display: 'block', marginBottom: 5 }}>Caregiver <span style={{ color: '#E63946' }}>*</span></label>
             <select value={form.caregiver_id} onChange={e => setForm(f => ({ ...f, caregiver_id: e.target.value }))} style={inp} disabled={!!editingId}>
@@ -277,7 +277,7 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
   // List view
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>Performance Appraisals</h1>
           <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>HHA performance evaluations — fill, send, and track caregiver sign-offs</p>
@@ -288,7 +288,7 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Total', value: appraisals.length, color: '#1A2E44' },
           { label: 'Awaiting Sign-off', value: appraisals.filter(a => a.status === 'sent').length, color: '#457B9D' },
@@ -366,7 +366,7 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
               {/* Expanded scores */}
               {isExpanded && (
                 <div style={{ padding: '0 20px 20px', borderTop: '1px solid #EFF2F5' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8, marginTop: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 8, marginTop: 16 }}>
                     {ALL_ITEMS.filter(item => a[item.key]).map(item => (
                       <div key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 6, background: '#F8FAFB', gap: 8 }}>
                         <span style={{ fontSize: 12, color: '#4A6070', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>

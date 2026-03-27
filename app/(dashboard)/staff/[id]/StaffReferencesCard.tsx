@@ -222,7 +222,7 @@ export default function StaffReferencesCard({ references, caregiverId, caregiver
                 <label style={lbl}>Email Address <span style={{ color: '#E63946' }}>*</span></label>
                 <input type="email" value={form.referee_email} onChange={e => setForm(f => ({ ...f, referee_email: e.target.value }))} style={inp} placeholder="email@example.com" />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={lbl}>Phone (optional)</label>
                   <input value={form.referee_phone} onChange={e => setForm(f => ({ ...f, referee_phone: e.target.value }))} style={inp} />

@@ -106,7 +106,7 @@ export default async function LMSPage() {
 
       {/* Admin stats */}
       {isAdmin && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:28 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:28, className:'lms-stat-grid' }}>
           {[
             { label:'Programmes', value:(programmes||[]).length, icon:<BookOpen size={18}/>, color:'#0E7C7B' },
             { label:'Total Modules', value:(modules||[]).length, icon:<BookOpen size={18}/>, color:'#2A9D8F' },
@@ -150,7 +150,7 @@ export default async function LMSPage() {
             <div key={prog.id} style={{ background:'#fff', borderRadius:14, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', overflow:'hidden', border:'1px solid #EFF2F5' }}>
               {/* Programme header */}
               <div style={{ background: prog.status === 'not_started' ? '#F8FAFB' : `${progTracks[0]?.colour_hex || '#1A2E44'}18`, borderBottom:'1px solid #EFF2F5', padding:'20px 24px' }}>
-                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16 }}>
+                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, flexWrap:'wrap' }}>
                   <div style={{ flex:1 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
                       <h2 style={{ fontSize:18, fontWeight:800, color:'#1A2E44', margin:0 }}>{prog.title}</h2>
@@ -159,7 +159,7 @@ export default async function LMSPage() {
                       </span>
                     </div>
                     {prog.subtitle && <p style={{ fontSize:13, color:'#4A6070', margin:'0 0 10px' }}>{prog.subtitle}</p>}
-                    <div style={{ display:'flex', gap:20, fontSize:12, color:'#8FA0B0' }}>
+                    <div style={{ display:'flex', gap:12, fontSize:12, color:'#8FA0B0', flexWrap:'wrap' }}>
                       <span><Clock size={12} style={{ verticalAlign:'middle', marginRight:3 }}/>{prog.est_hours}h estimated</span>
                       <span><BookOpen size={12} style={{ verticalAlign:'middle', marginRight:3 }}/>{prog.total_modules} modules</span>
                       {prog.audience && <span>👥 {prog.audience}</span>}

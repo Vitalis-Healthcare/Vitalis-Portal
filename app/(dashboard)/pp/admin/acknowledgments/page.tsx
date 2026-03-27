@@ -43,7 +43,7 @@ export default async function AdminAcknowledgmentsPage() {
         </Link>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>Acknowledgment Dashboard</h1>
           <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>Track staff compliance across all policies</p>

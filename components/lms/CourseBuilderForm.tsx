@@ -185,7 +185,7 @@ export default function CourseBuilderForm({ initial }: { initial?: InitialData }
 
   // ── Render ───────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto' }}>
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: '0 4px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
         <button
           onClick={() => router.back()}
@@ -212,7 +212,7 @@ export default function CourseBuilderForm({ initial }: { initial?: InitialData }
             placeholder="Brief overview of what staff will learn..."
             style={{ ...inputStyle, resize: 'vertical' }} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={labelStyle}>Category</label>
             <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
@@ -376,7 +376,7 @@ export default function CourseBuilderForm({ initial }: { initial?: InitialData }
                         onChange={e => updateQuestion(s.id, qi, 'question', e.target.value)}
                         placeholder="Enter question text…"
                         style={{ ...inputStyle, marginBottom: 12 }} />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
                         {q.options.map((opt, oi) => (
                           <div key={oi} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <input type="radio" name={`q_${s.id}_${qi}`}

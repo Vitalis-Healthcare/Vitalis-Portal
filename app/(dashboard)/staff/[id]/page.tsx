@@ -138,7 +138,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
       </div>
 
       {/* Row 1: Training + Credentials */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 20 }}>
         <StaffTrainingCard
           enrollments={enrollments || []}
           programmes={programmes || []}
@@ -158,7 +158,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
       </div>
 
       {/* Row 2: References + Appraisals */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 20 }}>
         <StaffReferencesCard
           references={references || []}
           caregiverId={id}

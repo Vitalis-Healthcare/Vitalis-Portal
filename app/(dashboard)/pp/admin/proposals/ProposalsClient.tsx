@@ -85,7 +85,7 @@ export default function ProposalsClient({ proposals: initial }: { proposals: Pro
                     📌 <strong>Change reason:</strong> {p.change_reason}
                   </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 14 }}>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#E63946', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Original Text</div>
                     <div style={{ fontSize: 12, color: '#4A6070', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: 10, maxHeight: 150, overflowY: 'auto', lineHeight: 1.6 }}>{p.original_text}</div>

@@ -123,7 +123,7 @@ export default function PolicyEditorClient({ policy, proposals: initialProposals
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, alignItems: 'start' }}>
 
       {/* LEFT: Editor panel */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
@@ -223,7 +223,7 @@ export default function PolicyEditorClient({ policy, proposals: initialProposals
                   </div>
                   <div style={{ padding: 14 }}>
                     {p.change_reason && <div style={{ fontSize: 12, color: '#4A6070', marginBottom: 8 }}>📌 <strong>Reason:</strong> {p.change_reason}</div>}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 8, marginBottom: 10 }}>
                       <div>
                         <div style={{ fontSize: 10, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>Original</div>
                         <div style={{ fontSize: 11, color: '#4A6070', background: '#FEF2F2', borderRadius: 6, padding: 8, maxHeight: 100, overflowY: 'auto', lineHeight: 1.5 }}>{p.original_text}</div>

@@ -206,7 +206,7 @@ export default function PublicReferenceForm() {
               Employment Details
             </h2>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               {field('Your Name', <input value={pro.referee_name} onChange={e => setPro(p => ({ ...p, referee_name: e.target.value }))} style={inp} placeholder="Full name" />, true)}
               {field('Your Title', <input value={pro.referee_title} onChange={e => setPro(p => ({ ...p, referee_title: e.target.value }))} style={inp} placeholder="Job title" />)}
             </div>
@@ -220,12 +220,12 @@ export default function PublicReferenceForm() {
               {field('Email', <input value={pro.supervisor_email} onChange={e => setPro(p => ({ ...p, supervisor_email: e.target.value }))} style={inp} type="email" />)}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               {field('Position Held', <input value={pro.position_held} onChange={e => setPro(p => ({ ...p, position_held: e.target.value }))} style={inp} />)}
               {field('Area Worked', <input value={pro.area_worked} onChange={e => setPro(p => ({ ...p, area_worked: e.target.value }))} style={inp} />)}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               {field('Employment From', <input type="date" value={pro.employment_from} onChange={e => setPro(p => ({ ...p, employment_from: e.target.value }))} style={inp} />)}
               {field('Employment To', <input type="date" value={pro.employment_to} onChange={e => setPro(p => ({ ...p, employment_to: e.target.value }))} style={inp} />)}
             </div>
@@ -233,7 +233,7 @@ export default function PublicReferenceForm() {
             {field('Did applicant resign or was terminated?', <input value={pro.resigned_or_terminated} onChange={e => setPro(p => ({ ...p, resigned_or_terminated: e.target.value }))} style={inp} />)}
             {field('Reason for Leaving', <input value={pro.reason_for_leaving} onChange={e => setPro(p => ({ ...p, reason_for_leaving: e.target.value }))} style={inp} />)}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               <div style={{ marginBottom: 16 }}>
                 <label style={lbl}>Eligible for Rehire?</label>
                 <div style={{ display: 'flex', gap: 20, marginTop: 8 }}>
@@ -298,12 +298,12 @@ export default function PublicReferenceForm() {
             <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1A2E44', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #EFF2F5' }}>
               About You
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               {field('Your Name', <input value={char.referee_name} onChange={e => setChar(c => ({ ...c, referee_name: e.target.value }))} style={inp} placeholder="Full name" />, true)}
               {field('Your Title / Role', <input value={char.referee_title} onChange={e => setChar(c => ({ ...c, referee_title: e.target.value }))} style={inp} />)}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               {field('How many years have you known the applicant?',
                 <input type="number" value={char.years_known} onChange={e => setChar(c => ({ ...c, years_known: e.target.value }))} style={inp} min="0" />
               )}
@@ -346,7 +346,7 @@ export default function PublicReferenceForm() {
             <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1A2E44', margin: '24px 0 16px', paddingTop: 12, borderTop: '1px solid #EFF2F5' }}>
               Overall Recommendation
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10, marginBottom: 20 }}>
               {RECOMMENDATION_OPTIONS.map(opt => (
                 <label key={opt.value} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',

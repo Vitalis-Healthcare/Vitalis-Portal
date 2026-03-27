@@ -71,7 +71,7 @@ export default async function PPPage() {
             {isAdmin && <Link href="/pp/admin"><button style={{ padding: '9px 18px', background: '#1A9B87', border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Admin Console</button></Link>}
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
           {[
             { label: 'Total Policies', value: (policies||[]).length, note: 'across 7 domains', color: '#fff' },
             { label: 'Need Acknowledgment', value: pending.length, note: pending.length > 0 ? 'your signatures pending' : 'all signed ✓', color: pending.length > 0 ? '#FCD34D' : '#6EE7B7' },
@@ -125,7 +125,7 @@ export default async function PPPage() {
               <h3 style={{ fontSize: 14, fontWeight: 800, color: '#1A2E44', margin: 0 }}>Policy Library</h3>
               <Link href="/pp/library" style={{ fontSize: 12, color: '#0B6B5C', fontWeight: 700, textDecoration: 'none' }}>Browse all →</Link>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 8 }}>
               {DOMAINS.map(d => {
                 const count = domainCounts[d.id] || 0
                 const domPending = (policies||[]).filter(p => {
@@ -153,7 +153,7 @@ export default async function PPPage() {
 
           {/* Admin: alert cards */}
           {isAdmin && (overdue.length > 0 || due30.length > 0 || (proposals||[]).length > 0) && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
               {overdue.length > 0 && (
                 <Link href="/pp/admin/reviews" style={{ textDecoration: 'none' }}>
                   <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 12, padding: '16px' }}>

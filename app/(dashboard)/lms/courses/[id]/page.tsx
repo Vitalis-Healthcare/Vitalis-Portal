@@ -62,7 +62,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
       </div>
 
       <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-        <div style={{ background: course.thumbnail_color||'#0E7C7B', padding: '28px 32px', color: '#fff' }}>
+        <div style={{ background: course.thumbnail_color||'#0E7C7B', padding: 'clamp(16px, 4vw, 28px) clamp(14px, 4vw, 32px)', color: '#fff' }}>
           <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{course.category}</div>
           <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0 }}>{course.title}</h1>
           {course.description && <p style={{ opacity: 0.85, marginTop: 8, fontSize: 14 }}>{course.description}</p>}
@@ -73,13 +73,13 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
             <span><CheckCircle size={14} style={{ verticalAlign: 'middle' }}/> {completions} completed</span>
           </div>
         </div>
-        <div style={{ background: '#fff', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #EFF2F5' }}>
+        <div style={{ background: '#fff', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #EFF2F5', flexWrap: 'wrap', gap: 10 }}>
           <span style={{
             padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
             background: course.status==='published' ? '#E6F6F4' : '#EFF2F5',
             color: course.status==='published' ? '#2A9D8F' : '#8FA0B0'
           }}>{course.status}</span>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             {myEnrollment && course.status === 'published' && (
               <Link href={`/lms/courses/${course.id}/take`}>
                 <button style={{
@@ -108,7 +108,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
         <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1A2E44', marginBottom: 16 }}>Course Content</h2>
           {(course.sections||[]).length === 0 ? (

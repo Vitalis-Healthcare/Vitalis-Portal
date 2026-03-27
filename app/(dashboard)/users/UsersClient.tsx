@@ -94,7 +94,7 @@ function InvitePanel({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
         <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
           placeholder="staff@vitalishealthcare.com" style={inp} />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 20 }}>
         <div>
           <label style={lbl}>Role</label>
           <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} style={inp}>
@@ -189,7 +189,7 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
         <label style={lbl}>Email</label>
         <input value={profile.email} disabled style={{ ...inp, background: '#F8FAFB', color: '#8FA0B0' }} />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 14 }}>
         <div>
           <label style={lbl}>Role</label>
           <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} style={inp}>
@@ -204,7 +204,7 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
           </select>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 14 }}>
         <div>
           <label style={lbl}>Department</label>
           <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} style={inp}>
@@ -232,7 +232,7 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
       <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #EFF2F5' }}>
         <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1A2E44', marginBottom: 14, marginTop: 0 }}>🔑 Set Password</h4>
         <p style={{ fontSize: 12, color: '#8FA0B0', marginBottom: 14, marginTop: 0 }}>Set a password so the staff member can log in without a magic link.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10, marginBottom: 10 }}>
           <div>
             <label style={lbl}>New Password</label>
             <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 8 characters" style={inp} />
@@ -357,7 +357,7 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
       )}
 
       {/* Page header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>User Management</h1>
           <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>{active} active staff · manage roles, invite, and deactivate</p>
@@ -420,7 +420,7 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
       )}
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Total Staff', value: profiles.length, color: '#1A2E44' },
           { label: 'Active', value: active, color: '#2A9D8F' },
@@ -449,7 +449,7 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="🔍  Search by name or email…"
           style={{ flex: 1, padding: '9px 14px', borderRadius: 8, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none', background: '#fff' }} />

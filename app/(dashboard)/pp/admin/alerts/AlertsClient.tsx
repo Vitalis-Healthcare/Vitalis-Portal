@@ -105,7 +105,7 @@ export default function AlertsClient({ alerts: initial, policies, userId }: {
       {showCreate && (
         <div style={{ background: '#fff', borderRadius: 12, padding: 22, border: '2px solid #0B6B5C', marginBottom: 20, boxShadow: '0 4px 16px rgba(11,107,92,0.1)' }}>
           <h3 style={{ fontSize: 14, fontWeight: 800, color: '#1A2E44', margin: '0 0 16px' }}>Create Regulatory Alert</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 12 }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', display: 'block', marginBottom: 4 }}>Alert Type</label>
               <select value={form.alert_type} onChange={e => setForm(f => ({...f, alert_type: e.target.value}))} style={inp}>
@@ -133,7 +133,7 @@ export default function AlertsClient({ alerts: initial, policies, userId }: {
             <label style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', display: 'block', marginBottom: 4 }}>Description</label>
             <textarea value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} placeholder="What changed and what policies need to be updated..." rows={3} style={{ ...inp, resize: 'vertical' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 16 }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', display: 'block', marginBottom: 4 }}>Regulatory Reference</label>
               <input value={form.regulatory_ref} onChange={e => setForm(f => ({...f, regulatory_ref: e.target.value}))} placeholder="e.g. COMAR 10.07.05.08" style={inp} />

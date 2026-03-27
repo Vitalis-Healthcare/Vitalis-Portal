@@ -80,7 +80,7 @@ export default function AckAdminClient({
   return (
     <div>
       {/* Summary stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 24 }}>
         {[
           { label: 'Total Policies', value: policies.length, color: '#0E7C7B' },
           { label: 'Total Staff', value: staffProfiles.length, color: '#1A2E44' },

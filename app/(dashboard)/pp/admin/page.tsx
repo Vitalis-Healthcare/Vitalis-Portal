@@ -42,7 +42,7 @@ export default async function PPAdminPage() {
         <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>Manage policies, track acknowledgments, review proposals</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 28 }}>
         {cards.map((c,i) => (
           <Link key={i} href={c.href} style={{ textDecoration: 'none' }}>
             <div style={{ background: '#fff', borderRadius: 12, padding: '18px 20px', border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderLeft: `4px solid ${c.color}` }}>
@@ -55,7 +55,7 @@ export default async function PPAdminPage() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 28 }}>
         {adminLinks.map((l,i) => (
           <Link key={i} href={l.href} style={{ textDecoration: 'none' }}>
             <div style={{ background: '#fff', borderRadius: 12, padding: 20, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>

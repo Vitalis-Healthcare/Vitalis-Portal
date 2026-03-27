@@ -92,7 +92,7 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
     b === 'mandatory' ? '#FDE8E9' : b === 'core' ? '#EBF4FF' : '#E6F4F0'
 
   return (
-    <div style={{ maxWidth: 920, margin: '0 auto' }}>
+    <div style={{ maxWidth: 920, margin: '0 auto', overflowX: 'hidden' }}>
       {/* Back */}
       <div style={{ marginBottom: 16 }}>
         <Link href="/lms" style={{ color: '#8FA0B0', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 14 }}>
@@ -103,7 +103,7 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
       {/* Programme header */}
       <div style={{
         background: `linear-gradient(135deg, #1A2E44 0%, ${tracks?.[0]?.colour_hex || '#0E7C7B'} 100%)`,
-        borderRadius: 14, padding: '28px 32px', color: '#fff', marginBottom: 24,
+        borderRadius: 14, padding: 'clamp(16px, 4vw, 28px) clamp(14px, 4vw, 32px)', color: '#fff', marginBottom: 24,
         boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
       }}>
         <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.65, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 8 }}>
@@ -193,8 +193,8 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
 
                 return (
                   <div key={mod.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 16,
-                    padding: '16px 20px',
+                    display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                    padding: 'clamp(12px, 2vw, 16px) clamp(12px, 2vw, 20px)',
                     borderBottom: i < trackMods.length - 1 ? '1px solid #EFF2F5' : 'none',
                     background: isDone ? '#FAFFFE' : '#fff'
                   }}>

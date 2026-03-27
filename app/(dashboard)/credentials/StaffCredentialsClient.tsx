@@ -132,7 +132,7 @@ export default function StaffCredentialsClient({
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>My Credentials</h1>
           <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>Your certifications, expiry dates, and compliance status</p>
@@ -146,7 +146,7 @@ export default function StaffCredentialsClient({
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Current', value: currentCount, color: '#2A9D8F' },
           { label: 'Expiring Soon', value: expiringCount, color: '#F4A261' },
@@ -284,7 +284,7 @@ export default function StaffCredentialsClient({
                       {credTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 14 }}>
                     <div>
                       <label style={lbl}>Issue Date *</label>
                       <input type="date" value={form.issue_date} onChange={e => setForm(f => ({ ...f, issue_date: e.target.value }))} style={inp} />

@@ -101,7 +101,7 @@ export default async function ReviewCalendarPage() {
       </div>
 
       {/* Summary strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 28 }}>
         {[
           { label: 'Overdue', value: overdue.length, color: '#E63946', bg: '#FDE8E9' },
           { label: 'Due ≤30 days', value: due30.length, color: '#E63946', bg: '#FDE8E9' },

@@ -150,7 +150,7 @@ export default function ReferencesClient({ refs, caregivers = [], userId, fullNa
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>
             {isAdmin ? 'Reference Management' : 'My References'}
@@ -364,7 +364,7 @@ export default function ReferencesClient({ refs, caregivers = [], userId, fullNa
                 <label style={lbl}>Email Address <span style={{ color: '#E63946' }}>*</span></label>
                 <input type="email" value={form.referee_email} onChange={e => setForm(f => ({ ...f, referee_email: e.target.value }))} style={inp} placeholder="email@example.com" />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label style={lbl}>Phone (optional)</label>
                   <input value={form.referee_phone} onChange={e => setForm(f => ({ ...f, referee_phone: e.target.value }))} style={inp} placeholder="+1 (xxx) xxx-xxxx" />

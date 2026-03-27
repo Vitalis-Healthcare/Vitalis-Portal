@@ -163,7 +163,7 @@ export default function AppraisalSignPage() {
 
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '32px 16px' }}>
         {/* Info card */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px', marginBottom: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px', marginBottom: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>Employee</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#1A2E44' }}>{data?.caregiver_name}</div>

@@ -74,7 +74,7 @@ export default async function MyPoliciesPage() {
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 28 }}>
         <div style={{ background: pending.length > 0 ? '#FEF3EA' : '#E6F6F4', borderRadius: 12, padding: '18px 20px', border: `1px solid ${pending.length > 0 ? '#F4A261' : '#2A9D8F'}` }}>
           <div style={{ fontSize: 32, fontWeight: 900, color: pending.length > 0 ? '#F4A261' : '#2A9D8F', lineHeight: 1 }}>{pending.length}</div>
           <div style={{ fontSize: 13, color: '#4A6070', marginTop: 4, fontWeight: 600 }}>

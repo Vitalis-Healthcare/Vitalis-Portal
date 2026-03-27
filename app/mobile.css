@@ -89,3 +89,120 @@
     overflow-x: hidden;
   }
 }
+/* ============================================================
+   APPEND TO: app/mobile.css
+   LMS, Course Player & Policies and Procedures mobile fixes
+   ============================================================ */
+
+@media (max-width: 767px) {
+
+  /* ── Synthesia / video iframes ──────────────────────────────────────────── */
+  iframe[src*="synthesia"],
+  iframe[src*="youtube"],
+  iframe[src*="vimeo"],
+  .course-video iframe,
+  [style*="aspectRatio"] iframe {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 200px !important;
+    aspect-ratio: 16 / 9 !important;
+  }
+
+  /* ── Course player — sidebar stacks above content ──────────────────────── */
+  /* The player uses an inline flex row — override to column */
+  [style*="height: calc(100vh - 64px)"] {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: calc(100vh - 64px) !important;
+  }
+
+  /* Sidebar becomes a horizontal scrollable section list */
+  [style*="width: 280"],
+  [style*="width:280"] {
+    width: 100% !important;
+    max-height: 200px !important;
+    border-right: none !important;
+    border-bottom: 1px solid #EFF2F5 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    display: flex !important;
+    flex-direction: row !important;
+    padding: 8px 12px !important;
+  }
+
+  /* ── PP document HTML content ───────────────────────────────────────────── */
+  /* Policy content renders HTML — ensure it doesn't overflow */
+  .pp-content,
+  [class*="pp"] table,
+  .policy-content table {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    display: block !important;
+  }
+
+  /* ── PP filter/search bars ──────────────────────────────────────────────── */
+  /* Any flex row with a search input + select + button */
+  [style*="display:'flex'"] > input[placeholder*="Search"],
+  [style*="display:'flex'"] > input[placeholder*="search"],
+  [style*="display: 'flex'"] > input[placeholder*="Search"] {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* ── LMS programme cards ────────────────────────────────────────────────── */
+  /* Programme title + button: allow button to go full-width */
+  [style*="justifyContent:'space-between'"] > button,
+  [style*="justifyContent: 'space-between'"] > button,
+  [style*="justifyContent:'space-between'"] > a > button {
+    width: auto !important;
+    white-space: nowrap !important;
+  }
+
+  /* ── Module rows in programme detail ────────────────────────────────────── */
+  /* Edit Content + Start buttons in module row */
+  [style*="gap: 8, flexShrink: 0"],
+  [style*="gap:8,flexShrink:0"] {
+    flex-wrap: wrap !important;
+  }
+
+  /* ── LMS stat numbers — smaller font on mobile ──────────────────────────── */
+  /* The 4-col stat card grid collapses via global rule already */
+  /* Just ensure numbers don't overflow */
+  [style*="fontSize:28"],
+  [style*="fontSize: 28"] {
+    font-size: 22px !important;
+  }
+
+  /* ── Enrolment queue ────────────────────────────────────────────────────── */
+  /* Approve/Reject buttons in enrollment queue wrap on mobile */
+  [style*="display: 'flex', gap: 8, flexShrink: 0"] {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* ── P&P document viewer ────────────────────────────────────────────────── */
+  /* Full-width on mobile */
+  [style*="maxWidth: 860"],
+  [style*="maxWidth: 800"],
+  [style*="maxWidth: 720"] {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Tables inside policy content */
+  .policy-html-content table,
+  .pp-html table {
+    font-size: 12px !important;
+    word-break: break-word !important;
+  }
+
+  .policy-html-content td,
+  .policy-html-content th,
+  .pp-html td,
+  .pp-html th {
+    padding: 6px 8px !important;
+    min-width: 80px !important;
+  }
+
+}
