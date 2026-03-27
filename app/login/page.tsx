@@ -38,8 +38,6 @@ export default function LoginPage() {
     setSuccessMsg('')
 
     if (mode === 'signup') {
-      // Sign up — email confirmation disabled in Supabase Auth settings,
-      // so the user is immediately active and we sign them in right away.
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -47,31 +45,38 @@ export default function LoginPage() {
       })
       if (signUpError) {
         setError(signUpError.message)
-      } else {
-        // Auto sign-in immediately (no confirmation step needed)
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-        if (signInError) {
-          // Account created but auto sign-in failed — direct them to sign in manually
-          setSuccessMsg('Account created! Please sign in with your email and password.')
-          setMode('signin')
-        } else {
-          // Send welcome email via Resend (non-blocking — don't wait for it)
-          fetch('/api/notify/welcome', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, fullName }),
-          }).catch(() => {}) // fire-and-forget
-          router.push('/dashboard')
-        }
+      } else if (signUpData?.user) {
+        // Set profile status to pending — admin must approve before access is granted
+        await supabase.from('profiles').update({ status: 'pending' }).eq('id', signUpData.user.id)
+        // Sign out immediately so they can't access the portal yet
+        await supabase.auth.signOut()
+        // Notify admin via Resend
+        fetch('/api/notify/pending-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, fullName }),
+        }).catch(() => {})
+        setMode('pending' as any)
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError(error.message === 'Invalid login credentials'
           ? 'Incorrect email or password.'
           : error.message)
       } else {
-        router.push('/dashboard')
+        // Check profile status before allowing access
+        const { data: profile } = await supabase
+          .from('profiles').select('status').eq('id', signInData.user.id).single()
+        if (profile?.status === 'pending') {
+          await supabase.auth.signOut()
+          setMode('pending' as any)
+        } else if (profile?.status === 'rejected') {
+          await supabase.auth.signOut()
+          setError('Your account request was not approved. Please contact your supervisor.')
+        } else {
+          router.push('/dashboard')
+        }
       }
     }
     setLoading(false)
@@ -189,6 +194,26 @@ export default function LoginPage() {
               </button>
             ))}
           </div>
+
+          {/* Awaiting approval screen */}
+          {(mode as string) === 'pending' ? (
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>⏳</div>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: '#1A2E44', marginBottom: 8 }}>
+                Account Pending Approval
+              </h3>
+              <p style={{ color: '#8FA0B0', fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+                Your account request has been submitted.<br/>
+                You will receive an email once an administrator approves your access.
+              </p>
+              <button
+                onClick={() => { setMode('signin'); setError(''); setSuccessMsg('') }}
+                style={{ background: 'none', border: 'none', color: '#0E7C7B', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                ← Back to Sign In
+              </button>
+            </div>
+          ) : null}
 
           {/* Forgot password view */}
           {mode === 'reset' ? (

@@ -254,6 +254,7 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
   const [roleFilter, setRoleFilter] = useState('all')
   const [panel, setPanel] = useState<null | 'invite' | { type: 'edit'; profile: Profile }>(null)
   const [toast, setToast] = useState('')
+  const [approvingId, setApprovingId] = useState<string | null>(null)
   const router = useRouter()
 
   const showToast = (msg: string) => {
@@ -273,6 +274,38 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
       router.refresh()
     } else {
       alert('Failed to delete user. Please try again.')
+    }
+  }
+
+  const handleApprove = async (profileId: string, profileName: string) => {
+    setApprovingId(profileId)
+    const res = await fetch('/api/auth/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: profileId }),
+    })
+    if (res.ok) {
+      showToast(`${profileName} approved — access granted`)
+      router.refresh()
+    } else {
+      alert('Failed to approve user. Please try again.')
+    }
+    setApprovingId(null)
+  }
+
+  const handleReject = async (profileId: string, profileName: string) => {
+    const reason = window.prompt(`Reason for rejecting ${profileName} (optional):`)
+    if (reason === null) return // cancelled
+    const res = await fetch('/api/auth/reject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: profileId, reason }),
+    })
+    if (res.ok) {
+      showToast(`${profileName} rejected`)
+      router.refresh()
+    } else {
+      alert('Failed to reject user. Please try again.')
     }
   }
 
@@ -330,6 +363,54 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
           <UserPlus size={16} /> Invite Staff
         </button>
       </div>
+
+      {/* Pending approvals — shown prominently when there are pending users */}
+      {profiles.filter(p => p.status === 'pending').length > 0 && (
+        <div style={{ background: '#FEF3EA', border: '1px solid #F4A261', borderRadius: 12, padding: '16px 20px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={{ fontSize: 18 }}>⏳</div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: '#1A2E44' }}>
+                {profiles.filter(p => p.status === 'pending').length} Account{profiles.filter(p => p.status === 'pending').length !== 1 ? 's' : ''} Awaiting Approval
+              </div>
+              <div style={{ fontSize: 12, color: '#8FA0B0', marginTop: 1 }}>
+                Review and approve before users can access the portal
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {profiles.filter(p => p.status === 'pending').map(p => (
+              <div key={p.id} style={{ background: '#fff', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, border: '1px solid #F4A26133' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #F4A261, #E07800)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+                  {p.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#1A2E44' }}>{p.full_name}</div>
+                  <div style={{ fontSize: 12, color: '#8FA0B0', marginTop: 1 }}>{p.email}</div>
+                  <div style={{ fontSize: 11, color: '#F4A261', fontWeight: 600, marginTop: 2 }}>
+                    Registered {p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button
+                    onClick={() => handleApprove(p.id, p.full_name)}
+                    disabled={approvingId === p.id}
+                    style={{ padding: '8px 18px', background: '#2A9D8F', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: approvingId === p.id ? 0.7 : 1 }}
+                  >
+                    {approvingId === p.id ? '…' : '✓ Approve'}
+                  </button>
+                  <button
+                    onClick={() => handleReject(p.id, p.full_name)}
+                    style={{ padding: '8px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#B91C1C', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    ✕ Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
