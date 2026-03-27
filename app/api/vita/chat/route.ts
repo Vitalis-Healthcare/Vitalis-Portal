@@ -179,7 +179,8 @@ Tone: Like a caring, knowledgeable senior colleague — not a help desk robot, n
     { role: 'user', content: message }
   ]
 
-  const useWebSearch = wantsRegulatory || /current|latest|2024|2025|2026|update|recent|change/i.test(q)
+  // Web search reserved for future use — regulatory knowledge is embedded in system prompt
+  const useWebSearch = false
 
   try {
     const requestBody: any = {
@@ -189,14 +190,7 @@ Tone: Like a caring, knowledgeable senior colleague — not a help desk robot, n
       messages,
     }
 
-    // Add web_search tool for regulatory + current-events queries
-    if (useWebSearch) {
-      requestBody.tools = [{
-        type: 'web_search_20250305',
-        name: 'web_search',
-        max_uses: 2,
-      }]
-    }
+    // web_search can be enabled here in future — regulatory knowledge embedded in system prompt
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -204,16 +198,15 @@ Tone: Like a caring, knowledgeable senior colleague — not a help desk robot, n
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        ...(useWebSearch ? { 'anthropic-beta': 'web-search-2025-03-05' } : {}),
       },
       body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
-      const err = await response.text()
-      console.error('Anthropic API error:', response.status, err)
+      const errText = await response.text()
+      console.error('Vita Anthropic API error — status:', response.status, '— body:', errText)
       return NextResponse.json({
-        answer: 'Vita encountered a temporary issue. Please try again in a moment.',
+        answer: `I ran into a problem (error ${response.status}). Please try again — if this keeps happening, ask your administrator to check the Vercel logs.`,
         citations: [], actions: []
       })
     }
@@ -288,8 +281,8 @@ Tone: Like a caring, knowledgeable senior colleague — not a help desk robot, n
       actions: actionLinks,
     })
 
-  } catch (err) {
-    console.error('Vita chat error:', err)
+  } catch (err: any) {
+    console.error('Vita chat exception:', err?.message || err)
     return NextResponse.json({
       answer: 'Network error connecting to Vita. Please check your connection and try again.',
       citations: [], actions: []

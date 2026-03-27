@@ -65,7 +65,6 @@ export async function buildTrainingContext(userId: string, svc: any): Promise<st
         .from('section_progress')
         .select('enrollment_id, score, completed_at, section:section_id(title, type)')
         .in('enrollment_id', enrollmentIds)
-        .eq('section:section_id.type', 'quiz')
         .not('score', 'is', null)
 
       if (quizProgress && quizProgress.length > 0) {
