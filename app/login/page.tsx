@@ -7,7 +7,6 @@ export default function LoginPage() {
   const [mode, setMode] = useState<'signin' | 'reset' | 'pending'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
@@ -37,28 +36,7 @@ export default function LoginPage() {
     setError('')
     setSuccessMsg('')
 
-    if (mode === 'signup') {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName, role: 'caregiver' } }
-      })
-      if (signUpError) {
-        setError(signUpError.message)
-      } else if (signUpData?.user) {
-        // Set profile status to pending — admin must approve before access is granted
-        await supabase.from('profiles').update({ status: 'pending' }).eq('id', signUpData.user.id)
-        // Sign out immediately so they can't access the portal yet
-        await supabase.auth.signOut()
-        // Notify admin via Resend
-        fetch('/api/notify/pending-approval', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, fullName }),
-        }).catch(() => {})
-        setMode('pending' as any)
-      }
-    } else {
+    {
       const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError(error.message === 'Invalid login credentials'
