@@ -202,13 +202,6 @@ export default function LoginPage() {
             </form>
           ) : (
           <form onSubmit={handleEmailAuth}>
-            {mode === 'signup' && (
-              <div style={{ marginBottom: 14 }}>
-                <label style={lbl}>Full Name</label>
-                <input value={fullName} onChange={e => setFullName(e.target.value)} required
-                  placeholder="e.g. Amara Nwosu" style={inp}/>
-              </div>
-            )}
             <div style={{ marginBottom: 14 }}>
               <label style={lbl}>Email Address</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
@@ -227,7 +220,6 @@ export default function LoginPage() {
                 </button>
               </div>
             )}
-            {mode === 'signup' && <div style={{ marginBottom: 20 }}/>}
 
             {error && <div style={{ background: '#FDE8E9', color: '#E63946', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{error}</div>}
             {successMsg && <div style={{ background: '#E6F6F4', color: '#2A9D8F', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{successMsg}</div>}
