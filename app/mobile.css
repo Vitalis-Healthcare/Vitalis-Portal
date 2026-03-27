@@ -1,0 +1,91 @@
+/* app/mobile.css
+   Mobile-specific overrides.
+   Import this in the root layout.tsx.
+   All rules use max-width: 767px to target phones only.
+   !important is intentional — overrides inline styles. */
+
+/* ── Viewport ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ── Responsive grid overrides ─────────────────────────────────────────────── */
+/* Stat card grids: 5-col, 4-col, 3-col → 2-col on mobile */
+@media (max-width: 767px) {
+
+  /* Any inline grid with repeat(N, 1fr) collapses to 2 cols */
+  [style*="repeat(5,1fr)"],
+  [style*="repeat(5, 1fr)"],
+  [style*="repeat(4,1fr)"],
+  [style*="repeat(4, 1fr)"],
+  [style*="repeat(3,1fr)"],
+  [style*="repeat(3, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* 2-col grids collapse to 1 col */
+  [style*="repeat(2,1fr)"],
+  [style*="repeat(2, 1fr)"],
+  [style*="'1fr 1fr'"],
+  [style*="1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Main content ───────────────────────────────────────────────────────── */
+  /* Handled in LayoutShell but belt-and-braces */
+  main {
+    padding: 16px 14px !important;
+    overflow-x: hidden !important;
+  }
+
+  /* ── Tables — horizontal scroll ────────────────────────────────────────── */
+  /* Wrap tables so they scroll rather than overflow */
+  table {
+    min-width: 600px;
+  }
+  /* Tables that are inside an overflow container */
+  [style*="overflow: hidden"] > table,
+  [style*="overflow:hidden"] > table {
+    min-width: 500px;
+  }
+
+  /* ── Page headers ──────────────────────────────────────────────────────── */
+  /* Large h1s */
+  [style*="fontSize:24"],
+  [style*="fontSize: 24"] {
+    font-size: 20px !important;
+  }
+
+  /* ── Cards with fixed padding ───────────────────────────────────────────── */
+  [style*="padding:24"],
+  [style*="padding: 24"],
+  [style*="padding:28"],
+  [style*="padding: 28"],
+  [style*="padding:32"],
+  [style*="padding: 32"] {
+    padding: 16px !important;
+  }
+
+  /* ── Flex rows that should stack on mobile ──────────────────────────────── */
+  /* Header rows with space-between often need to stack */
+  [style*="justifyContent:'space-between'"],
+  [style*="justifyContent: 'space-between'"] {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+
+  /* ── Topbar ─────────────────────────────────────────────────────────────── */
+  /* Don't truncate name too aggressively on desktop */
+}
+
+/* ── Touch targets ──────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  button, a, [role="button"] {
+    min-height: 40px;
+  }
+}
+
+/* ── Prevent horizontal page scroll ────────────────────────────────────────── */
+@media (max-width: 767px) {
+  body {
+    overflow-x: hidden;
+  }
+}

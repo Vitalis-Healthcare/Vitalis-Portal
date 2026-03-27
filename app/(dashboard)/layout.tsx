@@ -1,8 +1,8 @@
+// app/(dashboard)/layout.tsx
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
-import Sidebar from '@/components/layout/Sidebar'
-import Topbar from '@/components/layout/Topbar'
+import LayoutShell from '@/components/layout/LayoutShell'
 import { Profile } from '@/types'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -23,14 +23,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const role = profile?.role ?? 'caregiver'
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh' }}>
-      <Topbar profile={profile as Profile} />
-      <div style={{ display:'flex', flex:1 }}>
-        <Sidebar role={role} />
-        <main style={{ flex:1, padding:32, overflowY:'auto', maxHeight:'calc(100vh - 64px)' }}>
-          {children}
-        </main>
-      </div>
-    </div>
+    <LayoutShell profile={profile as Profile} role={role}>
+      {children}
+    </LayoutShell>
   )
 }
