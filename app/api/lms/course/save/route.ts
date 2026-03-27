@@ -116,14 +116,16 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Audit log ─────────────────────────────────────────────────────────────
-  await svc.from('audit_log').insert({
-    user_id: user.id,
-    action: courseId
-      ? `Course "${title}" ${publish ? 'published' : 'saved as draft'}`
-      : `Course "${title}" created`,
-    entity_type: 'course',
-    entity_id: savedCourseId,
-  }).catch(() => {}) // non-fatal
+  try {
+    await svc.from('audit_log').insert({
+      user_id: user.id,
+      action: courseId
+        ? `Course "${title}" ${publish ? 'published' : 'saved as draft'}`
+        : `Course "${title}" created`,
+      entity_type: 'course',
+      entity_id: savedCourseId,
+    })
+  } catch {} // non-fatal
 
   return NextResponse.json({ success: true, courseId: savedCourseId })
 }
