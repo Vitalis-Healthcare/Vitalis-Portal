@@ -156,16 +156,23 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
 
   const handleSave = async () => {
     setSaving(true)
-    const { error } = await supabase.from('profiles').update({
-      full_name: form.full_name,
-      role: form.role,
-      department: form.department || null,
-      phone: form.phone || null,
-      hire_date: form.hire_date || null,
-      status: form.status,
-      updated_at: new Date().toISOString(),
-    }).eq('id', profile.id)
-    if (error) { alert('Error updating profile.'); setSaving(false); return }
+    const res = await fetch('/api/admin/update-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: profile.id,
+        updates: {
+          full_name: form.full_name,
+          role: form.role,
+          department: form.department || null,
+          phone: form.phone || null,
+          hire_date: form.hire_date || null,
+          status: form.status,
+        }
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) { alert(data.error || 'Error updating profile.'); setSaving(false); return }
     onSuccess()
     onClose()
     router.refresh()
