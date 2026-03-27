@@ -106,7 +106,7 @@ export default async function LMSPage() {
 
       {/* Admin stats */}
       {isAdmin && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:28, className:'lms-stat-grid' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:28 }}>
           {[
             { label:'Programmes', value:(programmes||[]).length, icon:<BookOpen size={18}/>, color:'#0E7C7B' },
             { label:'Total Modules', value:(modules||[]).length, icon:<BookOpen size={18}/>, color:'#2A9D8F' },
