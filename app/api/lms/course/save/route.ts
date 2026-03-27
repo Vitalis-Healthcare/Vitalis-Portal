@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const { error } = await svc.from('courses').update({
       title, description, category,
       estimated_minutes, thumbnail_color, pass_score,
-      status, updated_at: new Date().toISOString(),
+      status,
     }).eq('id', courseId)
 
     if (error) {
