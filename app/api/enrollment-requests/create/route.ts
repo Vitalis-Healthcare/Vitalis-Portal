@@ -31,9 +31,9 @@ export async function POST(request: Request) {
       .select('id, status')
       .eq('user_id', user.id)
       .eq('programme_id', programme_id)
-      .in('status', ['pending', 'approved'])
+      .in('status', ['pending'])
       .maybeSingle()
-    if (existing) return NextResponse.json({ error: 'You already have a pending or approved request for this programme.' }, { status: 409 })
+    if (existing) return NextResponse.json({ error: 'You already have a pending enrollment request for this programme.' }, { status: 409 })
 
     const { data: enrolled } = await svc
       .from('programme_enrollments')

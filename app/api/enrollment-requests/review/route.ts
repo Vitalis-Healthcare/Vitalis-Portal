@@ -41,18 +41,25 @@ export async function POST(request: Request) {
 
   // On approval: enroll them
   if (approve && req.programme_id) {
-    await svc.from('programme_enrollments').upsert({
+    // Use insert with ignoreDuplicates — avoids needing constraint name for upsert
+    const { error: enrollError } = await svc.from('programme_enrollments').insert({
       user_id:      req.user_id,
       programme_id: req.programme_id,
       assigned_by:  user.id,
       status:       'enrolled',
-    }, { onConflict: 'user_id,programme_id' })
+    })
+    if (enrollError && !enrollError.message.includes('duplicate')) {
+      console.error('[enrollment/review] programme_enrollments insert error:', enrollError.message)
+    }
   } else if (approve && req.course_id) {
-    await svc.from('course_enrollments').upsert({
+    const { error: enrollError } = await svc.from('course_enrollments').insert({
       user_id:     req.user_id,
       course_id:   req.course_id,
       assigned_by: user.id,
-    }, { onConflict: 'user_id,course_id' })
+    })
+    if (enrollError && !enrollError.message.includes('duplicate')) {
+      console.error('[enrollment/review] course_enrollments insert error:', enrollError.message)
+    }
   }
 
   // Get title
