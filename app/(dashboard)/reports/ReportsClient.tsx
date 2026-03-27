@@ -468,7 +468,7 @@ export default function ReportsClient(props: Props) {
           </div>
 
           {/* Programme summary row */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap',  }}>
             {programmes.map((p) => {
               const enrolled = trainingGapRows.filter((r) => r.enrollments.some((e) => e.programme_id === p.id)).length
               const completed = trainingGapRows.filter((r) => r.enrollments.some((e) => e.programme_id === p.id && e.is_completed)).length
