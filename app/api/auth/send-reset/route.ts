@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
   const { data: linkData, error: linkError } = await svc.auth.admin.generateLink({
     type: 'recovery',
     email: cleanEmail,
-    options: { redirectTo: `${PORTAL_URL}/update-password` },
+    options: { redirectTo: `${PORTAL_URL}/auth/callback?next=/update-password` },
   })
 
   // If user doesn't exist or other error — return success anyway (security)

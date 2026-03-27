@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
   const { data: linkData, error: linkError } = await svc.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${PORTAL_URL}/update-password` },
+    options: { redirectTo: `${PORTAL_URL}/auth/callback?next=/update-password` },
   })
 
   if (linkError || !linkData?.properties?.action_link) {
