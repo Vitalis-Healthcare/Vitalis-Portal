@@ -146,109 +146,41 @@ export default function CourseBuilderForm({ initial }: { initial?: InitialData }
     if (!title.trim()) { alert('Please enter a course title.'); return }
     setSaving(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (isEditing && initial?.id) {
-      // UPDATE existing course
-      await supabase.from('courses').update({
-        title, description, category,
-        estimated_minutes: estimatedMinutes,
-        thumbnail_color: color, pass_score: passScore,
-        status: publish ? 'published' : 'draft',
-        updated_at: new Date().toISOString()
-      }).eq('id', initial.id)
-
-      // Delete all existing sections + questions, then re-insert
-      // (simpler than diffing — course edits are infrequent)
-      const { data: existingSections } = await supabase
-        .from('course_sections')
-        .select('id')
-        .eq('course_id', initial.id)
-
-      if (existingSections) {
-        for (const sec of existingSections) {
-          await supabase.from('quiz_questions').delete().eq('section_id', sec.id)
-        }
-        await supabase.from('course_sections').delete().eq('course_id', initial.id)
-      }
-
-      // Re-insert sections
-      for (let i = 0; i < sections.length; i++) {
-        const s = sections[i]
-        const { data: sec } = await supabase.from('course_sections').insert({
-          course_id: initial.id,
-          title: s.title || `Section ${i + 1}`,
-          type: s.type,
-          content: s.content,
-          video_url: s.video_url,
-          pdf_url: s.pdf_url,
-          order_index: i
-        }).select().single()
-
-        if (sec && s.type === 'quiz') {
-          for (let j = 0; j < s.questions.length; j++) {
-            const q = s.questions[j]
-            if (q.question.trim()) {
-              await supabase.from('quiz_questions').insert({
-                section_id: sec.id, question: q.question,
-                options: q.options, correct_index: q.correct_index, order_index: j
-              })
-            }
-          }
-        }
-      }
-
-      await supabase.from('audit_log').insert({
-        user_id: user?.id,
-        action: `Course "${title}" updated`,
-        entity_type: 'course', entity_id: initial.id
+    try {
+      const res = await fetch('/api/lms/course/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId: isEditing ? initial?.id : undefined,
+          title,
+          description,
+          category,
+          estimated_minutes: estimatedMinutes,
+          thumbnail_color: color,
+          pass_score: passScore,
+          publish,
+          sections,
+        }),
       })
-      router.push(`/lms/courses/${initial.id}`)
 
-    } else {
-      // INSERT new course
-      const { data: course, error } = await supabase.from('courses').insert({
-        title, description, category,
-        estimated_minutes: estimatedMinutes,
-        thumbnail_color: color, pass_score: passScore,
-        status: publish ? 'published' : 'draft',
-        created_by: user?.id
-      }).select().single()
+      const data = await res.json()
 
-      if (error || !course) { alert('Error saving course.'); setSaving(false); return }
-
-      for (let i = 0; i < sections.length; i++) {
-        const s = sections[i]
-        const { data: sec } = await supabase.from('course_sections').insert({
-          course_id: course.id,
-          title: s.title || `Section ${i + 1}`,
-          type: s.type, content: s.content,
-          video_url: s.video_url, pdf_url: s.pdf_url,
-          order_index: i
-        }).select().single()
-
-        if (sec && s.type === 'quiz') {
-          for (let j = 0; j < s.questions.length; j++) {
-            const q = s.questions[j]
-            if (q.question.trim()) {
-              await supabase.from('quiz_questions').insert({
-                section_id: sec.id, question: q.question,
-                options: q.options, correct_index: q.correct_index, order_index: j
-              })
-            }
-          }
-        }
+      if (!res.ok) {
+        alert(data.error || 'Failed to save course. Please try again.')
+        setSaving(false)
+        return
       }
 
-      await supabase.from('audit_log').insert({
-        user_id: user?.id,
-        action: `Course "${title}" ${publish ? 'published' : 'saved as draft'}`,
-        entity_type: 'course', entity_id: course.id
-      })
-      router.push('/lms')
+      // Navigate after save
+      if (isEditing && initial?.id) {
+        router.push(`/lms/courses/${initial.id}`)
+      } else {
+        router.push('/lms')
+      }
+    } catch {
+      alert('Network error. Please check your connection and try again.')
+      setSaving(false)
     }
-
-    setSaving(false)
   }
 
   // ── Render ───────────────────────────────────────────────────
