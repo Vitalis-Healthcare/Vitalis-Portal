@@ -92,7 +92,7 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
     b === 'mandatory' ? '#FDE8E9' : b === 'core' ? '#EBF4FF' : '#E6F4F0'
 
   return (
-    <div style={{ maxWidth: 920, margin: '0 auto', overflowX: 'hidden' }}>
+    <div style={{ maxWidth: 920, margin: '0 auto', overflowX: 'hidden', overflowX: 'hidden' }}>
       {/* Back */}
       <div style={{ marginBottom: 16 }}>
         <Link href="/lms" style={{ color: '#8FA0B0', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 14 }}>

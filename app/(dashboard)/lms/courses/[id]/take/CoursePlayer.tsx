@@ -286,7 +286,7 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
         </div>
 
         {/* Main content area */}
-        <div style={{ padding: '28px 36px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: 'clamp(16px,3vw,28px) clamp(14px,3vw,36px)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1 }}>
             {/* Section header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -391,7 +391,7 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
                     </div>
                     <iframe
                       src={currentSection.pdf_url}
-                      style={{ width: '100%', height: 420, border: '1px solid #EFF2F5', borderRadius: 8 }}
+                      style={{ width: '100%', height: 'clamp(280px,50vw,420px)', border: '1px solid #EFF2F5', borderRadius: 8 }}
                     />
                   </div>
                 ) : (
