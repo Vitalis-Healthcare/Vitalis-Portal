@@ -38,44 +38,25 @@ export default function CourseAssignModal({
     if (selected.size === 0) return
     setSaving(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const rows = Array.from(selected).map(userId => ({
-      course_id: courseId,
-      user_id: userId,
-      assigned_by: user?.id,
-      assigned_at: new Date().toISOString(),
-      progress_pct: 0,
-      due_date: dueDate || null
-    }))
-
-    const { error } = await supabase.from('course_enrollments').insert(rows)
-
-    if (!error) {
-      // Audit log
-      await supabase.from('audit_log').insert({
-        user_id: user?.id,
-        action: `Assigned course "${courseName}" to ${selected.size} staff member(s)`,
-        entity_type: 'course',
-        entity_id: courseId
+    try {
+      const res = await fetch('/api/lms/course/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId,
+          courseName,
+          userIds: Array.from(selected),
+          dueDate: dueDate || null,
+          sendEmail,
+        }),
       })
 
-      // Send email notifications if opted in
-      if (sendEmail) {
-        try {
-          await fetch('/api/notify/course-assigned', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              courseId,
-              courseName,
-              userIds: Array.from(selected),
-              dueDate: dueDate || null
-            })
-          })
-        } catch {
-          // Non-critical — assignment succeeded even if email fails
-        }
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert(data.error || 'Error assigning staff. Please try again.')
+        setSaving(false)
+        return
       }
 
       setDone(true)
@@ -86,11 +67,10 @@ export default function CourseAssignModal({
         setDone(false)
         router.refresh()
       }, 1200)
-    } else {
-      alert('Error assigning staff. Please try again.')
+    } catch {
+      alert('Network error. Please check your connection and try again.')
+      setSaving(false)
     }
-
-    setSaving(false)
   }
 
   return (
