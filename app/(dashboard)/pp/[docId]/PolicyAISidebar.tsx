@@ -43,29 +43,51 @@ export default function PolicyAISidebar({ docId, docTitle, userRole }: {
 
   return (
     <div className="pp-ai-sidebar" style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ width: '100%', padding: '14px 18px', background: 'linear-gradient(135deg, #0B6B5C, #1A9B87)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
-      >
+
+      {/* Header bar — always visible */}
+      <div style={{ background: 'linear-gradient(135deg, #0B6B5C, #1A9B87)', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px' }}>
         <span style={{ fontSize: 16 }}>🤖</span>
-        <div style={{ flex: 1, textAlign: 'left' }}>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>Ask About This Policy</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>AI assistant scoped to {docId}</div>
         </div>
-        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700 }}>{open ? '▲ Hide' : '▼ Open'}</span>
-      </button>
 
+        {open ? (
+          /* CLOSE button — bold circle X, always in the header when panel is open */
+          <button
+            onClick={() => setOpen(false)}
+            title="Close AI assistant"
+            style={{
+              width: 34, height: 34, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.25)',
+              border: '2px solid rgba(255,255,255,0.6)',
+              color: '#fff', fontSize: 16, fontWeight: 900,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, lineHeight: 1
+            }}
+          >
+            ✕
+          </button>
+        ) : (
+          /* OPEN button */
+          <button
+            onClick={() => setOpen(true)}
+            style={{
+              padding: '6px 14px', borderRadius: 20,
+              background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.5)',
+              color: '#fff', fontSize: 12, fontWeight: 700,
+              cursor: 'pointer', flexShrink: 0
+            }}
+          >
+            Open ▼
+          </button>
+        )}
+      </div>
+
+      {/* Expandable chat panel */}
       {open && (
         <div>
-          {/* Close bar */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 10px', background: '#F8FAFB', borderBottom: '1px solid #EFF2F5' }}>
-            <button
-              onClick={() => setOpen(false)}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', border: '1px solid #E2E8F0', borderRadius: 6, background: '#fff', color: '#4A6070', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            >
-              ✕ Close
-            </button>
-          </div>
           <div className="pp-ai-messages" style={{ padding: '12px 14px', maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {messages.length === 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
