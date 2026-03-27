@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Clock, CheckCircle, Lock, Play } from 'lucide-react'
 import ProgrammeAssignModal from './ProgrammeAssignModal'
+import RequestEnrollmentButton from './RequestEnrollmentButton'
 
 export default async function ProgrammeDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -145,6 +146,18 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
             programmeName={programme.title}
             moduleIds={(modules||[]).map(m => m.id)}
             unassignedStaff={unassignedStaff || []}
+          />
+        </div>
+      )}
+
+      {/* Caregiver: enroll button */}
+      {!isAdmin && (
+        <div style={{ marginBottom: 20 }}>
+          <RequestEnrollmentButton
+            programmeId={programme.id}
+            programmeName={programme.title}
+            hasPending={!!myRequest}
+            isEnrolled={!!myProgEnrollment}
           />
         </div>
       )}
