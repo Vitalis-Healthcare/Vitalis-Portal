@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, GraduationCap, BadgeCheck, Users, BarChart3,
   Settings, UserCheck, ClipboardList, LogOut, UserCog,
-  ShieldCheck, AlertTriangle,
+  ShieldCheck, AlertTriangle, Bot,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -18,6 +18,7 @@ const adminSections = [
   { label: 'MODULES', items: [
     { href: '/lms',         label: 'Training Programmes',    icon: GraduationCap },
     { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
+    { href: '/pp/assistant',  label: 'Policy Assistant',        icon: Bot },
     { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
     { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
     { href: '/references',  label: 'References',             icon: UserCheck },
@@ -36,6 +37,7 @@ const staffSections = [
   { label: 'MODULES', items: [
     { href: '/lms',         label: 'Training Programmes',    icon: GraduationCap },
     { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
+    { href: '/pp/assistant',  label: 'Policy Assistant',        icon: Bot },
     { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
     { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
   ]},
@@ -46,6 +48,7 @@ const caregiverSections = [
   { label: 'MY PORTAL', items: [
     { href: '/lms',         label: 'My Training',    icon: GraduationCap },
     { href: '/pp',          label: 'Policies',       icon: ShieldCheck },
+    { href: '/pp/assistant',  label: 'Policy Assistant',  icon: Bot },
     { href: '/credentials', label: 'My Credentials', icon: BadgeCheck },
     { href: '/references',  label: 'My References',  icon: UserCheck },
   ]},

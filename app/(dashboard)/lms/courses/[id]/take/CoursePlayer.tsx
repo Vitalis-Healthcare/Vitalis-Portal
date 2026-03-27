@@ -312,14 +312,16 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
 
             {/* TEXT */}
             {currentSection.type === 'text' && (
-              <div
-                className="prose-content"
-                style={{ fontSize: 14, lineHeight: 1.8, color: '#2A3A4A' }}
-                dangerouslySetInnerHTML={{
-                  __html: currentSection.content ||
-                    '<p style="color:#8FA0B0">No content added to this section yet.</p>'
-                }}
-              />
+              <div className="prose-scroll-wrapper" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' as const }}>
+                <div
+                  className="prose-content"
+                  style={{ fontSize: 14, lineHeight: 1.8, color: '#2A3A4A', minWidth: 0, wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                  dangerouslySetInnerHTML={{
+                    __html: currentSection.content ||
+                      '<p style="color:#8FA0B0">No content added to this section yet.</p>'
+                  }}
+                />
+              </div>
             )}
 
             {/* VIDEO */}

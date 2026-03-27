@@ -232,47 +232,47 @@
     border: none !important;
   }
 
-  /* ── Study guide (text section) ─────────────────────────────────────────── */
+  /* ── Study guide scroll wrapper ─────────────────────────────────────────── */
+  /* Outer scroll container — allows wide tables to scroll horizontally
+     instead of overflowing the viewport */
+  .prose-scroll-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* ── Study guide content ─────────────────────────────────────────────────── */
   .prose-content {
     font-size: 14px !important;
     line-height: 1.75 !important;
-    overflow-x: hidden !important;
     word-break: break-word !important;
     overflow-wrap: break-word !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
   }
 
-  /* All direct children must not overflow */
-  .prose-content * {
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Tables inside study guides — horizontal scroll */
+  /* Tables — allow horizontal scroll inside the wrapper */
   .prose-content table {
+    border-collapse: collapse !important;
     font-size: 12px !important;
-    display: block !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    width: 100% !important;
+    min-width: 0 !important;
   }
 
   .prose-content td,
   .prose-content th {
     padding: 6px 8px !important;
-    min-width: 80px !important;
     word-break: break-word !important;
+    white-space: normal !important;
   }
 
   /* Images */
   .prose-content img {
-    width: 100% !important;
+    max-width: 100% !important;
     height: auto !important;
     border-radius: 6px !important;
+    display: block !important;
   }
 
-  /* Pre / code blocks */
+  /* Pre / code */
   .prose-content pre {
     overflow-x: auto !important;
     white-space: pre-wrap !important;

@@ -6,7 +6,6 @@ import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import PolicyIframe from './PolicyIframe'
 import PolicyAcknowledgeButton from './PolicyAcknowledgeButton'
 import PrintButton from './PrintButton'
-import PolicyAISidebar from './PolicyAISidebar'
 
 export default async function PolicyViewerPage({ params }: { params: Promise<{ docId: string }> }) {
   const { docId } = await params
@@ -58,7 +57,7 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
   }
 
   return (
-    <div className="pp-doc-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'start' }}>
+    <div className="pp-doc-layout" style={{ maxWidth: 860, margin: '0 auto' }}>
 
       {/* MAIN CONTENT */}
       <div>
@@ -130,6 +129,17 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
           <PolicyIframe docId={policy.doc_id} />
         </div>
 
+        {/* Policy Assistant link */}
+        <div style={{ marginTop: 16, background: '#F8FAFB', borderRadius: 10, padding: '12px 16px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 16 }}>🤖</span>
+            <span style={{ fontSize: 13, color: '#4A6070' }}>Have questions about this policy?</span>
+          </div>
+          <Link href="/pp/assistant" style={{ fontSize: 13, fontWeight: 700, color: '#0B6B5C', textDecoration: 'none' }}>
+            Ask Policy Assistant →
+          </Link>
+        </div>
+
         {/* Bottom ack CTA */}
         {ackState === 'required' && (
           <div style={{ marginTop: 16, background: '#fff', borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
@@ -142,69 +152,6 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
         )}
       </div>
 
-      {/* RIGHT SIDEBAR */}
-      <div className="pp-doc-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 20 }}>
-        <PolicyAISidebar
-          docId={policy.doc_id}
-          docTitle={policy.title}
-          userRole={ppRole}
-        />
-
-        {/* Version history */}
-        {(versions||[]).length > 0 && (
-          <div style={{ background: '#fff', borderRadius: 12, padding: 18, border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <h3 style={{ fontSize: 13, fontWeight: 800, color: '#1A2E44', margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              🕐 Version History
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(versions||[]).map((v: any, i: number) => (
-                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, marginTop: 3 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: changeTypeColors[v.change_type] || '#8FA0B0', border: i === 0 ? '2px solid #0B6B5C' : '1px solid #E2E8F0' }} />
-                    {i < (versions||[]).length - 1 && <div style={{ width: 1, height: 28, background: '#E2E8F0', marginTop: 3 }} />}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: '#1A2E44' }}>v{v.version}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: changeTypeColors[v.change_type] + '20', color: changeTypeColors[v.change_type] }}>
-                        {v.change_type}
-                      </span>
-                    </div>
-                    {v.change_summary && <div style={{ fontSize: 11, color: '#4A6070', marginTop: 2, lineHeight: 1.4 }}>{v.change_summary}</div>}
-                    <div style={{ fontSize: 10, color: '#CBD5E0', marginTop: 2 }}>
-                      {new Date(v.created_at).toLocaleDateString()} · {v.changed_by_role}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Admin actions */}
-        {isAdmin && (
-          <div style={{ background: '#fff', borderRadius: 12, padding: 18, border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <h3 style={{ fontSize: 13, fontWeight: 800, color: '#1A2E44', margin: '0 0 12px' }}>Admin Actions</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <Link href={`/pp/${policy.doc_id}/edit`} style={{ textDecoration: 'none' }}>
-                <button style={{ width: '100%', padding: '9px 14px', background: '#0B6B5C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
-                  ✏️ Edit with AI Assist
-                </button>
-              </Link>
-              <Link href="/pp/admin/acknowledgments" style={{ textDecoration: 'none' }}>
-                <button style={{ width: '100%', padding: '9px 14px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, color: '#1A2E44', fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
-                  📊 View Acknowledgments
-                </button>
-              </Link>
-              <Link href="/pp/admin/reviews" style={{ textDecoration: 'none' }}>
-                <button style={{ width: '100%', padding: '9px 14px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, color: '#1A2E44', fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
-                  📅 Review Calendar
-                </button>
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   )
 }
