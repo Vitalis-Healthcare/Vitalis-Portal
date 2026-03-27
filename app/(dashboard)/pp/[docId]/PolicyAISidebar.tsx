@@ -9,7 +9,7 @@ export default function PolicyAISidebar({ docId, docTitle, userRole }: {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
 
   const suggestions = [
     `Summarise the key requirements of this policy`,
@@ -52,11 +52,20 @@ export default function PolicyAISidebar({ docId, docTitle, userRole }: {
           <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>Ask About This Policy</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>AI assistant scoped to {docId}</div>
         </div>
-        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{open ? '▲' : '▼'}</span>
+        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700 }}>{open ? '▲ Hide' : '▼ Open'}</span>
       </button>
 
       {open && (
         <div>
+          {/* Close bar */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 10px', background: '#F8FAFB', borderBottom: '1px solid #EFF2F5' }}>
+            <button
+              onClick={() => setOpen(false)}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', border: '1px solid #E2E8F0', borderRadius: 6, background: '#fff', color: '#4A6070', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              ✕ Close
+            </button>
+          </div>
           <div className="pp-ai-messages" style={{ padding: '12px 14px', maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {messages.length === 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

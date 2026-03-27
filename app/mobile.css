@@ -236,20 +236,56 @@
   .prose-content {
     font-size: 14px !important;
     line-height: 1.75 !important;
+    overflow-x: hidden !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  /* Tables inside study guides */
+  /* All direct children must not overflow */
+  .prose-content * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Tables inside study guides — horizontal scroll */
   .prose-content table {
     font-size: 12px !important;
     display: block !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
   }
 
   .prose-content td,
   .prose-content th {
     padding: 6px 8px !important;
     min-width: 80px !important;
+    word-break: break-word !important;
+  }
+
+  /* Images */
+  .prose-content img {
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 6px !important;
+  }
+
+  /* Pre / code blocks */
+  .prose-content pre {
+    overflow-x: auto !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    padding: 12px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+  }
+
+  .prose-content code {
+    word-break: break-word !important;
+    white-space: pre-wrap !important;
+    font-size: 12px !important;
   }
 
   .prose-content h1,
@@ -324,7 +360,22 @@
 
 }
 
-/* ── iOS-specific: prevent font size inflation ──────────────────────────────── */
+
+  /* ── Course player text section: prevent right overflow ───────────────── */
+  .course-player-content {
+    overflow-x: hidden !important;
+    word-break: break-word !important;
+  }
+
+  /* ── PP policy iframe: constrain to column width ───────────────────────── */
+  .pp-doc-layout iframe {
+    max-width: 100% !important;
+    width: 100% !important;
+    min-height: 420px !important;
+    overflow: hidden !important;
+  }
+
+  /* ── iOS-specific: prevent font size inflation ──────────────────────────────── */
 @media (max-width: 767px) {
   input, textarea, select {
     font-size: 16px !important; /* prevents iOS from zooming on input focus */
