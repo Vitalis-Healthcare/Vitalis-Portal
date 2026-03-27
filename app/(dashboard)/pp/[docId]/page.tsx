@@ -58,7 +58,7 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'start' }}>
+    <div className="pp-doc-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'start' }}>
 
       {/* MAIN CONTENT */}
       <div>
@@ -143,7 +143,7 @@ export default async function PolicyViewerPage({ params }: { params: Promise<{ d
       </div>
 
       {/* RIGHT SIDEBAR */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 20 }}>
+      <div className="pp-doc-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 20 }}>
         <PolicyAISidebar
           docId={policy.doc_id}
           docTitle={policy.title}

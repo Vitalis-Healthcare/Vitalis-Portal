@@ -197,7 +197,7 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
       </div>
 
       {/* Header with progress bar */}
-      <div style={{
+      <div className="course-player-header" style={{
         background: course.thumbnail_color || '#0E7C7B',
         borderRadius: '12px 12px 0 0',
         padding: '20px 28px',
@@ -230,7 +230,7 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
       </div>
 
       {/* Body: sidebar + content */}
-      <div style={{
+      <div className="course-player-body" style={{
         display: 'grid',
         gridTemplateColumns: '230px 1fr',
         background: '#fff',
@@ -240,13 +240,14 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
         overflow: 'hidden'
       }}>
         {/* Section nav sidebar */}
-        <div style={{ borderRight: '1px solid #EFF2F5', paddingTop: 12, paddingBottom: 12, overflowY: 'auto' }}>
+        <div className="course-section-nav" style={{ borderRight: '1px solid #EFF2F5', paddingTop: 12, paddingBottom: 12, overflowY: 'auto' }}>
           {sections.map((s, i) => {
             const isDone = !!progress[s.id]
             const isActive = i === currentIdx
             return (
               <button
                 key={s.id}
+                className="course-section-btn"
                 onClick={() => setCurrentIdx(i)}
                 style={{
                   width: '100%',
@@ -286,7 +287,7 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
         </div>
 
         {/* Main content area */}
-        <div style={{ padding: 'clamp(16px,3vw,28px) clamp(14px,3vw,36px)', display: 'flex', flexDirection: 'column' }}>
+        <div className="course-player-content" style={{ padding: 'clamp(16px,3vw,28px) clamp(14px,3vw,36px)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1 }}>
             {/* Section header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -417,7 +418,7 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
           </div>
 
           {/* Navigation footer */}
-          <div style={{
+          <div className="course-player-footer" style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             marginTop: 32, paddingTop: 20, borderTop: '1px solid #EFF2F5'
           }}>

@@ -249,7 +249,7 @@ export default async function ProgrammeDetailPage({ params }: { params: Promise<
                     </div>
 
                     {/* Action button */}
-                    <div style={{ flexShrink: 0 }}>
+                    <div className="programme-module-row-actions" style={{ flexShrink: 0 }}>
                       {isAdmin ? (
                         <Link href={`/lms/courses/${mod.id}/edit`}>
                           <button style={{

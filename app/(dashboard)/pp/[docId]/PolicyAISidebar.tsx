@@ -42,7 +42,7 @@ export default function PolicyAISidebar({ docId, docTitle, userRole }: {
   }
 
   return (
-    <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+    <div className="pp-ai-sidebar" style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{ width: '100%', padding: '14px 18px', background: 'linear-gradient(135deg, #0B6B5C, #1A9B87)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
@@ -57,7 +57,7 @@ export default function PolicyAISidebar({ docId, docTitle, userRole }: {
 
       {open && (
         <div>
-          <div style={{ padding: '12px 14px', maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="pp-ai-messages" style={{ padding: '12px 14px', maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {messages.length === 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ fontSize: 11, color: '#8FA0B0', fontWeight: 600, marginBottom: 2 }}>Quick questions:</div>
@@ -87,7 +87,7 @@ export default function PolicyAISidebar({ docId, docTitle, userRole }: {
               </div>
             )}
           </div>
-          <div style={{ padding: '10px 12px', borderTop: '1px solid #EFF2F5', background: '#FAFBFC' }}>
+          <div className="pp-ai-input" style={{ padding: '10px 12px', borderTop: '1px solid #EFF2F5', background: '#FAFBFC' }}>
             <div style={{ display: 'flex', gap: 6 }}>
               <input
                 value={input} onChange={e => setInput(e.target.value)}

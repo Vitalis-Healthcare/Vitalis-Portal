@@ -89,237 +89,244 @@
     overflow-x: hidden;
   }
 }
+
+
 /* ============================================================
-   APPEND TO: app/mobile.css
-   LMS, Course Player & Policies and Procedures mobile fixes
+   VITALIS PORTAL v2.9.51
+   Mobile optimisation — PP viewer + Course Player
+   Added: March 2026
    ============================================================ */
 
 @media (max-width: 767px) {
 
-  /* ── Synthesia / video iframes ──────────────────────────────────────────── */
-  iframe[src*="synthesia"],
-  iframe[src*="youtube"],
-  iframe[src*="vimeo"],
-  .course-video iframe,
-  [style*="aspectRatio"] iframe {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: auto !important;
-    min-height: 200px !important;
-    aspect-ratio: 16 / 9 !important;
+  /* ── PP Document viewer ─────────────────────────────────────────────────── */
+  /* Collapse the 2-col grid (1fr + 320px) to single column */
+  .pp-doc-layout {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
   }
 
-  /* ── Course player — sidebar stacks above content ──────────────────────── */
-  /* The player uses an inline flex row — override to column */
-  [style*="height: calc(100vh - 64px)"] {
-    flex-direction: column !important;
-    height: auto !important;
-    min-height: calc(100vh - 64px) !important;
+  /* Sidebar: remove sticky, show below content naturally */
+  .pp-doc-sidebar {
+    position: static !important;
+    top: auto !important;
   }
 
-  /* Sidebar becomes a horizontal scrollable section list */
-  [style*="width: 280"],
-  [style*="width:280"] {
+  /* AI Sidebar: expand message area on mobile for more readable chat */
+  .pp-ai-sidebar {
+    border-radius: 12px !important;
+  }
+
+  .pp-ai-messages {
+    max-height: 260px !important;
+    padding: 14px !important;
+  }
+
+  /* Input bar: larger touch target on mobile */
+  .pp-ai-input {
+    padding: 12px !important;
+  }
+
+  .pp-ai-input input {
+    font-size: 16px !important; /* prevents iOS zoom on focus */
+    padding: 10px 12px !important;
+    min-height: 44px !important;
+  }
+
+  .pp-ai-input button {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 8px !important;
+    font-size: 18px !important;
+  }
+
+  /* Policy iframe — give it a reasonable height on mobile */
+  .pp-doc-layout iframe {
+    min-height: 420px !important;
     width: 100% !important;
-    max-height: 200px !important;
+  }
+
+  /* ── Course Player ──────────────────────────────────────────────────────── */
+
+  /* Course player header: tighten padding on mobile */
+  .course-player-header {
+    padding: 16px !important;
+    border-radius: 12px 12px 0 0 !important;
+  }
+
+  .course-player-header h1 {
+    font-size: 16px !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Body: collapse 230px sidebar + content to single column */
+  .course-player-body {
+    grid-template-columns: 1fr !important;
+    min-height: auto !important;
+  }
+
+  /* Section nav: becomes a horizontal scrollable tab strip */
+  .course-section-nav {
     border-right: none !important;
-    border-bottom: 1px solid #EFF2F5 !important;
+    border-bottom: 2px solid #EFF2F5 !important;
+    padding: 0 !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
     display: flex !important;
     flex-direction: row !important;
-    padding: 8px 12px !important;
+    gap: 0 !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important; /* Firefox */
   }
 
-  /* ── PP document HTML content ───────────────────────────────────────────── */
-  /* Policy content renders HTML — ensure it doesn't overflow */
-  .pp-content,
-  [class*="pp"] table,
-  .policy-content table {
-    max-width: 100% !important;
-    overflow-x: auto !important;
-    display: block !important;
+  .course-section-nav::-webkit-scrollbar {
+    display: none !important; /* Chrome/Safari */
   }
 
-  /* ── PP filter/search bars ──────────────────────────────────────────────── */
-  /* Any flex row with a search input + select + button */
-  [style*="display:'flex'"] > input[placeholder*="Search"],
-  [style*="display:'flex'"] > input[placeholder*="search"],
-  [style*="display: 'flex'"] > input[placeholder*="Search"] {
-    flex: 1 1 100% !important;
-    min-width: 0 !important;
-  }
-
-  /* ── LMS programme cards ────────────────────────────────────────────────── */
-  /* Programme title + button: allow button to go full-width */
-  [style*="justifyContent:'space-between'"] > button,
-  [style*="justifyContent: 'space-between'"] > button,
-  [style*="justifyContent:'space-between'"] > a > button {
+  /* Each section nav button becomes a horizontal tab */
+  .course-section-btn {
     width: auto !important;
+    min-width: 120px !important;
+    max-width: 160px !important;
+    flex-shrink: 0 !important;
+    padding: 12px 14px !important;
+    border-left: none !important;
+    border-bottom: 3px solid transparent !important;
     white-space: nowrap !important;
+    border-radius: 0 !important;
+    text-align: left !important;
   }
 
-  /* ── Module rows in programme detail ────────────────────────────────────── */
-  /* Edit Content + Start buttons in module row */
-  [style*="gap: 8, flexShrink: 0"],
-  [style*="gap:8,flexShrink:0"] {
-    flex-wrap: wrap !important;
+  /* Section title text in nav tab: truncate cleanly */
+  .course-section-btn > div > div:first-child {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 110px !important;
   }
 
-  /* ── LMS stat numbers — smaller font on mobile ──────────────────────────── */
-  /* The 4-col stat card grid collapses via global rule already */
-  /* Just ensure numbers don't overflow */
-  [style*="fontSize:28"],
-  [style*="fontSize: 28"] {
-    font-size: 22px !important;
+  /* Course content area: tighter mobile padding */
+  .course-player-content {
+    padding: 20px 16px 24px !important;
+    min-height: auto !important;
   }
 
-  /* ── Enrolment queue ────────────────────────────────────────────────────── */
-  /* Approve/Reject buttons in enrollment queue wrap on mobile */
-  [style*="display: 'flex', gap: 8, flexShrink: 0"] {
-    flex-wrap: wrap !important;
-    gap: 6px !important;
+  /* Section header on mobile */
+  .course-player-content h2 {
+    font-size: 17px !important;
+    line-height: 1.35 !important;
   }
 
-  /* ── P&P document viewer ────────────────────────────────────────────────── */
-  /* Full-width on mobile */
-  [style*="maxWidth: 860"],
-  [style*="maxWidth: 800"],
-  [style*="maxWidth: 720"] {
-    max-width: 100% !important;
-    overflow-x: hidden !important;
+  /* ── Video sections ─────────────────────────────────────────────────────── */
+  /* Ensure Synthesia / YouTube embeds scale properly */
+  .course-player-content [style*="paddingBottom: '56.25%'"],
+  .course-player-content [style*='paddingBottom: "56.25%"'],
+  .course-player-content [style*="paddingBottom:'56.25%'"] {
+    border-radius: 8px !important;
+    overflow: hidden !important;
   }
 
-  /* Tables inside policy content */
-  .policy-html-content table,
-  .pp-html table {
+  /* Force video containers to be fully responsive */
+  .course-player-content iframe {
+    border: none !important;
+  }
+
+  /* ── Study guide (text section) ─────────────────────────────────────────── */
+  .prose-content {
+    font-size: 14px !important;
+    line-height: 1.75 !important;
+  }
+
+  /* Tables inside study guides */
+  .prose-content table {
     font-size: 12px !important;
-    word-break: break-word !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
-  .policy-html-content td,
-  .policy-html-content th,
-  .pp-html td,
-  .pp-html th {
+  .prose-content td,
+  .prose-content th {
     padding: 6px 8px !important;
     min-width: 80px !important;
+  }
+
+  .prose-content h1,
+  .prose-content h2 { font-size: 18px !important; }
+  .prose-content h3 { font-size: 15px !important; }
+  .prose-content h4 { font-size: 14px !important; }
+
+  /* ── Quiz section ───────────────────────────────────────────────────────── */
+  /* Question cards: full width, comfortable padding */
+  .course-player-content [style*="padding: '16px 18px'"],
+  .course-player-content [style*="padding:'16px 18px'"] {
+    padding: 14px 12px !important;
+  }
+
+  /* Answer option labels: bigger touch area */
+  .course-player-content label {
+    padding: 12px 14px !important;
+    min-height: 48px !important;
+    align-items: center !important;
+    cursor: pointer !important;
+  }
+
+  /* Submit quiz button: full width on mobile */
+  .course-player-content button[style*="padding: '11px 28px'"],
+  .course-player-content button[style*="padding:'11px 28px'"] {
+    width: 100% !important;
+    padding: 14px !important;
+    font-size: 15px !important;
+  }
+
+  /* ── Navigation footer ──────────────────────────────────────────────────── */
+  .course-player-footer {
+    margin-top: 24px !important;
+    padding-top: 16px !important;
+    gap: 12px !important;
+  }
+
+  /* Previous / Next buttons: equal size, good touch targets */
+  .course-player-footer button {
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    min-height: 44px !important;
+  }
+
+  /* Dot indicators: hide on very small screens to save space */
+  @media (max-width: 380px) {
+    .course-player-footer > div:nth-child(2) {
+      display: none !important;
+    }
+  }
+
+  /* ── PDF section ────────────────────────────────────────────────────────── */
+  .course-player-content iframe[src$=".pdf"],
+  .course-player-content iframe[style*="height: 'clamp"] {
+    height: clamp(300px, 60vh, 500px) !important;
+    min-height: 300px !important;
+  }
+
+  /* ── Quiz score / completion screens ────────────────────────────────────── */
+  .course-player-content [style*="textAlign: 'center'"],
+  .course-player-content [style*="textAlign:'center'"] {
+    padding: 28px 16px !important;
+  }
+
+  /* ── LMS Programme page ─────────────────────────────────────────────────── */
+  /* Module rows: wrap action button below module info on mobile */
+  /* Module row uses flex + flexWrap: 'wrap' already, but button needs full row */
+  .programme-module-row-actions {
+    width: 100% !important;
+    flex: 1 0 100% !important;
   }
 
 }
-/* ============================================================
-   APPEND TO: app/mobile.css
-   LMS, Course Player & Policies and Procedures mobile fixes
-   ============================================================ */
 
+/* ── iOS-specific: prevent font size inflation ──────────────────────────────── */
 @media (max-width: 767px) {
-
-  /* ── Synthesia / video iframes ──────────────────────────────────────────── */
-  iframe[src*="synthesia"],
-  iframe[src*="youtube"],
-  iframe[src*="vimeo"],
-  .course-video iframe,
-  [style*="aspectRatio"] iframe {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: auto !important;
-    min-height: 200px !important;
-    aspect-ratio: 16 / 9 !important;
+  input, textarea, select {
+    font-size: 16px !important; /* prevents iOS from zooming on input focus */
   }
-
-  /* ── Course player — sidebar stacks above content ──────────────────────── */
-  /* The player uses an inline flex row — override to column */
-  [style*="height: calc(100vh - 64px)"] {
-    flex-direction: column !important;
-    height: auto !important;
-    min-height: calc(100vh - 64px) !important;
-  }
-
-  /* Sidebar becomes a horizontal scrollable section list */
-  [style*="width: 280"],
-  [style*="width:280"] {
-    width: 100% !important;
-    max-height: 200px !important;
-    border-right: none !important;
-    border-bottom: 1px solid #EFF2F5 !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    display: flex !important;
-    flex-direction: row !important;
-    padding: 8px 12px !important;
-  }
-
-  /* ── PP document HTML content ───────────────────────────────────────────── */
-  /* Policy content renders HTML — ensure it doesn't overflow */
-  .pp-content,
-  [class*="pp"] table,
-  .policy-content table {
-    max-width: 100% !important;
-    overflow-x: auto !important;
-    display: block !important;
-  }
-
-  /* ── PP filter/search bars ──────────────────────────────────────────────── */
-  /* Any flex row with a search input + select + button */
-  [style*="display:'flex'"] > input[placeholder*="Search"],
-  [style*="display:'flex'"] > input[placeholder*="search"],
-  [style*="display: 'flex'"] > input[placeholder*="Search"] {
-    flex: 1 1 100% !important;
-    min-width: 0 !important;
-  }
-
-  /* ── LMS programme cards ────────────────────────────────────────────────── */
-  /* Programme title + button: allow button to go full-width */
-  [style*="justifyContent:'space-between'"] > button,
-  [style*="justifyContent: 'space-between'"] > button,
-  [style*="justifyContent:'space-between'"] > a > button {
-    width: auto !important;
-    white-space: nowrap !important;
-  }
-
-  /* ── Module rows in programme detail ────────────────────────────────────── */
-  /* Edit Content + Start buttons in module row */
-  [style*="gap: 8, flexShrink: 0"],
-  [style*="gap:8,flexShrink:0"] {
-    flex-wrap: wrap !important;
-  }
-
-  /* ── LMS stat numbers — smaller font on mobile ──────────────────────────── */
-  /* The 4-col stat card grid collapses via global rule already */
-  /* Just ensure numbers don't overflow */
-  [style*="fontSize:28"],
-  [style*="fontSize: 28"] {
-    font-size: 22px !important;
-  }
-
-  /* ── Enrolment queue ────────────────────────────────────────────────────── */
-  /* Approve/Reject buttons in enrollment queue wrap on mobile */
-  [style*="display: 'flex', gap: 8, flexShrink: 0"] {
-    flex-wrap: wrap !important;
-    gap: 6px !important;
-  }
-
-  /* ── P&P document viewer ────────────────────────────────────────────────── */
-  /* Full-width on mobile */
-  [style*="maxWidth: 860"],
-  [style*="maxWidth: 800"],
-  [style*="maxWidth: 720"] {
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-  }
-
-  /* Tables inside policy content */
-  .policy-html-content table,
-  .pp-html table {
-    font-size: 12px !important;
-    word-break: break-word !important;
-  }
-
-  .policy-html-content td,
-  .policy-html-content th,
-  .pp-html td,
-  .pp-html th {
-    padding: 6px 8px !important;
-    min-width: 80px !important;
-  }
-
 }
