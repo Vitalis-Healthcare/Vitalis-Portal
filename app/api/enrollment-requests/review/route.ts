@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   // On approval: enroll them
   if (approve && req.programme_id) {
-    // Use insert with ignoreDuplicates — avoids needing constraint name for upsert
+    // Insert programme enrollment
     const { error: enrollError } = await svc.from('programme_enrollments').insert({
       user_id:      req.user_id,
       programme_id: req.programme_id,
@@ -50,6 +50,25 @@ export async function POST(request: Request) {
     })
     if (enrollError && !enrollError.message.includes('duplicate')) {
       console.error('[enrollment/review] programme_enrollments insert error:', enrollError.message)
+    }
+
+    // Also create individual course_enrollments for every published course in the programme
+    // The course player checks course_enrollments to determine access — programme enrollment alone is not enough
+    const { data: courses } = await svc
+      .from('courses')
+      .select('id')
+      .eq('programme_id', req.programme_id)
+      .eq('status', 'published')
+
+    for (const course of courses || []) {
+      const { error: ceError } = await svc.from('course_enrollments').insert({
+        user_id:    req.user_id,
+        course_id:  course.id,
+        progress_pct: 0,
+      })
+      if (ceError && !ceError.message.includes('duplicate')) {
+        console.error('[enrollment/review] course_enrollments insert error:', ceError.message)
+      }
     }
   } else if (approve && req.course_id) {
     const { error: enrollError } = await svc.from('course_enrollments').insert({
