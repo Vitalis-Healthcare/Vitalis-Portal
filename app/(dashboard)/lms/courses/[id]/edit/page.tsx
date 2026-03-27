@@ -5,19 +5,20 @@ import CourseBuilderForm from '@/components/lms/CourseBuilderForm'
 export default async function EditCoursePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const svc = createServiceClient()
 
   // Auth + admin check
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profile } = await svc
     .from('profiles').select('role').eq('id', user.id).single()
 
   if (profile?.role !== 'admin' && profile?.role !== 'supervisor') {
     redirect(`/lms/courses/${id}`)
   }
 
-  const { data: course } = await supabase
+  const { data: course } = await svc
     .from('courses')
     .select(`
       id, title, description, category, estimated_minutes,

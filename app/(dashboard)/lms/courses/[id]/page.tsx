@@ -10,7 +10,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: course } = await supabase
+  const { data: course } = await svc
     .from('courses')
     .select('*, sections:course_sections(*, questions:quiz_questions(*))')
     .eq('id', id)
@@ -19,7 +19,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
 
   if (!course) notFound()
 
-  const { data: enrollments } = await supabase
+  const { data: enrollments } = await svc
     .from('course_enrollments')
     .select('*, profile:profiles(full_name, role)')
     .eq('course_id', id)
@@ -27,25 +27,25 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
 
   const { data: { user } } = await supabase.auth.getUser()
   const svc = createServiceClient()
-  const { data: profile } = await supabase
+  const { data: profile } = await svc
     .from('profiles').select('role').eq('id', user?.id || '').single()
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
-  const { data: myEnrollment } = await supabase
+  const { data: myEnrollment } = await svc
     .from('course_enrollments')
     .select('id, progress_pct, completed_at')
     .eq('course_id', id)
     .eq('user_id', user?.id || '')
     .maybeSingle()
 
-  const { data: enrolledRows } = await supabase
+  const { data: enrolledRows } = await svc
     .from('course_enrollments').select('user_id').eq('course_id', id)
 
   const enrolledIds = new Set((enrolledRows || []).map((e: any) => e.user_id))
 
   const { data: allStaff } = isAdmin
-    ? await supabase.from('profiles').select('id, full_name, role').order('full_name')
+    ? await svc.from('profiles').select('id, full_name, role').order('full_name')
     : { data: [] }
 
   const unassignedStaff = (allStaff || []).filter((s: any) => !enrolledIds.has(s.id))

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import CoursePlayer from './CoursePlayer'
@@ -6,11 +7,12 @@ import CoursePlayer from './CoursePlayer'
 export default async function TakeCoursePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const svc = createServiceClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: course } = await supabase
+  const { data: course } = await svc
     .from('courses')
     .select(`
       id, title, description, thumbnail_color, category, estimated_minutes, status,
@@ -24,7 +26,7 @@ export default async function TakeCoursePage({ params }: { params: Promise<{ id:
 
   if (!course || course.status !== 'published') notFound()
 
-  const { data: enrollment } = await supabase
+  const { data: enrollment } = await svc
     .from('course_enrollments')
     .select('id, progress_pct, completed_at, last_accessed_at')
     .eq('course_id', id)
@@ -57,7 +59,7 @@ export default async function TakeCoursePage({ params }: { params: Promise<{ id:
     )
   }
 
-  const { data: sectionProgress } = await supabase
+  const { data: sectionProgress } = await svc
     .from('section_progress')
     .select('section_id, completed_at, score, quiz_answers')
     .eq('enrollment_id', enrollment.id)
