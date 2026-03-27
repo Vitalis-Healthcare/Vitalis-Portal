@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin')
+  const [mode, setMode] = useState<'signin' | 'reset' | 'pending'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -179,21 +179,7 @@ export default function LoginPage() {
             <div style={{ flex: 1, height: 1, background: '#EFF2F5' }}/>
           </div>
 
-          {/* Mode tabs */}
-          <div style={{ display: 'flex', background: '#F8FAFB', borderRadius: 8, padding: 3, marginBottom: 20 }}>
-            {(['signin', 'signup'] as const).map(m => (
-              <button key={m} onClick={() => { setMode(m); setError(''); setSuccessMsg('') }} style={{
-                flex: 1, padding: '7px 0', borderRadius: 6, border: 'none',
-                fontWeight: 600, fontSize: 13, cursor: 'pointer',
-                background: mode === m ? '#fff' : 'transparent',
-                color: mode === m ? '#1A2E44' : '#8FA0B0',
-                boxShadow: mode === m ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s',
-              }}>
-                {m === 'signin' ? 'Sign In' : 'Create Account'}
-              </button>
-            ))}
-          </div>
+
 
           {/* Awaiting approval screen */}
           {(mode as string) === 'pending' ? (
