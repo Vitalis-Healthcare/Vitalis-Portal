@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Plus, Send, RefreshCw, CheckCircle, Clock, AlertTriangle, X, Eye } from 'lucide-react'
 import ReferenceSubmissionViewer from '@/components/references/ReferenceSubmissionViewer'
 
@@ -203,13 +204,22 @@ export default function ReferencesClient({ refs, caregivers = [], userId, fullNa
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {ref?.status !== 'received' && (
                       <button
                         onClick={() => openEdit(slot)}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: hasRef ? '#EFF2F5' : '#0E7C7B', color: hasRef ? '#4A6070' : '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                       >
                         {hasRef ? <><RefreshCw size={13}/> Update</> : <><Plus size={13}/> Add</>}
+                      </button>
+                    )}
+                    {hasRef && (ref.status === 'sent' || ref.status === 'pending') && (
+                      <button
+                        onClick={() => handleResend(ref.id)}
+                        disabled={resending === ref.id}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#EBF4FF', color: '#457B9D', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: resending === ref.id ? 'not-allowed' : 'pointer', opacity: resending === ref.id ? 0.6 : 1 }}
+                      >
+                        <Send size={13}/> {resending === ref.id ? 'Sending…' : 'Resend'}
                       </button>
                     )}
                   </div>
@@ -292,7 +302,7 @@ export default function ReferencesClient({ refs, caregivers = [], userId, fullNa
                   const sub = ref ? getSubmission(ref) : null
                   return (
                     <tr key={`${row.caregiver_id}-${row.slot}`} style={{ borderBottom:'1px solid #EFF2F5', background: i % 2 === 0 ? '#fff' : '#FAFBFC' }}>
-                      <td style={{ padding:'12px 16px', fontWeight:600, color:'#1A2E44' }}>{row.caregiver_name}</td>
+                      <td style={{ padding:'12px 16px', fontWeight:600, color:'#1A2E44' }}><Link href={`/staff/${row.caregiver_id}`} style={{ color:'#1A2E44', textDecoration:'none' }} onMouseEnter={e=>(e.currentTarget.style.color='#0E7C7B')} onMouseLeave={e=>(e.currentTarget.style.color='#1A2E44')}>{row.caregiver_name}</Link></td>
                       <td style={{ padding:'12px 16px', color:'#4A6070' }}>{row.slot_label}</td>
                       <td style={{ padding:'12px 16px', color:'#4A6070', textTransform:'capitalize' }}>{row.reference_type}</td>
                       <td style={{ padding:'12px 16px' }}>

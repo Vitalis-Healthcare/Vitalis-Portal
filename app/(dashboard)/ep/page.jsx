@@ -50,10 +50,10 @@ function Spinner(){return<span style={{display:"inline-block",width:13,height:13
 function SaveBadge({msg}){return msg?<span style={{background:T.greenBg,color:T.green,padding:"5px 12px",borderRadius:7,fontSize:12,fontWeight:700}}>✓ {msg}</span>:null;}
 
 async function callClaude(sys,usr){
-  const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:[{role:"user",content:usr}]})});
-  const data=await res.json();if(data.error)throw new Error(data.error.message);
-  return data.content?.find(c=>c.type==="text")?.text||"";
+  const res=await fetch("/api/ep/ai",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({system:sys,user:usr})});
+  const data=await res.json();if(data.error)throw new Error(data.error);
+  return data.text||"";
 }
 
 // ── SCHEDULE ──────────────────────────────────────────────────────

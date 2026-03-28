@@ -2,6 +2,7 @@
 // app/(dashboard)/appraisals/AppraisalsClient.tsx
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Plus, Send, CheckCircle, Clock, FileText, ChevronDown, ChevronUp, X, Printer } from 'lucide-react'
 
@@ -320,7 +321,7 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
               <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2E44' }}>{getName(a.caregiver)}</span>
+                    <Link href={`/staff/${a.caregiver_id}`} style={{ fontSize: 14, fontWeight: 700, color: '#1A2E44', textDecoration: 'none' }} onMouseEnter={e=>(e.currentTarget.style.color='#0E7C7B')} onMouseLeave={e=>(e.currentTarget.style.color='#1A2E44')}>{getName(a.caregiver)}</Link>
                     <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: statusBg(a.status), color: statusColor(a.status) }}>
                       {statusLabel(a.status)}
                     </span>

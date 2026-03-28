@@ -135,7 +135,7 @@ function AdminView({ allStaff, credSummary, refSummary }: { allStaff: Profile[];
             <tbody>
               {filtered.map(s=>(
                 <tr key={s.id} style={{ borderBottom:'1px solid #EFF2F5' }}>
-                  <td style={{ padding:'14px 16px', fontWeight:600, color:'#1A2E44' }}>{s.full_name}</td>
+                  <td style={{ padding:'14px 16px', fontWeight:600, color:'#1A2E44' }}><Link href={`/staff/${s.id}`} style={{ color:'#1A2E44', textDecoration:'none' }} onMouseEnter={e=>(e.currentTarget.style.color='#0E7C7B')} onMouseLeave={e=>(e.currentTarget.style.color='#1A2E44')}>{s.full_name}</Link></td>
                   <td style={{ padding:'14px 16px', color:'#8FA0B0', fontSize:13 }}>{s.email}</td>
                   <td style={{ padding:'14px 16px' }}>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:roleBg(s.role), color:roleColor(s.role), textTransform:'capitalize' }}>{s.role}</span>
