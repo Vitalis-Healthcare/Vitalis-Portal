@@ -1,6 +1,6 @@
 // app/api/references/resend/route.ts
 // Resends a reference email for a specific reference ID.
-// Only callable by admin/supervisor/staff.
+// Callable by admin/supervisor/staff OR by a caregiver for their own references.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -17,9 +17,12 @@ export async function POST(request: Request) {
 
   const svc = createServiceClient()
 
-  // Verify viewer is admin/supervisor/staff
   const { data: viewer } = await svc.from('profiles').select('role').eq('id', user.id).single()
-  if (!['admin', 'supervisor', 'staff'].includes(viewer?.role || '')) {
+  const isAdmin = ['admin', 'supervisor', 'staff'].includes(viewer?.role || '')
+  const isCaregiver = viewer?.role === 'caregiver'
+
+  // Must be admin/supervisor/staff OR a caregiver (caregivers can only resend their own — enforced below)
+  if (!isAdmin && !isCaregiver) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -37,6 +40,12 @@ export async function POST(request: Request) {
     .single()
 
   if (!ref) return NextResponse.json({ error: 'Reference not found' }, { status: 404 })
+
+  // Caregivers may only resend their own references
+  if (isCaregiver && ref.caregiver_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   if (ref.status === 'received') return NextResponse.json({ error: 'Reference already received' }, { status: 400 })
 
   const caregiverName = (ref.caregiver as any)?.full_name || 'A Vitalis Healthcare caregiver'
