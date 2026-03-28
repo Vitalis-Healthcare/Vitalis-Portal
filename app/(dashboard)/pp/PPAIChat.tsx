@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { renderMarkdown } from '@/lib/renderMarkdown'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -138,7 +139,7 @@ export default function PPAIChat({ userId, userRole, userName }: {
               fontSize: 13, lineHeight: 1.6,
               border: m.role === 'assistant' ? '1px solid #E2E8F0' : 'none'
             }}>
-              <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+              <div>{m.role === 'user' ? m.content : renderMarkdown(m.content, '#0B6B5C')}</div>
               {m.citations && m.citations.length > 0 && (
                 <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Sources</div>

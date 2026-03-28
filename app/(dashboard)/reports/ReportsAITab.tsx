@@ -1,4 +1,5 @@
 'use client'
+import { renderMarkdown } from '@/lib/renderMarkdown'
 // app/(dashboard)/reports/ReportsAITab.tsx
 // AI Compliance Analyst — chat UI for the Reports module.
 // Calls /api/reports/ai-chat with the current message + history.
@@ -37,83 +38,6 @@ const C = {
 // ─── Markdown-lite renderer ───────────────────────────────────────────────────
 // Handles bold, bullet lists, numbered lists, and headings from Claude's responses.
 
-function renderMarkdown(text: string): React.ReactNode[] {
-  const lines = text.split('\n')
-  const nodes: React.ReactNode[] = []
-  let i = 0
-
-  while (i < lines.length) {
-    const line = lines[i]
-
-    // Blank line
-    if (line.trim() === '') { nodes.push(<br key={i} />); i++; continue }
-
-    // Heading ## or ###
-    if (line.startsWith('### ')) {
-      nodes.push(<div key={i} style={{ fontSize: 13, fontWeight: 800, color: C.primary, marginTop: 14, marginBottom: 4 }}>{line.slice(4)}</div>)
-      i++; continue
-    }
-    if (line.startsWith('## ')) {
-      nodes.push(<div key={i} style={{ fontSize: 14, fontWeight: 800, color: C.primary, marginTop: 16, marginBottom: 6 }}>{line.slice(3)}</div>)
-      i++; continue
-    }
-
-    // Numbered list
-    const numMatch = line.match(/^(\d+)\.\s+(.*)/)
-    if (numMatch) {
-      const items: string[] = []
-      while (i < lines.length && lines[i].match(/^\d+\.\s+/)) {
-        items.push(lines[i].replace(/^\d+\.\s+/, ''))
-        i++
-      }
-      nodes.push(
-        <ol key={i} style={{ margin: '8px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {items.map((item, j) => <li key={j} style={{ fontSize: 13, color: C.text, lineHeight: 1.6 }}>{renderInline(item)}</li>)}
-        </ol>
-      )
-      continue
-    }
-
-    // Bullet list
-    if (line.match(/^[-*]\s+/)) {
-      const items: string[] = []
-      while (i < lines.length && lines[i].match(/^[-*]\s+/)) {
-        items.push(lines[i].replace(/^[-*]\s+/, ''))
-        i++
-      }
-      nodes.push(
-        <ul key={i} style={{ margin: '8px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {items.map((item, j) => <li key={j} style={{ fontSize: 13, color: C.text, lineHeight: 1.6 }}>{renderInline(item)}</li>)}
-        </ul>
-      )
-      continue
-    }
-
-    // Normal paragraph
-    nodes.push(<p key={i} style={{ margin: '4px 0', fontSize: 13, lineHeight: 1.7, color: C.text }}>{renderInline(line)}</p>)
-    i++
-  }
-
-  return nodes
-}
-
-function renderInline(text: string): React.ReactNode {
-  // Bold **text** or __text__
-  const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__)/)
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={i} style={{ fontWeight: 700, color: C.primary }}>{part.slice(2, -2)}</strong>
-        }
-        if (part.startsWith('__') && part.endsWith('__')) {
-          return <strong key={i} style={{ fontWeight: 700, color: C.primary }}>{part.slice(2, -2)}</strong>
-        }
-        return part
-      })}
-    </>
-  )
-}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -262,7 +186,7 @@ export default function ReportsAITab() {
                   {msg.role === 'user' ? (
                     <p style={{ margin: 0, fontSize: 13, color: '#fff', lineHeight: 1.6 }}>{msg.content}</p>
                   ) : (
-                    <div style={{ color: C.text }}>{renderMarkdown(msg.content)}</div>
+                    <div style={{ color: C.text }}>{renderMarkdown(msg.content, C.primary)}</div>
                   )}
                 </div>
               </div>

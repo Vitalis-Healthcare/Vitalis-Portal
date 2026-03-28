@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { renderMarkdown } from '@/lib/renderMarkdown'
 import Link from 'next/link'
 
 interface Message {
@@ -256,7 +257,7 @@ export default function VitaChat({ userId, userRole, userName, ppRole, snapshot 
               border: m.role === 'assistant' ? '1px solid #E2E8F0' : 'none',
               boxShadow: m.role === 'user' ? '0 2px 8px rgba(11,107,92,0.25)' : '0 1px 3px rgba(0,0,0,0.05)'
             }}>
-              <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+              <div style={{ color: m.role === 'user' ? '#fff' : '#1A2E44' }}>{m.role === 'user' ? m.content : renderMarkdown(m.content, '#0B6B5C')}</div>
 
               {/* Policy citations */}
               {m.citations && m.citations.length > 0 && (
