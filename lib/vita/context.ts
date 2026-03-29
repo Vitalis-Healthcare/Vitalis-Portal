@@ -364,3 +364,148 @@ export async function buildVitaSnapshot(userId: string, svc: any) {
     }
   }
 }
+
+// ── Leads & Pipeline context (admin/supervisor only) ──────────────────────────
+export async function buildLeadsContext(svc: any): Promise<string> {
+  try {
+    const { data: leads } = await svc
+      .from('leads')
+      .select(`
+        id, full_name, client_name, source, referral_name, status,
+        care_types, estimated_hours_week, hourly_rate,
+        expected_close_date, expected_start_date,
+        won_date, lost_reason, notes, created_at, updated_at,
+        assignee:assigned_to(full_name)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (!leads || leads.length === 0) {
+      return 'LEADS & PIPELINE CONTEXT:\nNo leads in the system yet.'
+    }
+
+    // Revenue helpers
+    const calcMonthly = (h?: number, r?: number) => (h && r) ? h * r * 4.33 : 0
+    const fmtMoney = (n: number) => '$' + Math.round(n).toLocaleString()
+
+    // Group by status
+    const STAGES = ['new','contacted','assessment_scheduled','proposal_sent','won','on_hold','cold','lost']
+    const STAGE_LABELS: Record<string,string> = {
+      new: 'New', contacted: 'Contacted', assessment_scheduled: 'Assessment Scheduled',
+      proposal_sent: 'Proposal Sent', won: 'Won', on_hold: 'On Hold', cold: 'Cold', lost: 'Lost'
+    }
+
+    const byStatus: Record<string, typeof leads> = {}
+    for (const s of STAGES) byStatus[s] = []
+    for (const l of leads) {
+      if (byStatus[l.status]) byStatus[l.status].push(l)
+    }
+
+    const activePipeline = leads.filter((l: any) => !['lost','cold'].includes(l.status))
+    const wonLeads = leads.filter((l: any) => l.status === 'won')
+    const pipelineMonthly = activePipeline.filter((l: any) => l.status !== 'won')
+      .reduce((sum: number, l: any) => sum + calcMonthly(l.estimated_hours_week, l.hourly_rate), 0)
+    const wonMonthly = wonLeads
+      .reduce((sum: number, l: any) => sum + calcMonthly(l.estimated_hours_week, l.hourly_rate), 0)
+
+    const lines: string[] = ['LEADS & PIPELINE CONTEXT:']
+    lines.push(`Total leads: ${leads.length} | Active: ${activePipeline.length} | Won: ${wonLeads.length} | Lost/Cold: ${leads.length - activePipeline.length}`)
+    lines.push(`Won monthly revenue: ${fmtMoney(wonMonthly)}/mo (${fmtMoney(wonMonthly * 12)}/yr)`)
+    lines.push(`Pipeline potential: ${fmtMoney(pipelineMonthly)}/mo (if all active leads convert)`)
+
+    // Stage breakdown
+    lines.push('\nPIPELINE BREAKDOWN:')
+    for (const s of STAGES) {
+      const group = byStatus[s] || []
+      if (group.length === 0) continue
+      const groupRevenue = group.reduce((sum: number, l: any) => sum + calcMonthly(l.estimated_hours_week, l.hourly_rate), 0)
+      lines.push(`\n${STAGE_LABELS[s]} (${group.length}):${groupRevenue > 0 ? ' ' + fmtMoney(groupRevenue) + '/mo potential' : ''}`)
+      for (const l of group) {
+        const name = l.client_name || l.full_name
+        const rev = calcMonthly(l.estimated_hours_week, l.hourly_rate)
+        const assignee = Array.isArray(l.assignee) ? l.assignee[0]?.full_name : l.assignee?.full_name
+        lines.push(
+          `  • ${name}` +
+          (l.care_types?.length ? ` | ${l.care_types.join(', ')}` : '') +
+          (l.estimated_hours_week ? ` | ${l.estimated_hours_week}h/wk` : '') +
+          (l.hourly_rate ? ` @ $${l.hourly_rate}/hr` : '') +
+          (rev > 0 ? ` = ${fmtMoney(rev)}/mo` : '') +
+          (l.expected_close_date ? ` | Close: ${l.expected_close_date}` : '') +
+          (assignee ? ` | Assigned: ${assignee}` : '') +
+          (l.source !== 'phone' ? ` | Source: ${l.source.replace(/_/g,' ')}` : '')
+        )
+        if (l.notes) lines.push(`    Notes: ${l.notes.slice(0, 120)}`)
+      }
+    }
+
+    // Revenue trajectory — next 6 months
+    const today = new Date()
+    const trajectory: Record<string, number> = {}
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 1)
+      const key = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      trajectory[key] = 0
+    }
+    for (const l of activePipeline.filter((l: any) => l.status !== 'won')) {
+      if (!l.expected_close_date) continue
+      const d = new Date(l.expected_close_date)
+      const key = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      const rev = calcMonthly(l.estimated_hours_week, l.hourly_rate)
+      if (trajectory[key] !== undefined && rev > 0) trajectory[key] += rev
+    }
+    const trajLines = Object.entries(trajectory).filter(([,v]) => v > 0)
+    if (trajLines.length > 0) {
+      lines.push('\nREVENUE TRAJECTORY (pipeline closes by month):')
+      for (const [month, val] of trajLines) {
+        lines.push(`  ${month}: ${fmtMoney(val)}/mo potential`)
+      }
+    }
+
+    // Most recent activity per lead for follow-up context
+    const leadIds = leads.slice(0, 20).map((l: any) => l.id)
+    if (leadIds.length > 0) {
+      const { data: activities } = await svc
+        .from('lead_activities')
+        .select('lead_id, activity_type, content, next_follow_up, created_at')
+        .in('lead_id', leadIds)
+        .order('created_at', { ascending: false })
+
+      const lastAct: Record<string, any> = {}
+      const nextFU: Record<string, string> = {}
+      const todayStr = today.toISOString().split('T')[0]
+
+      for (const a of activities || []) {
+        if (!lastAct[a.lead_id]) lastAct[a.lead_id] = a
+        if (a.next_follow_up && a.next_follow_up >= todayStr && !nextFU[a.lead_id]) {
+          nextFU[a.lead_id] = a.next_follow_up
+        }
+      }
+
+      const overdue = leads.filter((l: any) => {
+        const fu = nextFU[l.id]
+        return fu && fu < todayStr
+      })
+      const upcoming = leads.filter((l: any) => {
+        const fu = nextFU[l.id]
+        return fu && fu >= todayStr
+      })
+
+      if (overdue.length > 0) {
+        lines.push(`\n⚠️  OVERDUE FOLLOW-UPS (${overdue.length}):`)
+        for (const l of overdue) {
+          lines.push(`  • ${l.client_name || l.full_name} — follow-up was ${nextFU[l.id]}`)
+        }
+      }
+      if (upcoming.length > 0) {
+        lines.push(`\n📅 UPCOMING FOLLOW-UPS (${upcoming.length}):`)
+        for (const l of upcoming.slice(0, 5)) {
+          lines.push(`  • ${l.client_name || l.full_name} — follow up ${nextFU[l.id]}`)
+        }
+      }
+    }
+
+    return lines.join('\n')
+  } catch (err) {
+    console.error('buildLeadsContext error:', err)
+    return 'LEADS CONTEXT: Unable to load pipeline data.'
+  }
+}

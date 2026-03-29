@@ -16,6 +16,7 @@ import {
   buildCredentialContext,
   buildAppraisalContext,
   buildPolicyContext,
+  buildLeadsContext,
 } from '@/lib/vita/context'
 
 // ── Regulatory knowledge base embedded in system prompt ──────────────────────
@@ -98,6 +99,7 @@ export async function POST(req: NextRequest) {
 
   const userName = profile?.full_name || 'there'
   const userRole = userContext?.ppRole || profile?.role || 'caregiver'
+  const isAdminRole = profile?.role === 'admin' || profile?.role === 'supervisor'
 
   // ── Determine which context modules to activate ────────────────────────────
   // Route by question intent to avoid loading everything for simple queries
@@ -107,16 +109,18 @@ export async function POST(req: NextRequest) {
   const wantsAppraisal    = /apprais|review|perform|score|rating|feedback|supervisor|comment|improve|strength|weakness/i.test(q)
   const wantsPolicy       = /policy|procedure|polic|COMAR|regulat|comply|compliance|rule|protocol/i.test(q)
   const wantsRegulatory   = /COMAR|CMS|Joint Commission|maryland law|regulation|OHCQ|federal|state law|requirement/i.test(q)
+  const wantsLeads        = /lead|pipeline|prospect|enquir|inquiry|referral.*source|revenue.*pipeline|close.*date|follow.?up|conversion|client.*acquisition|new.*client|potential.*client/i.test(q)
 
   // If question is ambiguous, load all contexts
   const loadAll = !wantsTraining && !wantsCredentials && !wantsAppraisal && !wantsPolicy
 
   // ── Build context in parallel ──────────────────────────────────────────────
-  const [trainingCtx, credCtx, appraisalCtx, policyCtx] = await Promise.all([
+  const [trainingCtx, credCtx, appraisalCtx, policyCtx, leadsCtx] = await Promise.all([
     (wantsTraining || loadAll) ? buildTrainingContext(user.id, svc) : Promise.resolve(''),
     (wantsCredentials || loadAll) ? buildCredentialContext(user.id, svc) : Promise.resolve(''),
     (wantsAppraisal || loadAll) ? buildAppraisalContext(user.id, svc) : Promise.resolve(''),
     (wantsPolicy || loadAll || wantsRegulatory) ? buildPolicyContext(message, svc) : Promise.resolve({ catalogue: '', relevant: '' }),
+    (isAdminRole && (wantsLeads || loadAll)) ? buildLeadsContext(svc) : Promise.resolve(''),
   ])
 
   const policyCtxTyped = policyCtx as { catalogue: string; relevant: string }
@@ -140,6 +144,7 @@ ${credCtx ? `\n${credCtx}` : ''}
 ${appraisalCtx ? `\n${appraisalCtx}` : ''}
 ${policyCtxTyped.catalogue ? `\nVITALIS POLICY CATALOGUE:\n${policyCtxTyped.catalogue}` : ''}
 ${policyCtxTyped.relevant ? `\nFULL CONTENT OF RELEVANT POLICIES:${policyCtxTyped.relevant}` : ''}
+${leadsCtx ? `\n${leadsCtx}` : ''}
 ${REGULATORY_KNOWLEDGE}
 
 YOUR CAPABILITIES & BEHAVIOUR:
@@ -149,7 +154,8 @@ YOUR CAPABILITIES & BEHAVIOUR:
 3. CREDENTIAL ALERTS: When credentials are expiring or expired, be direct and proactive. Give exact dates. Link to: /credentials
 4. APPRAISAL COACHING: If asked about their performance or how to improve, reference actual scores. Be encouraging but specific. Don't sugarcoat low scores — be honest and constructive.
 5. POLICY EXPERT: Answer from Vitalis policy content. Always cite the policy ID (e.g. VHS-D1-003). Link to: /pp/[docId]
-6. REGULATORY KNOWLEDGE: You know Maryland COMAR, CMS CoPs, and Joint Commission standards. For very specific or current regulatory questions, use web search to verify.
+6. LEADS & PIPELINE (admin/supervisor only): You have full visibility into the leads pipeline — status of every prospect, revenue projections, overdue follow-ups, and conversion trajectory. Help managers understand their pipeline health, identify who needs a follow-up call, and forecast revenue. Link to: /leads and /leads/[id]
+7. REGULATORY KNOWLEDGE: You know Maryland COMAR, CMS CoPs, and Joint Commission standards. For very specific or current regulatory questions, use web search to verify.
 
 ACTION LINKS (include these naturally in your responses when relevant):
 • Go take/continue a course: /lms/courses/[course-id]/take
