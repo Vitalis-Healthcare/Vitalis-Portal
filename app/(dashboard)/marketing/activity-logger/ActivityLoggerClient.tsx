@@ -176,24 +176,39 @@ export default function ActivityLoggerClient({
 
       {/* Summary stats */}
       {total > 0 && (
-        <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
           {Object.entries(ACTIVITY).map(([key, ac]) => {
             const count = key === 'F' ? fCount : key === 'D' ? dCount : xCount
+            const isActive = tab === 'history' && typeFilter === key
             return (
-              <div key={key} style={{ background: ac.bg, border: `1px solid ${ac.color}30`, borderRadius: 10, padding: '12px 16px', minWidth: 90, textAlign: 'center' }}>
+              <button key={key} onClick={() => { setTab('history'); setTypeFilter(key) }}
+                title={`View all ${ac.label} visits`}
+                style={{ background: ac.bg, border: `2px solid ${isActive ? ac.color : ac.color + '40'}`, borderRadius: 10, padding: '12px 16px', minWidth: 90, textAlign: 'center', cursor: 'pointer', transition: 'transform 0.1s, border-color 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
                 <div style={{ fontSize: 22, fontWeight: 700, color: ac.color }}>{count}</div>
                 <div style={{ fontSize: 11, color: ac.color, fontWeight: 600, marginTop: 2 }}>{key} · {ac.label.split(' ')[0]}</div>
-              </div>
+                {isActive && <div style={{ fontSize: 9, color: ac.color, marginTop: 3, opacity: 0.7 }}>● filtered</div>}
+              </button>
             )
           })}
-          <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '12px 16px', minWidth: 90, textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#111' }}>{fdRatio}%</div>
+          <button onClick={() => { setTab('history'); setTypeFilter('') }}
+            title="View all visits"
+            style={{ background: '#F9FAFB', border: `2px solid ${tab === 'history' && !typeFilter ? '#0B6B5C' : '#E5E7EB'}`, borderRadius: 10, padding: '12px 16px', minWidth: 90, textAlign: 'center', cursor: 'pointer', transition: 'transform 0.1s, border-color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: fdRatio >= 30 ? '#065F46' : fdRatio >= 20 ? '#D97706' : '#DC2626' }}>{fdRatio}%</div>
             <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginTop: 2 }}>F-rate</div>
-          </div>
-          <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '12px 16px', minWidth: 90, textAlign: 'center' }}>
+            <div style={{ fontSize: 9, color: '#CCC', marginTop: 2 }}>target 30%+</div>
+          </button>
+          <button onClick={() => { setTab('history'); setTypeFilter('') }}
+            title="View all visits"
+            style={{ background: '#F9FAFB', border: `2px solid #E5E7EB`, borderRadius: 10, padding: '12px 16px', minWidth: 90, textAlign: 'center', cursor: 'pointer', transition: 'transform 0.1s' }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#111' }}>{total}</div>
             <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginTop: 2 }}>Total visits</div>
-          </div>
+          </button>
         </div>
       )}
 
