@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       svc.from('marketing_visit_logs').select('id, influence_center_id, visit_date, activity_type, notes, logged_by, marketing_influence_centers(name)').order('visit_date', { ascending: false }),
       svc.from('marketing_email_campaigns').select('id, campaign_date, total_sent, total_opened, open_rate').order('campaign_date', { ascending: false }),
       svc.from('marketing_email_opens').select('email_address, contact_id, campaign_id').not('email_address', 'ilike', '%vitalishealthcare.com'),
-      svc.from('marketing_referrals').select('id, influence_center_id, contact_id, referral_date, patient_initials, payer_source, outcome, non_accept_reason, notes, marketing_influence_centers(name), marketing_contacts(name)').order('referral_date', { ascending: false }).catch(() => ({ data: [] })),
+      svc.from('marketing_referrals').select('id, influence_center_id, contact_id, referral_date, patient_initials, payer_source, outcome, non_accept_reason, notes, marketing_influence_centers(name), marketing_contacts(name)').order('referral_date', { ascending: false }),
     ])
 
     // ── 2. Compute key metrics ────────────────────────────────────────────────
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     const topOpeners = Object.values(openerFreq).sort((a, b) => b.count - a.count).slice(0, 8)
 
     // Referral summary
-    const allReferrals = referrals as any[] || []
+    const allReferrals = (referrals as any[] | null) || []
     const referralsByFacility: Record<string, { name: string; count: number; payers: string[] }> = {}
     for (const r of allReferrals) {
       const facName = r.marketing_influence_centers?.name || 'Unknown'
