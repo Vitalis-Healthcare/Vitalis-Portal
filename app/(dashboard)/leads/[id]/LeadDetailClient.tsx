@@ -171,6 +171,37 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     setLogOpen(true)
   }
 
+  const handleArchive = async () => {
+    if (!confirm('Archive this lead? It will be hidden from the main pipeline but all data will be preserved. You can restore it by changing the stage.')) return
+    setSaving(true)
+    const res = await fetch('/api/leads/delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: lead.id, action: 'archive' }),
+    })
+    if (res.ok) {
+      router.push('/leads')
+    } else {
+      const d = await res.json(); alert(d.error || 'Failed to archive lead')
+    }
+    setSaving(false)
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('⚠️ Permanently delete this lead and ALL its activity history? This cannot be undone.')) return
+    if (!confirm('Are you absolutely sure? This will delete all calls, notes, and activity logs for this lead.')) return
+    setSaving(true)
+    const res = await fetch('/api/leads/delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: lead.id, action: 'delete' }),
+    })
+    if (res.ok) {
+      router.push('/leads')
+    } else {
+      const d = await res.json(); alert(d.error || 'Failed to delete lead')
+    }
+    setSaving(false)
+  }
+
   const handleStatusChange = async (newStatus: string) => {
     setSaving(true)
     const res = await fetch('/api/leads/update', {
@@ -203,6 +234,22 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           <ArrowLeft size={13}/> All Leads
         </Link>
       </div>
+
+      {/* Archived banner */}
+      {lead.status === 'archived' && (
+        <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>📦</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E' }}>This lead is archived</div>
+              <div style={{ fontSize: 12, color: '#B45309' }}>It is hidden from the main pipeline. Restore it by selecting an active stage below.</div>
+            </div>
+          </div>
+          <button onClick={handleDelete} style={{ padding: '7px 14px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, color: '#DC2626', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+            🗑️ Delete Permanently
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ background: '#fff', borderRadius: '12px 12px 0 0', border: '1px solid #E2E8F0', borderBottom: 'none', padding: '20px 24px' }}>
@@ -243,6 +290,18 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
             {editing && (
               <button onClick={handleSave} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1 }}>
                 <Save size={13}/> {saving ? 'Saving…' : 'Save'}
+              </button>
+            )}
+            {!editing && lead.status !== 'archived' && (
+              <button onClick={handleArchive} disabled={saving} title="Archive this lead"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#FEF3C7', color: '#92400E', border: '1px solid #F59E0B', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer' }}>
+                📦 Archive
+              </button>
+            )}
+            {!editing && (
+              <button onClick={handleDelete} disabled={saving} title="Permanently delete this lead"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer' }}>
+                🗑️ Delete
               </button>
             )}
           </div>

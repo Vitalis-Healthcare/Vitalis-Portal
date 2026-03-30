@@ -104,6 +104,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
   const [movingId, setMovingId] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   const BLANK_FORM = {
     full_name: '', client_name: '', email: '', phone: '',
@@ -120,6 +121,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return leads.filter(l => {
+      if (!showArchived && l.status === 'archived') return false
       if (filterStatus !== 'all' && l.status !== filterStatus) return false
       if (filterSource !== 'all' && l.source !== filterSource) return false
       if (q) {
@@ -231,6 +233,9 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
         >
           <Plus size={15}/> Add Lead
         </button>
+        <Link href="/leads/settings" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: '#F8FAFB', color: '#4A6070', border: '1px solid #E2E8F0', borderRadius: 9, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+          ⚙️ Settings
+        </Link>
       </div>
 
       {/* ── Revenue summary cards ── */}
@@ -281,6 +286,9 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
           <option value="all">All Sources</option>
           {SOURCES.map(s => <option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
         </select>
+        <button onClick={() => setShowArchived(a => !a)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: showArchived ? '#FEF3C7' : '#F8FAFB', border: showArchived ? '1px solid #F59E0B' : '1px solid #E2E8F0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: showArchived ? '#92400E' : '#8FA0B0', cursor: 'pointer' }}>
+          📦 {showArchived ? 'Hide Archived' : 'Show Archived'}
+        </button>
         <div style={{ display: 'flex', background: '#F8FAFB', borderRadius: 8, padding: 3, border: '1px solid #E2E8F0' }}>
           {(['pipeline','list'] as const).map(v => (
             <button key={v} onClick={() => setView(v)} style={{ padding: '6px 14px', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: view === v ? '#fff' : 'transparent', color: view === v ? '#0B6B5C' : '#8FA0B0', boxShadow: view === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
