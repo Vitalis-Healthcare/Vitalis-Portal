@@ -59,40 +59,30 @@ export default function RouteBuilderClient({ centers }: Props) {
     if (!el) return
     const win = window.open('', '_blank', 'width=900,height=700')
     if (!win) { window.print(); return }
-    win.document.write(`
-      <html>
-        <head>
-          <title>Vitalis Route Schedule — Week ${activeWeek}</title>
-          <style>
-            @page { margin: 14mm 16mm; size: A4 portrait; }
-            * { box-sizing: border-box; }
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 9pt; color: #111; margin: 0; padding: 16px; background: #fff; }
-            h1 { font-size: 16pt; font-weight: 700; color: #0B6B5C; margin: 0 0 4px; }
-            h2 { font-size: 10pt; color: #888; font-weight: 400; margin: 0 0 16px; }
-            .print-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 3px solid #0B6B5C; margin-bottom: 20px; }
-            .route-grid { display: block; }
-            .day-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px 14px; margin-bottom: 18px; break-inside: avoid; page-break-inside: avoid; }
-            .day-header { background: #0B6B5C; color: #fff; border-radius: 4px; padding: 6px 12px; margin: -12px -14px 12px; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .day-header h3 { margin: 0; font-size: 11pt; font-weight: 700; color: #fff; }
-            .day-header span { font-size: 9pt; color: rgba(255,255,255,0.8); }
-            .facility-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-            .facility-entry { border: 1px solid #eee; border-radius: 4px; padding: 6px 8px; break-inside: avoid; }
-            .facility-name { font-weight: 600; font-size: 9pt; color: #111; margin-bottom: 2px; }
-            .facility-addr { font-size: 8pt; color: #888; margin-bottom: 4px; }
-            .contact-entry { font-size: 8pt; color: #444; padding: 2px 0; }
-            .heat-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .heat-hot  { background: #10B981; }
-            .heat-cold { background: #3B82F6; }
-            .heat-dead { background: #EF4444; }
-            .stats-bar { display: flex; gap: 20px; margin-bottom: 16px; font-size: 9pt; color: #555; }
-            .no-print { display: none !important; }
-          </style>
-        </head>
-        <body>
-          \${el.innerHTML}
-        </body>
-      </html>
-    `)
+    const css = `
+      @page { margin: 14mm 16mm; size: A4 portrait; }
+      * { box-sizing: border-box; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 9pt; color: #111; margin: 0; padding: 16px; background: #fff; }
+      h1 { font-size: 16pt; font-weight: 700; color: #0B6B5C; margin: 0 0 4px; }
+      h2 { font-size: 10pt; color: #888; font-weight: 400; margin: 0 0 16px; }
+      .print-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 3px solid #0B6B5C; margin-bottom: 20px; }
+      .route-grid { display: block; }
+      .day-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px 14px; margin-bottom: 18px; break-inside: avoid; page-break-inside: avoid; }
+      .day-header { background: #0B6B5C; color: #fff; border-radius: 4px; padding: 6px 12px; margin: -12px -14px 12px; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .day-header h3 { margin: 0; font-size: 11pt; font-weight: 700; color: #fff; }
+      .facility-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .facility-entry { border: 1px solid #eee; border-radius: 4px; padding: 6px 8px; break-inside: avoid; }
+      .facility-name { font-weight: 600; font-size: 9pt; color: #111; margin-bottom: 2px; }
+      .facility-addr { font-size: 8pt; color: #888; margin-bottom: 4px; }
+      .contact-entry { font-size: 8pt; color: #444; padding: 2px 0; }
+      .heat-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+      .heat-hot { background: #10B981; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .heat-cold { background: #3B82F6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .heat-dead { background: #EF4444; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .stats-bar { display: flex; gap: 20px; margin-bottom: 16px; font-size: 9pt; color: #555; }
+      .no-print { display: none !important; }
+    `
+    win.document.write('<html><head><title>Vitalis Route Schedule</title><style>' + css + '</style></head><body>' + el.innerHTML + '</body></html>')
     win.document.close()
     win.focus()
     setTimeout(() => { win.print(); win.close() }, 500)
