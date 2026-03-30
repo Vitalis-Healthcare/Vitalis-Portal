@@ -9,6 +9,7 @@ import {
   LayoutDashboard, GraduationCap, BadgeCheck, Users, BarChart3,
   Settings, UserCheck, ClipboardList, LogOut, UserCog,
   ShieldCheck, AlertTriangle, Sparkles, Target, Handshake, SlidersHorizontal,
+  Building2, BookUser,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -18,15 +19,20 @@ const adminSections = [
   { label: 'MODULES', items: [
     { href: '/lms',         label: 'Training Programmes',    icon: GraduationCap },
     { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
-    { href: '/vita',  label: 'Ask Vita ✨',  icon: Sparkles },
+    { href: '/vita',        label: 'Ask Vita ✨',            icon: Sparkles },
     { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
     { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
     { href: '/references',  label: 'References',             icon: UserCheck },
     { href: '/appraisals',  label: 'Appraisals',             icon: ClipboardList },
     { href: '/staff',       label: 'Staff Portal',           icon: Users },
-    { href: '/leads',               label: 'Leads & Pipeline',    icon: Target },
+    { href: '/leads',                   label: 'Leads & Pipeline',    icon: Target },
     { href: '/leads/referral-sources',  label: 'Referral Sources',    icon: Handshake },
     { href: '/leads/settings',          label: 'Pipeline Settings',   icon: SlidersHorizontal },
+  ]},
+  { label: 'MARKETING', items: [
+    { href: '/marketing',                    label: 'Marketing Overview',   icon: Building2 },
+    { href: '/marketing/influence-centers',  label: 'Influence Centers',    icon: Building2 },
+    { href: '/marketing/contacts',           label: 'Contacts & Referrers', icon: BookUser },
   ]},
   { label: 'ADMIN', items: [
     { href: '/users',    label: 'User Management', icon: UserCog },
@@ -40,7 +46,7 @@ const staffSections = [
   { label: 'MODULES', items: [
     { href: '/lms',         label: 'Training Programmes',    icon: GraduationCap },
     { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
-    { href: '/vita',  label: 'Ask Vita ✨',  icon: Sparkles },
+    { href: '/vita',        label: 'Ask Vita ✨',            icon: Sparkles },
     { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
     { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
   ]},
@@ -51,7 +57,7 @@ const caregiverSections = [
   { label: 'MY PORTAL', items: [
     { href: '/lms',         label: 'My Training',    icon: GraduationCap },
     { href: '/pp',          label: 'Policies',       icon: ShieldCheck },
-    { href: '/vita',  label: 'Ask Vita ✨',  icon: Sparkles },
+    { href: '/vita',        label: 'Ask Vita ✨',    icon: Sparkles },
     { href: '/credentials', label: 'My Credentials', icon: BadgeCheck },
     { href: '/references',  label: 'My References',  icon: UserCheck },
   ]},
