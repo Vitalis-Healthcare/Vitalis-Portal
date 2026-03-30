@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import PPAIChat from './PPAIChat'
+import PPSearch from './PPSearch'
 
 const DOMAINS = [
   { id: 'D1', name: 'Governance & Compliance',  bg: '#ede9fe', text: '#4c1d95', border: '#c4b5fd', icon: '⚖️' },
@@ -66,11 +67,16 @@ export default async function PPPage() {
               {pending.length > 0 && <span style={{ color: '#FCD34D' }}> · {pending.length} pending your signature</span>}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <Link href="/pp/library"><button style={{ padding: '9px 18px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Browse Library</button></Link>
             {isAdmin && <Link href="/pp/admin"><button style={{ padding: '9px 18px', background: '#1A9B87', border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Admin Console</button></Link>}
           </div>
         </div>
+        {/* Search bar */}
+        <div style={{ marginBottom: 20 }}>
+          <PPSearch policies={policies || []} />
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
           {[
             { label: 'Total Policies', value: (policies||[]).length, note: 'across 7 domains', color: '#fff' },
