@@ -9,7 +9,7 @@ import {
   LayoutDashboard, GraduationCap, BadgeCheck, Users, BarChart3,
   Settings, UserCheck, ClipboardList, LogOut, UserCog,
   ShieldCheck, AlertTriangle, Sparkles, Target, Handshake, SlidersHorizontal,
-  Building2, BookUser, Map, Activity, Mail,
+  Building2, BookUser, Map, Activity, Mail, Brain,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -19,13 +19,13 @@ const adminSections = [
   { label: 'MODULES', items: [
     { href: '/lms',         label: 'Training Programmes',    icon: GraduationCap },
     { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
-    { href: '/vita',        label: 'Ask Vita ✨',            icon: Sparkles },
+    { href: '/vita',  label: 'Ask Vita ✨',  icon: Sparkles },
     { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
     { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
     { href: '/references',  label: 'References',             icon: UserCheck },
     { href: '/appraisals',  label: 'Appraisals',             icon: ClipboardList },
     { href: '/staff',       label: 'Staff Portal',           icon: Users },
-    { href: '/leads',                   label: 'Leads & Pipeline',    icon: Target },
+    { href: '/leads',               label: 'Leads & Pipeline',    icon: Target },
     { href: '/leads/referral-sources',  label: 'Referral Sources',    icon: Handshake },
     { href: '/leads/settings',          label: 'Pipeline Settings',   icon: SlidersHorizontal },
   ]},
@@ -36,6 +36,7 @@ const adminSections = [
     { href: '/marketing/route-builder',      label: 'Route Builder',        icon: Map },
     { href: '/marketing/activity-logger',    label: 'Activity Logger',      icon: Activity },
     { href: '/marketing/email-analytics',    label: 'Email Analytics',      icon: Mail },
+    { href: '/marketing/intelligence',       label: 'Intelligence',         icon: Brain },
   ]},
   { label: 'ADMIN', items: [
     { href: '/users',    label: 'User Management', icon: UserCog },
@@ -49,7 +50,7 @@ const staffSections = [
   { label: 'MODULES', items: [
     { href: '/lms',         label: 'Training Programmes',    icon: GraduationCap },
     { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
-    { href: '/vita',        label: 'Ask Vita ✨',            icon: Sparkles },
+    { href: '/vita',  label: 'Ask Vita ✨',  icon: Sparkles },
     { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
     { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
   ]},
@@ -60,7 +61,7 @@ const caregiverSections = [
   { label: 'MY PORTAL', items: [
     { href: '/lms',         label: 'My Training',    icon: GraduationCap },
     { href: '/pp',          label: 'Policies',       icon: ShieldCheck },
-    { href: '/vita',        label: 'Ask Vita ✨',    icon: Sparkles },
+    { href: '/vita',  label: 'Ask Vita ✨',  icon: Sparkles },
     { href: '/credentials', label: 'My Credentials', icon: BadgeCheck },
     { href: '/references',  label: 'My References',  icon: UserCheck },
   ]},
@@ -127,6 +128,7 @@ export default function Sidebar({
                     fontWeight: active ? 600 : 400, fontSize: 14,
                     border: active ? '1px solid #0E7C7B22' : '1px solid transparent',
                     cursor: 'pointer', transition: 'all 0.15s',
+                    // Larger touch target on mobile
                     minHeight: 44,
                   }}>
                     <Icon size={16} />
