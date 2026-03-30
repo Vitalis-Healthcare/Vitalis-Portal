@@ -59,16 +59,27 @@ export default function RouteBuilderClient({ centers }: Props) {
       {/* Print styles */}
       <style>{`
         @media print {
+          body > * { display: none !important; }
+          #print-route-root,
+          #print-route-root * { display: revert !important; }
+          @page { margin: 10mm 12mm; size: A4 landscape; }
+          #print-route-root {
+            position: fixed !important;
+            top: 0 !important; left: 0 !important;
+            width: 100% !important;
+            font-size: 9pt !important;
+            background: #fff !important;
+          }
           .no-print { display: none !important; }
-          .print-page { padding: 0 !important; }
-          body { font-size: 11px; }
           .day-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc !important; }
-          .route-grid { display: block !important; }
-          .day-card { margin-bottom: 16px; }
+          .route-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 12px !important; }
+          .day-card { margin-bottom: 12px; }
+          h1, h2 { font-size: 14pt !important; }
+          h3 { font-size: 10pt !important; }
         }
       `}</style>
 
-      <div className="print-page" style={{ padding: '24px 28px', maxWidth: 1100, margin: '0 auto' }}>
+      <div id="print-route-root" className="print-page" style={{ padding: '24px 28px', maxWidth: 1100, margin: '0 auto' }}>
 
         {/* Header */}
         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>

@@ -604,6 +604,58 @@ export async function buildMarketingContext(svc: any): Promise<string> {
       lines.push(`  ⬆ These contacts are warm — they are reading every email. Prioritise F-visits to their facilities.`)
     }
 
+    // ── Per-facility visit breakdown ───────────────────────────────────────────
+    const { data: allLogs } = await svc
+      .from('marketing_visit_logs')
+      .select('influence_center_id, visit_date, activity_type, notes, marketing_influence_centers(name)')
+      .order('visit_date', { ascending: false })
+
+    if (allLogs && allLogs.length > 0) {
+      const byFac: Record<string, { name: string; f: number; d: number; x: number; lastVisit: string; lastNote: string }> = {}
+      for (const log of allLogs) {
+        const facName = Array.isArray(log.marketing_influence_centers)
+          ? log.marketing_influence_centers[0]?.name
+          : (log.marketing_influence_centers as any)?.name || 'Unknown'
+        const fid = log.influence_center_id
+        if (!byFac[fid]) byFac[fid] = { name: facName, f: 0, d: 0, x: 0, lastVisit: log.visit_date, lastNote: '' }
+        if (log.activity_type === 'F') byFac[fid].f++
+        if (log.activity_type === 'D') byFac[fid].d++
+        if (log.activity_type === 'X') byFac[fid].x++
+        if (!byFac[fid].lastNote && log.notes) byFac[fid].lastNote = log.notes.slice(0, 120)
+      }
+      const today = new Date()
+      lines.push(`\nFACILITY VISIT DETAIL (all visited facilities — F/D/X counts + recency):`)
+      const sorted = Object.values(byFac).sort((a, b) => (b.f + b.d) - (a.f + a.d))
+      for (const f of sorted) {
+        const daysSince = f.lastVisit ? Math.floor((today.getTime() - new Date(f.lastVisit + 'T12:00:00').getTime()) / 86400000) : null
+        const fRate = (f.f + f.d) > 0 ? Math.round(f.f / (f.f + f.d) * 100) : 0
+        lines.push(`  ${f.name}: ${f.f}F / ${f.d}D / ${f.x}X | F-rate ${fRate}% | last visit ${daysSince != null ? daysSince + 'd ago' : 'unknown'}${f.lastNote ? ' | Note: ' + f.lastNote : ''}`)
+      }
+    }
+
+    // ── Referral history ────────────────────────────────────────────────────────
+    try {
+      const { data: referrals } = await svc
+        .from('marketing_referrals')
+        .select('referral_date, payer_source, outcome, non_accept_reason, notes, marketing_influence_centers(name), marketing_contacts(name)')
+        .order('referral_date', { ascending: false })
+
+      if (referrals && referrals.length > 0) {
+        lines.push(`\nREFERRAL HISTORY (${referrals.length} referrals received to date):`)
+        for (const r of referrals) {
+          const fac = Array.isArray(r.marketing_influence_centers) ? r.marketing_influence_centers[0]?.name : (r.marketing_influence_centers as any)?.name || 'Unknown facility'
+          const contact = Array.isArray(r.marketing_contacts) ? r.marketing_contacts[0]?.name : (r.marketing_contacts as any)?.name || 'Unknown contact'
+          lines.push(`  ${r.referral_date} | FROM: ${fac} | CONTACT: ${contact} | payer: ${r.payer_source || 'unknown'} | outcome: ${r.outcome}${r.non_accept_reason ? ' | reason: ' + r.non_accept_reason : ''}`)
+        }
+        const declined = referrals.filter((r: any) => r.outcome === 'not_accepted')
+        const payersMissed = [...new Set(declined.map((r: any) => r.payer_source).filter(Boolean))]
+        lines.push(`  PAYER BARRIER: ${declined.length}/${referrals.length} referrals not accepted. Payers encountered but not contracted: ${payersMissed.join(', ') || 'unknown'}`)
+        lines.push(`  STRATEGIC NOTE: Autumn Lake network (Silver Spring, Arcola, Oak Manor) is highest-volume referral source — all declined on payer grounds. Contracting with CareFirst, Wellpoint, or Maryland Medicaid would immediately unlock this pipeline.`)
+      }
+    } catch (_) {
+      // referrals table may not exist in all environments
+    }
+
     return lines.join('\n')
   } catch (err) {
     console.error('buildMarketingContext error:', err)
