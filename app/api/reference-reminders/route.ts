@@ -38,12 +38,14 @@ export async function GET(request: Request) {
     // References sent on or before cutoff that are still pending/sent (not received)
     const { data: refs } = await svc
       .from('caregiver_references')
-      .select('*, caregiver:caregiver_id(full_name, email)')
+      .select('*, caregiver:caregiver_id(full_name, email, status)')
       .in('status', ['sent', 'pending'])
       .lte('sent_at', cutoffStr)
 
     for (const ref of refs ?? []) {
       if (!ref.sent_at) continue
+      // Only remind active caregivers
+      if ((ref.caregiver as any)?.status !== 'active') continue
 
       // Dedup — skip if already sent this day's reminder
       const { data: logged } = await svc

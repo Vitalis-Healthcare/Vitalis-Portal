@@ -92,11 +92,18 @@ function InviteModal({ onClose }: { onClose: ()=>void }) {
 function AdminView({ allStaff, credSummary, refSummary }: { allStaff: Profile[]; credSummary: Record<string,CredSum>; refSummary: Record<string,RefSum> }) {
   const [showInvite, setShowInvite] = useState(false)
   const [search, setSearch] = useState('')
-  const filtered = allStaff.filter(s =>
-    s.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    s.role.toLowerCase().includes(search.toLowerCase()) ||
-    (s.email||'').toLowerCase().includes(search.toLowerCase())
-  )
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const filtered = allStaff.filter(s => {
+    const matchesSearch =
+      s.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      s.role.toLowerCase().includes(search.toLowerCase()) ||
+      (s.email||'').toLowerCase().includes(search.toLowerCase())
+    const matchesStatus =
+      statusFilter === 'all' ? true :
+      statusFilter === 'active' ? s.status === 'active' :
+      s.status !== 'active'
+    return matchesSearch && matchesStatus
+  })
   const roleColor = (r:string) => r==='admin'?'#1A2E44':r==='supervisor'?'#0E7C7B':r==='staff'?'#1D4ED8':'#2A9D8F'
   const roleBg = (r:string) => r==='admin'?'#EFF2F5':r==='supervisor'?'#E6F4F4':r==='staff'?'#EFF6FF':'#E6F6F4'
 
@@ -114,7 +121,21 @@ function AdminView({ allStaff, credSummary, refSummary }: { allStaff: Profile[];
       </div>
       <div style={{ marginBottom:16 }}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search by name, role, or email…"
-          style={{ width:'100%', padding:'10px 16px', borderRadius:8, border:'1.5px solid #D1D9E0', fontSize:14, outline:'none', background:'#fff' }}/>
+          style={{ width:'100%', padding:'10px 16px', borderRadius:8, border:'1.5px solid #D1D9E0', fontSize:14, outline:'none', background:'#fff', marginBottom:10 }}/>
+        <div style={{ display:'flex', gap:6 }}>
+          {(['all','active','inactive'] as const).map(f => {
+            const counts = { all: allStaff.length, active: allStaff.filter(s=>s.status==='active').length, inactive: allStaff.filter(s=>s.status!=='active').length }
+            const colors = { all: '#1A2E44', active: '#0E7C7B', inactive: '#8FA0B0' }
+            const bgs    = { all: '#EFF2F5', active: '#E6F6F4', inactive: '#F8F8F8' }
+            const isActive = statusFilter === f
+            return (
+              <button key={f} onClick={()=>setStatusFilter(f)}
+                style={{ padding:'5px 14px', borderRadius:20, border:`1.5px solid ${isActive ? colors[f] : '#E0E0E0'}`, background: isActive ? bgs[f] : '#fff', color: isActive ? colors[f] : '#AAA', fontSize:12, fontWeight: isActive ? 700 : 500, cursor:'pointer' }}>
+                {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)} ({counts[f]})
+              </button>
+            )
+          })}
+        </div>
       </div>
       <div style={{ background:'#fff', borderRadius:12, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', overflow:'hidden' }}>
         {filtered.length === 0 ? (

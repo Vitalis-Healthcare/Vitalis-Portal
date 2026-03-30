@@ -50,7 +50,7 @@ export async function GET(request: Request) {
         expiry_date,
         does_not_expire,
         credential_type:credential_types ( name ),
-        staff:profiles!staff_credentials_user_id_fkey ( full_name, email )
+        staff:profiles!staff_credentials_user_id_fkey ( full_name, email, status )
       `)
       .eq('expiry_date', dateStr)
       .neq('status', 'expired')
@@ -71,6 +71,8 @@ export async function GET(request: Request) {
       })
 
       if (!staffEmail) continue
+      // Only alert active caregivers
+      if ((cred.staff as any)?.status !== 'active') continue
 
       // Dedup — skip if already sent this alert today
       const { data: existing } = await supabase
