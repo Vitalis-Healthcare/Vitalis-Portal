@@ -79,6 +79,32 @@ export async function buildTrainingContext(userId: string, svc: any): Promise<st
       }
     }
 
+    // Available courses not yet enrolled in
+    const { data: allCourses } = await svc
+      .from('courses')
+      .select('id, title, lms_module_id, estimated_minutes, description, programme:programme_id(title)')
+      .eq('published', true)
+
+    if (allCourses && allCourses.length > 0) {
+      const enrolledCourseIds = new Set(enrollments.map((e: any) => {
+        const c = Array.isArray(e.course) ? e.course[0] : e.course
+        return c?.id
+      }))
+      const notEnrolled = allCourses.filter((c: any) => !enrolledCourseIds.has(c.id))
+      if (notEnrolled.length > 0) {
+        lines.push(`\nAVAILABLE BUT NOT YET STARTED (${notEnrolled.length} courses):`)
+        for (const c of notEnrolled) {
+          const prog = Array.isArray(c.programme) ? c.programme[0] : c.programme
+          lines.push(`  • ${c.lms_module_id || c.id} — "${c.title}" | Programme: ${prog?.title || 'Unassigned'} | Est. ${c.estimated_minutes || '?'} min`)
+        }
+      }
+      // Module content summaries (so Vita can teach from them)
+      lines.push(`\nTRAINING MODULE CATALOGUE (all ${allCourses.length} published courses):`)
+      for (const c of allCourses) {
+        if (c.description) lines.push(`  ${c.lms_module_id || c.title}: ${c.description.slice(0, 200)}`)
+      }
+    }
+
     return lines.join('\n')
   } catch (err) {
     console.error('buildTrainingContext error:', err)
@@ -135,6 +161,24 @@ export async function buildCredentialContext(userId: string, svc: any): Promise<
 
     if (urgent.length > 0) {
       lines.push(`\n⚠️  URGENT CREDENTIAL ALERTS:\n${urgent.map(u => `  - ${u}`).join('\n')}`)
+    }
+
+    // Check for credential types that should exist but are missing
+    const { data: allTypes } = await svc
+      .from('credential_types')
+      .select('id, name, validity_days, required_for_roles')
+
+    if (allTypes && allTypes.length > 0) {
+      const submittedTypeIds = new Set(creds.map((c: any) => c.credential_type_id))
+      const missing = allTypes.filter((t: any) => !submittedTypeIds.has(t.id))
+      if (missing.length > 0) {
+        lines.push(`\n❌ MISSING CREDENTIALS (${missing.length} types not yet on file):`)
+        for (const t of missing) {
+          lines.push(`  - ${t.name}${t.validity_days ? ` (renews every ${t.validity_days} days)` : ''} — Action: Upload at /credentials`)
+        }
+      } else {
+        lines.push(`\n✅ All required credential types are on file.`)
+      }
     }
 
     return lines.join('\n')
@@ -460,8 +504,8 @@ export async function buildLeadsContext(svc: any): Promise<string> {
       }
     }
 
-    // Most recent activity per lead for follow-up context
-    const leadIds = leads.slice(0, 20).map((l: any) => l.id)
+    // Full activity history per lead — Vita needs to know what was discussed
+    const leadIds = leads.map((l: any) => l.id)
     if (leadIds.length > 0) {
       const { data: activities } = await svc
         .from('lead_activities')
@@ -469,37 +513,81 @@ export async function buildLeadsContext(svc: any): Promise<string> {
         .in('lead_id', leadIds)
         .order('created_at', { ascending: false })
 
-      const lastAct: Record<string, any> = {}
+      // Map activities to leads
+      const actsByLead: Record<string, any[]> = {}
       const nextFU: Record<string, string> = {}
       const todayStr = today.toISOString().split('T')[0]
 
       for (const a of activities || []) {
-        if (!lastAct[a.lead_id]) lastAct[a.lead_id] = a
+        if (!actsByLead[a.lead_id]) actsByLead[a.lead_id] = []
+        actsByLead[a.lead_id].push(a)
         if (a.next_follow_up && a.next_follow_up >= todayStr && !nextFU[a.lead_id]) {
           nextFU[a.lead_id] = a.next_follow_up
         }
       }
 
-      const overdue = leads.filter((l: any) => {
-        const fu = nextFU[l.id]
-        return fu && fu < todayStr
-      })
-      const upcoming = leads.filter((l: any) => {
-        const fu = nextFU[l.id]
-        return fu && fu >= todayStr
-      })
+      // Enrich each lead line with last activity content
+      lines.push('\nLEAD ACTIVITY DETAILS (most recent interactions):')
+      for (const l of leads.filter((l: any) => !['lost','cold'].includes(l.status))) {
+        const name = l.client_name || l.full_name
+        const acts = actsByLead[l.id] || []
+        if (acts.length === 0) {
+          lines.push(`  ${name}: No activity logged yet`)
+          continue
+        }
+        const last = acts[0]
+        const lastDate = new Date(last.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        lines.push(`  ${name} (${l.status}):`)
+        lines.push(`    Last contact: ${lastDate} — ${last.activity_type} — "${last.content?.slice(0, 150) || 'No notes'}"`)
+        if (nextFU[l.id]) lines.push(`    Next follow-up: ${nextFU[l.id]}`)
+        if (acts.length > 1) {
+          lines.push(`    Previous: ${acts.slice(1, 3).map((a: any) => `${a.activity_type} on ${new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}: "${a.content?.slice(0,80) || ''}"` ).join(' | ')}`)
+        }
+      }
+
+      // Overdue & upcoming
+      const overdue = leads.filter((l: any) => { const fu = nextFU[l.id]; return fu && fu < todayStr })
+      const upcoming = leads.filter((l: any) => { const fu = nextFU[l.id]; return fu && fu >= todayStr })
 
       if (overdue.length > 0) {
         lines.push(`\n⚠️  OVERDUE FOLLOW-UPS (${overdue.length}):`)
         for (const l of overdue) {
-          lines.push(`  • ${l.client_name || l.full_name} — follow-up was ${nextFU[l.id]}`)
+          lines.push(`  • ${l.client_name || l.full_name} — was due ${nextFU[l.id]}`)
         }
       }
       if (upcoming.length > 0) {
         lines.push(`\n📅 UPCOMING FOLLOW-UPS (${upcoming.length}):`)
-        for (const l of upcoming.slice(0, 5)) {
-          lines.push(`  • ${l.client_name || l.full_name} — follow up ${nextFU[l.id]}`)
+        for (const l of upcoming) {
+          lines.push(`  • ${l.client_name || l.full_name} — due ${nextFU[l.id]}`)
         }
+      }
+
+      // Lost leads analysis
+      const lostLeads = leads.filter((l: any) => l.status === 'lost')
+      if (lostLeads.length > 0) {
+        lines.push(`\nLOST LEADS ANALYSIS (${lostLeads.length} lost):`)
+        const reasons: Record<string, number> = {}
+        for (const l of lostLeads) {
+          const r = l.lost_reason || 'unknown'
+          reasons[r] = (reasons[r] || 0) + 1
+        }
+        for (const [reason, count] of Object.entries(reasons).sort((a,b) => b[1]-a[1])) {
+          lines.push(`  ${count}x: ${reason}`)
+        }
+      }
+
+      // Source attribution
+      const sourceMap: Record<string, { count: number; won: number }> = {}
+      for (const l of leads) {
+        const src = l.source || 'unknown'
+        if (!sourceMap[src]) sourceMap[src] = { count: 0, won: 0 }
+        sourceMap[src].count++
+        if (l.status === 'won') sourceMap[src].won++
+      }
+      lines.push(`\nLEAD SOURCE ATTRIBUTION:`)
+      for (const [src, data] of Object.entries(sourceMap).sort((a,b) => b[1].count-a[1].count)) {
+        const convRate = data.count > 0 ? Math.round(data.won/data.count*100) : 0
+        lines.push(`  ${src.replace(/_/g,' ')}: ${data.count} leads, ${data.won} won (${convRate}% conv rate)`)
       }
     }
 
@@ -507,6 +595,139 @@ export async function buildLeadsContext(svc: any): Promise<string> {
   } catch (err) {
     console.error('buildLeadsContext error:', err)
     return 'LEADS CONTEXT: Unable to load pipeline data.'
+  }
+}
+
+// ── Staff roster context (admin/supervisor only) ─────────────────────────────
+export async function buildStaffRosterContext(svc: any): Promise<string> {
+  try {
+    const lines: string[] = ['STAFF ROSTER & COMPLIANCE CONTEXT:']
+
+    // All staff profiles
+    const { data: staff } = await svc
+      .from('profiles')
+      .select('id, full_name, email, role, created_at')
+      .in('role', ['caregiver', 'supervisor'])
+      .order('full_name')
+
+    if (!staff || staff.length === 0) return 'STAFF ROSTER: No staff profiles found.'
+
+    lines.push(`Total staff: ${staff.length} | Caregivers: ${staff.filter((s: any) => s.role === 'caregiver').length} | Supervisors: ${staff.filter((s: any) => s.role === 'supervisor').length}`)
+
+    // Credential status across all staff
+    const { data: allCreds } = await svc
+      .from('staff_credentials')
+      .select('user_id, status, expiry_date, credential_type:credential_types(name)')
+      .order('expiry_date', { ascending: true })
+
+    const today = new Date()
+    const todayStr = today.toISOString().split('T')[0]
+
+    // Group credentials by user
+    const credsByUser: Record<string, any[]> = {}
+    for (const c of allCreds || []) {
+      if (!credsByUser[c.user_id]) credsByUser[c.user_id] = []
+      credsByUser[c.user_id].push(c)
+    }
+
+    // Flag urgent issues
+    const expired: string[] = []
+    const expiringSoon: string[] = []
+
+    for (const s of staff) {
+      const userCreds = credsByUser[s.id] || []
+      for (const c of userCreds) {
+        const ct = Array.isArray(c.credential_type) ? c.credential_type[0] : c.credential_type
+        if (!c.expiry_date) continue
+        const daysUntil = Math.ceil((new Date(c.expiry_date).getTime() - today.getTime()) / 86400000)
+        if (daysUntil < 0) expired.push(`${s.full_name}: ${ct?.name} EXPIRED ${Math.abs(daysUntil)}d ago`)
+        else if (daysUntil <= 30) expiringSoon.push(`${s.full_name}: ${ct?.name} expires in ${daysUntil}d (${c.expiry_date})`)
+      }
+    }
+
+    if (expired.length > 0) {
+      lines.push(`\n🚨 EXPIRED CREDENTIALS (${expired.length}):`)
+      for (const e of expired) lines.push(`  - ${e}`)
+    }
+    if (expiringSoon.length > 0) {
+      lines.push(`\n⚠️  EXPIRING WITHIN 30 DAYS (${expiringSoon.length}):`)
+      for (const e of expiringSoon) lines.push(`  - ${e}`)
+    }
+    if (expired.length === 0 && expiringSoon.length === 0) {
+      lines.push(`\n✅ No credential emergencies across all staff.`)
+    }
+
+    // Training completion rates
+    const { data: allEnrollments } = await svc
+      .from('course_enrollments')
+      .select('user_id, progress_pct, completed_at')
+
+    const enrollByUser: Record<string, { total: number; completed: number }> = {}
+    for (const e of allEnrollments || []) {
+      if (!enrollByUser[e.user_id]) enrollByUser[e.user_id] = { total: 0, completed: 0 }
+      enrollByUser[e.user_id].total++
+      if (e.completed_at) enrollByUser[e.user_id].completed++
+    }
+
+    lines.push(`\nSTAFF TRAINING COMPLETION:`)
+    for (const s of staff) {
+      const tr = enrollByUser[s.id]
+      if (tr) {
+        const pct = Math.round(tr.completed / tr.total * 100)
+        lines.push(`  ${s.full_name} (${s.role}): ${tr.completed}/${tr.total} courses completed (${pct}%)`)
+      } else {
+        lines.push(`  ${s.full_name} (${s.role}): No enrollments`)
+      }
+    }
+
+    return lines.join('\n')
+  } catch (err) {
+    console.error('buildStaffRosterContext error:', err)
+    return 'STAFF ROSTER CONTEXT: Unable to load.'
+  }
+}
+
+// ── Referral source context (admin/supervisor only) ───────────────────────────
+export async function buildReferralSourceContext(svc: any): Promise<string> {
+  try {
+    const lines: string[] = ['REFERRAL SOURCES CONTEXT:']
+
+    const { data: sources } = await svc
+      .from('referral_sources')
+      .select('id, name, type, contact_name, contact_email, contact_phone, notes, active, created_at')
+      .order('name')
+
+    if (!sources || sources.length === 0) return 'REFERRAL SOURCES: No sources configured.'
+
+    lines.push(`Total referral sources: ${sources.length} | Active: ${sources.filter((s: any) => s.active).length}`)
+
+    // Match to leads
+    const { data: leads } = await svc
+      .from('leads')
+      .select('id, client_name, full_name, source, referral_name, status, won_date')
+
+    const leadsBySource: Record<string, { total: number; won: number; names: string[] }> = {}
+    for (const l of leads || []) {
+      const src = l.source || 'unknown'
+      if (!leadsBySource[src]) leadsBySource[src] = { total: 0, won: 0, names: [] }
+      leadsBySource[src].total++
+      if (l.status === 'won') { leadsBySource[src].won++; leadsBySource[src].names.push(l.client_name || l.full_name) }
+    }
+
+    lines.push(`\nSOURCE PERFORMANCE:`)
+    for (const src of sources) {
+      const perf = leadsBySource[src.name] || leadsBySource[src.type] || { total: 0, won: 0, names: [] }
+      const convRate = perf.total > 0 ? Math.round(perf.won / perf.total * 100) : 0
+      lines.push(`  ${src.name} (${src.type}): ${perf.total} leads, ${perf.won} won (${convRate}% conversion)`)
+      if (src.contact_name) lines.push(`    Contact: ${src.contact_name}${src.contact_email ? ' — ' + src.contact_email : ''}`)
+      if (src.notes) lines.push(`    Notes: ${src.notes.slice(0, 120)}`)
+      if (perf.names.length > 0) lines.push(`    Won clients: ${perf.names.join(', ')}`)
+    }
+
+    return lines.join('\n')
+  } catch (err) {
+    console.error('buildReferralSourceContext error:', err)
+    return 'REFERRAL SOURCES CONTEXT: Unable to load.'
   }
 }
 
@@ -602,58 +823,6 @@ export async function buildMarketingContext(svc: any): Promise<string> {
         lines.push(`  • ${t.name} @ ${t.facility} — opened ${t.count} campaigns (${pct}% engagement)`)
       }
       lines.push(`  ⬆ These contacts are warm — they are reading every email. Prioritise F-visits to their facilities.`)
-    }
-
-    // ── Per-facility visit breakdown ───────────────────────────────────────────
-    const { data: allLogs } = await svc
-      .from('marketing_visit_logs')
-      .select('influence_center_id, visit_date, activity_type, notes, marketing_influence_centers(name)')
-      .order('visit_date', { ascending: false })
-
-    if (allLogs && allLogs.length > 0) {
-      const byFac: Record<string, { name: string; f: number; d: number; x: number; lastVisit: string; lastNote: string }> = {}
-      for (const log of allLogs) {
-        const facName = Array.isArray(log.marketing_influence_centers)
-          ? log.marketing_influence_centers[0]?.name
-          : (log.marketing_influence_centers as any)?.name || 'Unknown'
-        const fid = log.influence_center_id
-        if (!byFac[fid]) byFac[fid] = { name: facName, f: 0, d: 0, x: 0, lastVisit: log.visit_date, lastNote: '' }
-        if (log.activity_type === 'F') byFac[fid].f++
-        if (log.activity_type === 'D') byFac[fid].d++
-        if (log.activity_type === 'X') byFac[fid].x++
-        if (!byFac[fid].lastNote && log.notes) byFac[fid].lastNote = log.notes.slice(0, 120)
-      }
-      const today = new Date()
-      lines.push(`\nFACILITY VISIT DETAIL (all visited facilities — F/D/X counts + recency):`)
-      const sorted = Object.values(byFac).sort((a, b) => (b.f + b.d) - (a.f + a.d))
-      for (const f of sorted) {
-        const daysSince = f.lastVisit ? Math.floor((today.getTime() - new Date(f.lastVisit + 'T12:00:00').getTime()) / 86400000) : null
-        const fRate = (f.f + f.d) > 0 ? Math.round(f.f / (f.f + f.d) * 100) : 0
-        lines.push(`  ${f.name}: ${f.f}F / ${f.d}D / ${f.x}X | F-rate ${fRate}% | last visit ${daysSince != null ? daysSince + 'd ago' : 'unknown'}${f.lastNote ? ' | Note: ' + f.lastNote : ''}`)
-      }
-    }
-
-    // ── Referral history ────────────────────────────────────────────────────────
-    try {
-      const { data: referrals } = await svc
-        .from('marketing_referrals')
-        .select('referral_date, payer_source, outcome, non_accept_reason, notes, marketing_influence_centers(name), marketing_contacts(name)')
-        .order('referral_date', { ascending: false })
-
-      if (referrals && referrals.length > 0) {
-        lines.push(`\nREFERRAL HISTORY (${referrals.length} referrals received to date):`)
-        for (const r of referrals) {
-          const fac = Array.isArray(r.marketing_influence_centers) ? r.marketing_influence_centers[0]?.name : (r.marketing_influence_centers as any)?.name || 'Unknown facility'
-          const contact = Array.isArray(r.marketing_contacts) ? r.marketing_contacts[0]?.name : (r.marketing_contacts as any)?.name || 'Unknown contact'
-          lines.push(`  ${r.referral_date} | FROM: ${fac} | CONTACT: ${contact} | payer: ${r.payer_source || 'unknown'} | outcome: ${r.outcome}${r.non_accept_reason ? ' | reason: ' + r.non_accept_reason : ''}`)
-        }
-        const declined = referrals.filter((r: any) => r.outcome === 'not_accepted')
-        const payersMissed = [...new Set(declined.map((r: any) => r.payer_source).filter(Boolean))]
-        lines.push(`  PAYER BARRIER: ${declined.length}/${referrals.length} referrals not accepted. Payers encountered but not contracted: ${payersMissed.join(', ') || 'unknown'}`)
-        lines.push(`  STRATEGIC NOTE: Autumn Lake network (Silver Spring, Arcola, Oak Manor) is highest-volume referral source — all declined on payer grounds. Contracting with CareFirst, Wellpoint, or Maryland Medicaid would immediately unlock this pipeline.`)
-      }
-    } catch (_) {
-      // referrals table may not exist in all environments
     }
 
     return lines.join('\n')

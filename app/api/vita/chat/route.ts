@@ -18,6 +18,8 @@ import {
   buildPolicyContext,
   buildLeadsContext,
   buildMarketingContext,
+  buildStaffRosterContext,
+  buildReferralSourceContext,
 } from '@/lib/vita/context'
 
 // ── Regulatory knowledge base embedded in system prompt ──────────────────────
@@ -112,18 +114,22 @@ export async function POST(req: NextRequest) {
   const wantsRegulatory   = /COMAR|CMS|Joint Commission|maryland law|regulation|OHCQ|federal|state law|requirement/i.test(q)
   const wantsLeads        = /lead|pipeline|prospect|enquir|inquiry|referral.*source|revenue.*pipeline|close.*date|follow.?up|conversion|client.*acquisition|new.*client|potential.*client/i.test(q)
   const wantsMarketing    = /marketing|influence center|referrer|email blast|open rate|facility.*visit|visit.*facilit|drop.?off|face.?to.?face|route|heat status|52 weeks|campaign|peace|weekly blast/i.test(q)
+  const wantsStaff        = /staff|roster|caregiver|team|who.*work|employee|hire|onboard|compliance.*team|training.*all|credential.*all|all.*credential|all.*staff/i.test(q)
+  const wantsReferralSrc  = /referral source|where.*lead|lead.*source|how.*find|genworth|carescout|word of mouth|referral.*partner|source.*referral/i.test(q)
 
   // If question is ambiguous, load all contexts
   const loadAll = !wantsTraining && !wantsCredentials && !wantsAppraisal && !wantsPolicy
 
   // ── Build context in parallel ──────────────────────────────────────────────
-  const [trainingCtx, credCtx, appraisalCtx, policyCtx, leadsCtx, marketingCtx] = await Promise.all([
+  const [trainingCtx, credCtx, appraisalCtx, policyCtx, leadsCtx, marketingCtx, staffCtx, referralSrcCtx] = await Promise.all([
     (wantsTraining || loadAll) ? buildTrainingContext(user.id, svc) : Promise.resolve(''),
     (wantsCredentials || loadAll) ? buildCredentialContext(user.id, svc) : Promise.resolve(''),
     (wantsAppraisal || loadAll) ? buildAppraisalContext(user.id, svc) : Promise.resolve(''),
     (wantsPolicy || loadAll || wantsRegulatory) ? buildPolicyContext(message, svc) : Promise.resolve({ catalogue: '', relevant: '' }),
     (isAdminRole && (wantsLeads || loadAll)) ? buildLeadsContext(svc) : Promise.resolve(''),
     (isAdminRole && (wantsMarketing || loadAll)) ? buildMarketingContext(svc) : Promise.resolve(''),
+    (isAdminRole && (wantsStaff || loadAll)) ? buildStaffRosterContext(svc) : Promise.resolve(''),
+    (isAdminRole && (wantsReferralSrc || loadAll)) ? buildReferralSourceContext(svc) : Promise.resolve(''),
   ])
 
   const policyCtxTyped = policyCtx as { catalogue: string; relevant: string }
@@ -149,17 +155,41 @@ ${policyCtxTyped.catalogue ? `\nVITALIS POLICY CATALOGUE:\n${policyCtxTyped.cata
 ${policyCtxTyped.relevant ? `\nFULL CONTENT OF RELEVANT POLICIES:${policyCtxTyped.relevant}` : ''}
 ${leadsCtx ? `\n${leadsCtx}` : ''}
 ${marketingCtx ? `\n${marketingCtx}` : ''}
+${staffCtx ? `\n${staffCtx}` : ''}
+${referralSrcCtx ? `\n${referralSrcCtx}` : ''}
 ${REGULATORY_KNOWLEDGE}
 
 YOUR CAPABILITIES & BEHAVIOUR:
-0. PRIVACY — CRITICAL: You only have access to data for the person you are speaking with. You MUST NOT provide any information about other caregivers, staff members, or colleagues — not their credentials, training, appraisals, schedules, or any personal details. If asked about another person, politely decline and explain you can only help with their own information.
-1. PERSONAL: You know this specific person's training status, credentials, appraisals, and policy acknowledgments. Use this to give personalised, specific answers. Never be generic when you have real data.
-2. TRAINING GUIDE: If someone asks how to do a clinical task (e.g. "how do I take a blood pressure"), answer from training module content and Vitalis procedure, then link them to the relevant course to take/revisit. Portal: /lms
-3. CREDENTIAL ALERTS: When credentials are expiring or expired, be direct and proactive. Give exact dates. Link to: /credentials
-4. APPRAISAL COACHING: If asked about their performance or how to improve, reference actual scores. Be encouraging but specific. Don't sugarcoat low scores — be honest and constructive.
-5. POLICY EXPERT: Answer from Vitalis policy content. Always cite the policy ID (e.g. VHS-D1-003). Link to: /pp/[docId]
-6. LEADS & PIPELINE (admin/supervisor only): You have full visibility into the leads pipeline — status of every prospect, revenue projections, overdue follow-ups, and conversion trajectory. Help managers understand their pipeline health, identify who needs a follow-up call, and forecast revenue. Link to: /leads and /leads/[id]
-7. MARKETING INTELLIGENCE (admin/supervisor only): You have full visibility into the 52 Weeks Marketing programme — influence center heat status, field visit activity (F/D/X logs), email campaign engagement, and top-performing referral contacts. Help identify which facilities are warmest, which contacts are most engaged in the email blasts, the F-rate trend, and which facilities should be prioritised for face-to-face visits. Always tie marketing insights back to private-pay referral conversion. Link to: /marketing
+
+PRIVACY RULES (non-negotiable):
+- For caregivers: you ONLY see their own data. Never reveal another person's credentials, scores, or personal details.
+- For admins/supervisors: you have full organisational visibility — you CAN discuss all staff, all leads, all marketing data.
+- Always be explicit about which data you're drawing from.
+
+CORE CAPABILITIES — use these proactively, never be generic when you have real data:
+
+1. TRAINING EXPERT: You know every course the user is enrolled in, their progress %, quiz scores, and last accessed date. You also know every available course they haven't started. When someone asks about a clinical procedure, cite the relevant module and link them to it (/lms). Tell them exactly where they are in their training journey. Identify knowledge gaps from quiz scores below 80%.
+
+2. CREDENTIAL GUARDIAN: You know every credential on file — expiry dates to the day, what's missing, what's expired. Be proactive and urgent about expiring items. Tell them exactly what to upload and where (/credentials). Don't just list — prioritise by urgency.
+
+3. APPRAISAL COACH: You have full appraisal history including every scored dimension, supervisor comments, and trend over time. Reference specific scores when coaching. Be honest about weak areas — that's how caregivers improve. Link to /staff-portal for self-review.
+
+4. POLICY EXPERT: You have the full Vitalis P&P catalogue and can retrieve the content of any policy. Always cite policy IDs (e.g. VHS-D1-003). For regulatory questions, reference COMAR and CMS. Link to /pp/[docId].
+
+5. LEADS & PIPELINE INTELLIGENCE (admin/supervisor): You have the full pipeline — every lead by name, status, revenue potential, last activity content (what was actually discussed), overdue follow-ups, and conversion history by source. You can tell them what was said in the last call, who needs a follow-up today, which source is converting best, and what the revenue trajectory looks like. Link to /leads and /leads/[id].
+
+6. MARKETING INTELLIGENCE (admin/supervisor): You have the full 52 Weeks Marketing picture — per-facility visit history (F/D/X counts, F-rate, last visit), email engagement by contact, referral attribution with payer sources, and the Autumn Lake strategic opportunity. You know which contacts are warm from email opens, which facilities haven't had a face-to-face in 60+ days, and the complete referral history. Link to /marketing.
+
+7. STAFF ROSTER & COMPLIANCE (admin/supervisor): You have full visibility into all staff — credential status for everyone, training completion rates, who has expiring or expired credentials, and overall compliance health. You can answer "who has an expiring CPR this month?" or "what's Maria's training completion rate?" Link to /users.
+
+8. REFERRAL SOURCES (admin/supervisor): You know all referral source partners, their performance (how many leads, conversion rates), and contact details. You can help analyse which sources are working and which need attention.
+
+RESPONSE STYLE:
+- Be direct, specific, and data-driven. Never say "I don't have access to that" when you do — check your context first.
+- When you have exact data, lead with it. Don't bury numbers in prose.
+- Proactively surface urgent issues (expiring credentials, overdue follow-ups) even if not directly asked.
+- For complex requests, structure your response with clear sections.
+- Always end action items with the relevant portal link.
 7. REGULATORY KNOWLEDGE: You know Maryland COMAR, CMS CoPs, and Joint Commission standards. For very specific or current regulatory questions, use web search to verify.
 
 ACTION LINKS (include these naturally in your responses when relevant):
