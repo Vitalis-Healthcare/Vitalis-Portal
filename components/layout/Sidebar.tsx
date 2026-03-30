@@ -39,11 +39,12 @@ const adminNav: NavSection[] = [
   {
     type: 'group', id: 'workforce', label: 'Workforce', emoji: '👥',
     items: [
-      { href: '/staff',       label: 'Caregiver Directory', icon: Users },
-      { href: '/credentials', label: 'Credentials',         icon: BadgeCheck },
-      { href: '/appraisals',  label: 'Appraisals',          icon: ClipboardList },
-      { href: '/references',  label: 'References',          icon: UserCheck },
-      { href: '/reports',     label: 'Reports',             icon: BarChart3 },
+      { href: '/staff',       label: 'Caregiver Directory',  icon: Users },
+      { href: '/credentials', label: 'Credentials',          icon: BadgeCheck },
+      { href: '/appraisals',  label: 'Appraisals',           icon: ClipboardList },
+      { href: '/references',  label: 'References',           icon: UserCheck },
+      { href: '/users',       label: 'Caregiver Management', icon: UserCog },
+      { href: '/reports',     label: 'Reports',              icon: BarChart3 },
     ],
   },
   {
@@ -96,8 +97,12 @@ const staffNav: NavSection[] = [
   {
     type: 'group', id: 'workforce', label: 'Workforce', emoji: '👥',
     items: [
-      { href: '/users',    label: 'Caregiver Management', icon: UserCog },
-      { href: '/reports',  label: 'Reports',              icon: BarChart3 },
+      { href: '/staff',       label: 'Caregiver Directory',  icon: Users },
+      { href: '/credentials', label: 'Credentials',          icon: BadgeCheck },
+      { href: '/appraisals',  label: 'Appraisals',           icon: ClipboardList },
+      { href: '/references',  label: 'References',           icon: UserCheck },
+      { href: '/users',       label: 'Caregiver Management', icon: UserCog },
+      { href: '/reports',     label: 'Reports',              icon: BarChart3 },
     ],
   },
 ]
@@ -240,8 +245,7 @@ export default function Sidebar({ role, onNavigate }: { role: string; onNavigate
   }
 
   const nav =
-    role === 'admin' || role === 'supervisor' ? adminNav :
-    role === 'staff'                           ? staffNav : caregiverNav
+    role === 'admin' || role === 'supervisor' || role === 'staff' ? adminNav : caregiverNav
 
   const roleLabel =
     role === 'admin'      ? 'Admin' :
@@ -255,11 +259,13 @@ export default function Sidebar({ role, onNavigate }: { role: string; onNavigate
       height: '100%', minHeight: '100vh', overflowY: 'auto',
     }}>
       <div style={{ padding: '16px 0', flex: 1 }}>
-        {nav.map((section, i) =>
-          section.type === 'group'
+        {nav.map((section, i) => {
+          // Hide the ADMIN flat section from supervisors/staff — they get Caregiver Management in Workforce instead
+          if (section.type === 'flat' && (section as NavFlat).label === 'ADMIN' && role !== 'admin') return null
+          return section.type === 'group'
             ? <NavGroupSection key={(section as NavGroup).id} group={section as NavGroup} pathname={pathname} onNavigate={onNavigate} />
             : <FlatSection key={i} section={section as NavFlat} pathname={pathname} onNavigate={onNavigate} />
-        )}
+        })}
       </div>
       <div style={{ padding: '12px 8px', borderTop: '1px solid #EFF2F5' }}>
         <div style={{
