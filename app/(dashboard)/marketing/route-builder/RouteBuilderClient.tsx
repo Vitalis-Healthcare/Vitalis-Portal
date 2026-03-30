@@ -54,43 +54,56 @@ export default function RouteBuilderClient({ centers }: Props) {
 
   const totalDays = DAYS.filter(d => byDay[d].length > 0).length
 
+  function printSchedule() {
+    const el = document.getElementById('print-route-root')
+    if (!el) return
+    const win = window.open('', '_blank', 'width=900,height=700')
+    if (!win) { window.print(); return }
+    win.document.write(`
+      <html>
+        <head>
+          <title>Vitalis Route Schedule — Week ${activeWeek}</title>
+          <style>
+            @page { margin: 14mm 16mm; size: A4 portrait; }
+            * { box-sizing: border-box; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 9pt; color: #111; margin: 0; padding: 16px; background: #fff; }
+            h1 { font-size: 16pt; font-weight: 700; color: #0B6B5C; margin: 0 0 4px; }
+            h2 { font-size: 10pt; color: #888; font-weight: 400; margin: 0 0 16px; }
+            .print-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 3px solid #0B6B5C; margin-bottom: 20px; }
+            .route-grid { display: block; }
+            .day-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px 14px; margin-bottom: 18px; break-inside: avoid; page-break-inside: avoid; }
+            .day-header { background: #0B6B5C; color: #fff; border-radius: 4px; padding: 6px 12px; margin: -12px -14px 12px; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .day-header h3 { margin: 0; font-size: 11pt; font-weight: 700; color: #fff; }
+            .day-header span { font-size: 9pt; color: rgba(255,255,255,0.8); }
+            .facility-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+            .facility-entry { border: 1px solid #eee; border-radius: 4px; padding: 6px 8px; break-inside: avoid; }
+            .facility-name { font-weight: 600; font-size: 9pt; color: #111; margin-bottom: 2px; }
+            .facility-addr { font-size: 8pt; color: #888; margin-bottom: 4px; }
+            .contact-entry { font-size: 8pt; color: #444; padding: 2px 0; }
+            .heat-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .heat-hot  { background: #10B981; }
+            .heat-cold { background: #3B82F6; }
+            .heat-dead { background: #EF4444; }
+            .stats-bar { display: flex; gap: 20px; margin-bottom: 16px; font-size: 9pt; color: #555; }
+            .no-print { display: none !important; }
+          </style>
+        </head>
+        <body>
+          \${el.innerHTML}
+        </body>
+      </html>
+    `)
+    win.document.close()
+    win.focus()
+    setTimeout(() => { win.print(); win.close() }, 500)
+  }
+
+
   return (
     <>
       {/* Print styles */}
       <style>{`
-        @media print {
-          @page { margin: 14mm 16mm; size: A4 portrait; }
-          body { visibility: hidden !important; }
-          #print-route-root { visibility: visible !important; background: #fff; }
-          #print-route-root * { visibility: visible !important; }
-          .no-print { display: none !important; }
-          .route-grid { display: block !important; }
-          .day-card {
-            display: block !important;
-            width: 100% !important;
-            margin-bottom: 20px !important;
-            border: 1px solid #ccc !important;
-            border-radius: 6px !important;
-            padding: 10px 14px !important;
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-          }
-          .day-header {
-            background: #0B6B5C !important;
-            color: #fff !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .facility-list {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
-            gap: 8px !important;
-          }
-          .facility-entry { break-inside: avoid !important; }
-          body, p, div, span { font-size: 9pt !important; line-height: 1.4 !important; }
-          h1 { font-size: 16pt !important; }
-          h2 { font-size: 11pt !important; }
-        }
+        @media print { .no-print { display: none !important; } }
       `}</style>
 
       <div id="print-route-root" className="print-page" style={{ padding: '24px 28px', maxWidth: 1100, margin: '0 auto' }}>
@@ -103,7 +116,7 @@ export default function RouteBuilderClient({ centers }: Props) {
             <p style={{ color: '#888', fontSize: 13, margin: '4px 0 0' }}>Biweekly routing schedule · Go facilities only</p>
           </div>
           <button
-            onClick={() => window.print()}
+            onClick={() => printSchedule()}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#111', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
           >
             <Printer size={15} /> Print Schedule

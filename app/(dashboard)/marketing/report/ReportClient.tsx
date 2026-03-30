@@ -178,7 +178,44 @@ export default function ReportClient({ userName }: Props) {
   }
 
   function handlePrint() {
-    window.print()
+    const el = document.getElementById('print-report-root')
+    if (!el) return
+    const win = window.open('', '_blank', 'width=900,height=700')
+    if (!win) { window.print(); return }
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Vitalis Marketing Intelligence Report</title>
+  <style>
+    @page { margin: 18mm 16mm; size: A4 portrait; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10pt; color: #111; margin: 0; padding: 0; background: #fff; }
+    h1 { font-size: 20pt; font-weight: 800; color: #0B6B5C; margin: 0 0 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h3 { font-size: 13pt; font-weight: 700; color: #111; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #0B6B5C; page-break-after: avoid; break-after: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h4 { font-size: 11pt; font-weight: 700; color: #333; margin: 14px 0 6px; page-break-after: avoid; break-after: avoid; }
+    p { font-size: 10pt; line-height: 1.6; margin: 4px 0; }
+    table { font-size: 9pt; width: 100%; border-collapse: collapse; margin: 10px 0; page-break-inside: auto; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    th { background: #0B6B5C; color: #fff; padding: 6px 10px; text-align: left; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    td { padding: 5px 8px; border: 1px solid #E5E7EB; }
+    tr:nth-child(even) td { background: #F9FAFB; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .print-header-bar { border-bottom: 3px solid #0B6B5C; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none !important; }
+    /* Bullet items */
+    div { page-break-inside: avoid; }
+    strong { font-weight: 700; }
+    em { font-style: italic; }
+    code { background: #F3F4F6; padding: 1px 4px; border-radius: 3px; font-size: 8pt; }
+    hr { border: none; border-top: 1px solid #E5E7EB; margin: 16px 0; }
+    /* Footer */
+    .report-footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #E5E7EB; font-size: 9pt; color: #AAA; display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>` + el.innerHTML + `</body></html>`)
+    win.document.close()
+    win.focus()
+    setTimeout(() => { win.print(); win.close() }, 600)
   }
 
   const fmtDate = (iso: string) => new Date(iso).toLocaleString('en-US', {
@@ -188,56 +225,8 @@ export default function ReportClient({ userName }: Props) {
 
   return (
     <>
-      {/* Print styles — no position:fixed so multi-page works correctly */}
-      <style>{`
-        @media print {
-          @page { margin: 18mm 16mm; size: A4 portrait; }
-          /* visibility cascades through Next.js layout without position:fixed */
-          body { visibility: hidden !important; }
-          #print-report-root { visibility: visible !important; background: #fff; }
-          #print-report-root * { visibility: visible !important; }
-          /* Typography */
-          #print-report-root { font-size: 10pt !important; color: #000 !important; line-height: 1.5 !important; }
-          h1 { font-size: 20pt !important; color: #0B6B5C !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          h3 { font-size: 13pt !important; page-break-after: avoid !important; break-after: avoid !important; margin-top: 20px !important; }
-          h4 { font-size: 11pt !important; page-break-after: avoid !important; break-after: avoid !important; }
-          p, li { font-size: 10pt !important; line-height: 1.6 !important; }
-          /* Tables — keep rows together, avoid mid-table breaks */
-          table {
-            font-size: 9pt !important;
-            width: 100% !important;
-            border-collapse: collapse !important;
-            page-break-inside: auto !important;
-          }
-          tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-          thead { display: table-header-group !important; }
-          th {
-            background: #0B6B5C !important;
-            color: #fff !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            padding: 6px 10px !important;
-          }
-          tr:nth-child(even) td {
-            background: #F9FAFB !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          td, th { padding: 5px 8px !important; border: 1px solid #E5E7EB !important; }
-          /* Section headings start new section but don't force page break */
-          .print-section { page-break-inside: avoid !important; break-inside: avoid !important; }
-          /* Letterhead */
-          .print-header-bar {
-            border-bottom: 3px solid #0B6B5C !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            page-break-after: avoid !important;
-            break-after: avoid !important;
-          }
-          /* Bullet points */
-          div[style*="display: flex"] { page-break-inside: avoid !important; break-inside: avoid !important; }
-        }
-      `}</style>
+      {/* Minimal print style — actual print done via JS window */}
+      <style>{`@media print { .no-print { display: none !important; } }`}</style>
 
       <div style={{ padding: '24px 28px', maxWidth: 960, margin: '0 auto' }}>
 
