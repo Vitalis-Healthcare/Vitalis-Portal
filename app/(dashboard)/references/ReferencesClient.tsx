@@ -29,14 +29,40 @@ const SLOTS = [
   { slot: 3, type: 'character',    label: 'Character Reference',       desc: 'Not a family member or employer' },
 ]
 
+
+  function StatusToggle({ value, onChange, counts }: {
+    value: 'all' | 'active' | 'inactive'
+    onChange: (v: 'all' | 'active' | 'inactive') => void
+    counts: { all: number; active: number; inactive: number }
+  }) {
+    const opts = [
+      { key: 'all',      label: 'All',      color: '#1A2E44', bg: '#EFF2F5' },
+      { key: 'active',   label: 'Active',   color: '#0E7C7B', bg: '#E6F4F4' },
+      { key: 'inactive', label: 'Inactive', color: '#8FA0B0', bg: '#F8F8F8' },
+    ] as const
+    return (
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {opts.map(o => (
+          <button key={o.key} onClick={() => onChange(o.key)}
+            style={{ padding: '5px 14px', borderRadius: 20, border: `1.5px solid ${value === o.key ? o.color : '#E0E0E0'}`,
+              background: value === o.key ? o.bg : '#fff', color: value === o.key ? o.color : '#AAA',
+              fontSize: 12, fontWeight: value === o.key ? 700 : 500, cursor: 'pointer' }}>
+            {o.label} ({counts[o.key]})
+          </button>
+        ))}
+      </div>
+    )
+  }
+
 export default function ReferencesClient({ refs, caregivers = [], userId, fullName, isAdmin }: {
-  refs: Reference[]; caregivers?: { id: string; full_name: string }[]; userId: string; fullName: string; isAdmin: boolean
+  refs: Reference[]; caregivers?: { id: string; full_name: string; status: string }[]; userId: string; fullName: string; isAdmin: boolean
 }) {
   const router = useRouter()
   const [editSlot, setEditSlot] = useState<number | null>(null)
   const [saving, setSaving]     = useState(false)
   const [resending, setResending] = useState<string | null>(null)
   const [viewSub, setViewSub]     = useState<{ id: string; type: 'professional'|'character'; slot: number; name?: string; caregiverName: string } | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all'|'active'|'inactive'>('active')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterCaregiver, setFilterCaregiver] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
@@ -66,7 +92,11 @@ export default function ReferencesClient({ refs, caregivers = [], userId, fullNa
   }> = []
 
   if (isAdmin) {
-    for (const cg of caregivers) {
+    const filteredCaregivers = caregivers.filter(cg =>
+      statusFilter === 'all' ? true :
+      statusFilter === 'active' ? cg.status === 'active' : cg.status !== 'active'
+    )
+    for (const cg of filteredCaregivers) {
       for (const slotDef of SLOTS_DEF) {
         const ref = refs.find(r =>
           (Array.isArray(r.caregiver) ? r.caregiver[0]?.id : (r.caregiver as any)?.id) === cg.id &&
@@ -159,6 +189,15 @@ export default function ReferencesClient({ refs, caregivers = [], userId, fullNa
           <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>
             {isAdmin ? 'Track reference status for all caregivers' : '2 professional references and 1 character reference required'}
           </p>
+          {isAdmin && (
+            <div style={{ marginTop: 10 }}>
+              <StatusToggle value={statusFilter} onChange={setStatusFilter} counts={{
+                all: caregivers.length,
+                active: caregivers.filter(c => c.status === 'active').length,
+                inactive: caregivers.filter(c => c.status !== 'active').length,
+              }} />
+            </div>
+          )}
         </div>
         {!isAdmin && (
           <div style={{ background: '#fff', borderRadius: 10, padding: '12px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', textAlign: 'center' }}>

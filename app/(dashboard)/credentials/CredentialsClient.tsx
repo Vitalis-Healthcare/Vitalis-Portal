@@ -1,3 +1,29 @@
+
+  // ── Status filter toggle ─────────────────────────────────────────────────
+  function StatusToggle({ value, onChange, counts }: {
+    value: 'all' | 'active' | 'inactive'
+    onChange: (v: 'all' | 'active' | 'inactive') => void
+    counts: { all: number; active: number; inactive: number }
+  }) {
+    const opts = [
+      { key: 'all',      label: 'All',      color: '#1A2E44', bg: '#EFF2F5' },
+      { key: 'active',   label: 'Active',   color: '#0E7C7B', bg: '#E6F4F4' },
+      { key: 'inactive', label: 'Inactive', color: '#8FA0B0', bg: '#F8F8F8' },
+    ] as const
+    return (
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {opts.map(o => (
+          <button key={o.key} onClick={() => onChange(o.key)}
+            style={{ padding: '5px 14px', borderRadius: 20, border: `1.5px solid ${value === o.key ? o.color : '#E0E0E0'}`,
+              background: value === o.key ? o.bg : '#fff', color: value === o.key ? o.color : '#AAA',
+              fontSize: 12, fontWeight: value === o.key ? 700 : 500, cursor: 'pointer' }}>
+            {o.label} ({counts[o.key]})
+          </button>
+        ))}
+      </div>
+    )
+  }
+
 'use client'
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -6,7 +32,7 @@ import { Plus, AlertTriangle, CheckCircle, Clock, Upload, FileText, X } from 'lu
 import CredentialDocViewer from '@/components/credentials/CredentialDocViewer'
 
 interface CredType { id: string; name: string; validity_days: number; required_for_roles?: string[] }
-interface StaffMember { id: string; full_name: string; role: string }
+interface StaffMember { id: string; full_name: string; role: string; status: string }
 interface Cred {
   id: string; user_id: string; credential_type_id: string; issue_date: string;
   expiry_date?: string; document_url?: string; notes?: string; status: string;
@@ -27,6 +53,7 @@ export default function CredentialsClient({
   const router   = useRouter()
   const fileRef  = useRef<HTMLInputElement>(null)
 
+  const [statusFilter, setStatusFilter] = useState<'all'|'active'|'inactive'>('active')
   const [view, setView]           = useState<'matrix'|'pending'|'alerts'|'add'>('matrix')
   const [saving, setSaving]       = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -159,6 +186,15 @@ export default function CredentialsClient({
         </button>
       </div>
 
+      {/* Status filter toggle */}
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 12, color: '#8FA0B0', fontWeight: 600 }}>SHOW:</span>
+        <StatusToggle value={statusFilter} onChange={setStatusFilter} counts={{
+          all: staff.length,
+          active: staff.filter(s => s.status === 'active').length,
+          inactive: staff.filter(s => s.status !== 'active').length,
+        }} />
+      </div>
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:16, marginBottom:24 }}>
         {[
@@ -218,7 +254,11 @@ export default function CredentialsClient({
               </tr>
             </thead>
             <tbody>
-              {staff.map((s,i)=>(
+              {staff.filter(s =>
+          statusFilter === 'all' ? true :
+          statusFilter === 'active' ? s.status === 'active' :
+          s.status !== 'active'
+        ).map((s,i)=>(
                 <tr key={s.id} style={{ borderBottom:'1px solid #EFF2F5' }}>
                   <td style={{ padding:'12px 16px', position:'sticky', left:0, background:i%2===0?'#fff':'#FAFBFC', whiteSpace:'nowrap' as const }}>
                     <button onClick={()=>{ setSelectedStaff(s); setForm(f=>({...f,user_id:s.id})); setView('add') }}

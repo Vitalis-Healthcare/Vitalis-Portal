@@ -16,9 +16,8 @@ export default async function AppraisalsPage() {
 
   const { data: caregivers } = await svc
     .from('profiles')
-    .select('id, full_name')
+    .select('id, full_name, status')
     .eq('role', 'caregiver')
-    .eq('status', 'active')
     .order('full_name')
 
   const { data: appraisals } = await svc

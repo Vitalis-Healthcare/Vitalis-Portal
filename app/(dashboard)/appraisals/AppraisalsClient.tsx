@@ -69,6 +69,31 @@ interface Appraisal {
 
 const getName = (v: any) => Array.isArray(v) ? v[0]?.full_name : v?.full_name
 
+
+  function StatusToggle({ value, onChange, counts }: {
+    value: 'all' | 'active' | 'inactive'
+    onChange: (v: 'all' | 'active' | 'inactive') => void
+    counts: { all: number; active: number; inactive: number }
+  }) {
+    const opts = [
+      { key: 'all',      label: 'All',      color: '#1A2E44', bg: '#EFF2F5' },
+      { key: 'active',   label: 'Active',   color: '#0E7C7B', bg: '#E6F4F4' },
+      { key: 'inactive', label: 'Inactive', color: '#8FA0B0', bg: '#F8F8F8' },
+    ] as const
+    return (
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {opts.map(o => (
+          <button key={o.key} onClick={() => onChange(o.key)}
+            style={{ padding: '5px 14px', borderRadius: 20, border: `1.5px solid ${value === o.key ? o.color : '#E0E0E0'}`,
+              background: value === o.key ? o.bg : '#fff', color: value === o.key ? o.color : '#AAA',
+              fontSize: 12, fontWeight: value === o.key ? 700 : 500, cursor: 'pointer' }}>
+            {o.label} ({counts[o.key]})
+          </button>
+        ))}
+      </div>
+    )
+  }
+
 export default function AppraisalsClient({ caregivers, appraisals, currentUserId }: {
   caregivers: Caregiver[]; appraisals: Appraisal[]; currentUserId: string
 }) {
@@ -282,6 +307,13 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>Performance Appraisals</h1>
           <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>HHA performance evaluations — fill, send, and track caregiver sign-offs</p>
+          <div style={{ marginTop: 10 }}>
+            <StatusToggle value={statusFilter} onChange={setStatusFilter} counts={{
+              all: caregivers.length,
+              active: caregivers.filter(c => c.status === 'active').length,
+              inactive: caregivers.filter(c => c.status !== 'active').length,
+            }} />
+          </div>
         </div>
         <button onClick={openNew} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#0E7C7B', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
           <Plus size={16}/> New Appraisal

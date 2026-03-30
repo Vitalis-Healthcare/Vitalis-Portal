@@ -33,7 +33,7 @@ export default async function CredentialsPage() {
   // Admin view — all staff + pending submissions
   // Credentials matrix shows caregivers only
   const { data: staff } = await svc
-    .from('profiles').select('id, full_name, role, status').eq('status','active').eq('role','caregiver').order('full_name')
+    .from('profiles').select('id, full_name, role, status').eq('role','caregiver').order('full_name')
 
   const { data: allCreds } = await svc
     .from('staff_credentials')
@@ -85,7 +85,7 @@ export default async function CredentialsPage() {
       credTypes={credTypes||[]}
       staff={staff||[]}
       allCreds={allCreds||[]}
-      stats={{ current: currentCount||0, expiring: expiringCount||0, expired: expiredCount||0, total: staff?.length||0, missing: missingCount }}
+      stats={{ current: currentCount||0, expiring: expiringCount||0, expired: expiredCount||0, total: (staff||[]).filter((s:any)=>s.status==='active').length, missing: missingCount }}
       viewerRole={profile?.role || 'staff'}
       refs={refSummaries}
     />
