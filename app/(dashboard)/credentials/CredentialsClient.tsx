@@ -195,14 +195,35 @@ export default function CredentialsClient({
           inactive: staff.filter(s => s.status !== 'active').length,
         }} />
       </div>
-      {/* Stats */}
+      {/* Stats — computed from filtered staff */}
+      {(() => {
+        const filteredStaff = staff.filter(s =>
+          statusFilter === 'all' ? true :
+          statusFilter === 'active' ? s.status === 'active' : s.status !== 'active'
+        )
+        const filteredIds = new Set(filteredStaff.map(s => s.id))
+        const filteredCreds = allCreds.filter(c => filteredIds.has(c.user_id))
+        const fCurrent  = filteredCreds.filter(c => c.status === 'current'  && c.review_status === 'approved').length
+        const fExpiring = filteredCreds.filter(c => c.status === 'expiring' && c.review_status === 'approved').length
+        const fExpired  = filteredCreds.filter(c => c.status === 'expired'  && c.review_status === 'approved').length
+        // Compute missing for filtered staff
+        let fMissing = 0
+        for (const s of filteredStaff) {
+          const userCredTypeIds = new Set(filteredCreds.filter(c => c.user_id === s.id).map(c => c.credential_type_id))
+          for (const ct of credTypes) {
+            const roles: string[] = Array.isArray((ct as any).required_for_roles) ? (ct as any).required_for_roles : []
+            if (roles.includes(s.role) && !userCredTypeIds.has(ct.id)) fMissing++
+          }
+        }
+        return (
       <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:16, marginBottom:24 }}>
         {[
-          { label:'Active Staff',    value:stats.total,           color:'#1A2E44' },
-          { label:'Current',         value:stats.current,         color:'#2A9D8F' },
-          { label:'Expiring Soon',   value:stats.expiring,        color:'#F4A261' },
-          { label:'Expired',         value:stats.expired,         color:'#E63946' },
-          { label:'Missing',         value:stats.missing ?? 0,    color:'#9B59B6' },
+          { label: statusFilter === 'active' ? 'Active Staff' : statusFilter === 'inactive' ? 'Inactive Staff' : 'All Staff',
+            value: filteredStaff.length,  color:'#1A2E44' },
+          { label:'Current',         value:fCurrent,   color:'#2A9D8F' },
+          { label:'Expiring Soon',   value:fExpiring,  color:'#F4A261' },
+          { label:'Expired',         value:fExpired,   color:'#E63946' },
+          { label:'Missing',         value:fMissing,   color:'#9B59B6' },
         ].map((s,i)=>(
           <div key={i} style={{ background:'#fff', borderRadius:12, padding:'18px 20px', borderLeft:`4px solid ${s.color}`, boxShadow:'0 1px 4px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize:30, fontWeight:800, color:'#1A2E44', lineHeight:1 }}>{s.value}</div>
@@ -210,6 +231,8 @@ export default function CredentialsClient({
           </div>
         ))}
       </div>
+        )
+      })()}
 
       {alerts.length > 0 && (
         <div style={{ background:'#FDE8E9', border:'1px solid #E63946', borderRadius:10, padding:'14px 18px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>

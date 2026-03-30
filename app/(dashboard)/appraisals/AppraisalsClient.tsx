@@ -321,13 +321,21 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
         </button>
       </div>
 
-      {/* Stats */}
+      {/* Stats — computed from filtered appraisals */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 24 }}>
-        {[
-          { label: 'Total', value: appraisals.length, color: '#1A2E44' },
-          { label: 'Awaiting Sign-off', value: appraisals.filter(a => a.status === 'sent').length, color: '#457B9D' },
-          { label: 'Signed', value: appraisals.filter(a => a.status === 'signed').length, color: '#2A9D8F' },
-        ].map((s, i) => (
+        {(() => {
+          const filteredAppraisals = appraisals.filter(a => {
+            if (statusFilter === 'all') return true
+            const cg = caregivers.find(c => c.id === a.caregiver_id)
+            if (!cg) return true
+            return statusFilter === 'active' ? cg.status === 'active' : cg.status !== 'active'
+          })
+          return [
+            { label: 'Total', value: filteredAppraisals.length, color: '#1A2E44' },
+            { label: 'Awaiting Sign-off', value: filteredAppraisals.filter(a => a.status === 'sent').length, color: '#457B9D' },
+            { label: 'Signed', value: filteredAppraisals.filter(a => a.status === 'signed').length, color: '#2A9D8F' },
+          ]
+        })().map((s, i) => (
           <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '18px 20px', borderLeft: `4px solid ${s.color}`, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 30, fontWeight: 800, color: '#1A2E44', lineHeight: 1 }}>{s.value}</div>
             <div style={{ fontSize: 11, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.8px', marginTop: 4 }}>{s.label}</div>
