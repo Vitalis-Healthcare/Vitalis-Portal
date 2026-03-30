@@ -98,6 +98,7 @@ export default function AppraisalsClient({ caregivers, appraisals, currentUserId
   caregivers: Caregiver[]; appraisals: Appraisal[]; currentUserId: string
 }) {
   const router = useRouter()
+  const [statusFilter, setStatusFilter] = useState<'all'|'active'|'inactive'>('active')
   const [view, setView]       = useState<'list'|'new'|'edit'>('list')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving]   = useState(false)

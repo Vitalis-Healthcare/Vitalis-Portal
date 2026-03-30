@@ -58,6 +58,7 @@ export default function ReferencesClient({ refs, caregivers = [], userId, fullNa
   refs: Reference[]; caregivers?: { id: string; full_name: string; status: string }[]; userId: string; fullName: string; isAdmin: boolean
 }) {
   const router = useRouter()
+  const [statusFilter, setStatusFilter] = useState<'all'|'active'|'inactive'>('active')
   const [editSlot, setEditSlot] = useState<number | null>(null)
   const [saving, setSaving]     = useState(false)
   const [resending, setResending] = useState<string | null>(null)
