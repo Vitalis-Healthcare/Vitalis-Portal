@@ -1,4 +1,5 @@
 'use client'
+import { printWindow } from '@/lib/printUtils'
 import Link from 'next/link'
 
 interface Center {
@@ -66,6 +67,10 @@ export default function MarketingOverviewClient({
           52 Weeks Marketing · Vitalis Private Pay Referral Programme
         </p>
       </div>
+      <button onClick={handlePrint}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
+        🖨 Print Overview
+      </button>
 
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 28 }}>
@@ -242,6 +247,57 @@ export default function MarketingOverviewClient({
 }
 
 function StatCard({ label, value, color, bg, border, href }: { label:string; value:number; color:string; bg:string; border:string; href:string }) {
+  function handlePrint() {
+    const HEAT: Record<string,string> = { hot:'badge-hot', cold:'badge-cold', dead:'badge-dead' }
+    const hot = centers.filter((c:any) => c.heat_status === 'hot').length
+    const cold = centers.filter((c:any) => c.heat_status === 'cold').length
+    const dead = centers.filter((c:any) => c.heat_status === 'dead').length
+    const fCount = recentLogs.filter((l:any) => l.activity_type === 'F').length
+    const dCount = recentLogs.filter((l:any) => l.activity_type === 'D').length
+
+    const openerRows = topOpeners.slice(0,10).map((o:any,i:number) =>
+      `<tr><td>${i+1}</td><td>${o.name}</td><td>${o.facility}</td>
+       <td style="text-align:center">${o.count}/${totalCampaigns} (${Math.round(o.count/totalCampaigns*100)}%)</td></tr>`
+    ).join('')
+
+    const campaignRows = topCampaigns.map((c:any) =>
+      `<tr><td>${c.campaign_date}</td><td style="text-align:center">${c.total_opened}</td>
+       <td style="text-align:center">${c.open_rate != null ? c.open_rate+'%' : '—'}</td></tr>`
+    ).join('')
+
+    const activityRows = recentLogs.map((l:any) => {
+      const name = Array.isArray(l.marketing_influence_centers) ? l.marketing_influence_centers[0]?.name : l.marketing_influence_centers?.name || '—'
+      const ACT: Record<string,string> = { F:'Face-to-face', D:'Drop-off', X:'Missed' }
+      return `<tr><td>${l.visit_date}</td><td>${ACT[l.activity_type]||l.activity_type}</td><td>${name}</td></tr>`
+    }).join('')
+
+    printWindow('Marketing Overview',
+      `<div class="stat-row">
+         <div class="stat-box"><div class="stat-num">${centers.length}</div><div class="stat-lbl">Facilities</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:#065F46">${hot}</div><div class="stat-lbl">Hot</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:#1E40AF">${cold}</div><div class="stat-lbl">Cold</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:#991B1B">${dead}</div><div class="stat-lbl">Dead</div></div>
+         <div class="stat-box"><div class="stat-num">${contacts.length}</div><div class="stat-lbl">Contacts</div></div>
+         <div class="stat-box"><div class="stat-num">${totalCampaigns}</div><div class="stat-lbl">Campaigns</div></div>
+       </div>
+       <h3>Top Engaged Contacts (Email)</h3>
+       <table>
+         <thead><tr><th>#</th><th>Contact</th><th>Facility</th><th>Engagement</th></tr></thead>
+         <tbody>${openerRows}</tbody>
+       </table>
+       <h3>Best Performing Campaigns</h3>
+       <table>
+         <thead><tr><th>Date</th><th>Openers</th><th>Open Rate</th></tr></thead>
+         <tbody>${campaignRows}</tbody>
+       </table>
+       <h3>Recent Field Activity</h3>
+       <table>
+         <thead><tr><th>Date</th><th>Type</th><th>Facility</th></tr></thead>
+         <tbody>${activityRows}</tbody>
+       </table>`)
+  }
+
+
   return (
     <Link href={href} style={{ textDecoration: 'none' }}>
       <div style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 12, padding: '16px 10px', textAlign: 'center', cursor: 'pointer' }}

@@ -1,4 +1,5 @@
 'use client'
+import { printWindow, downloadExcel } from '@/lib/printUtils'
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -203,6 +204,14 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
         </div>
         <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
           <Plus size={16} /> Add Facility
+        </button>
+        <button onClick={handlePrint}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
+          🖨 Print
+        </button>
+        <button onClick={handleExcel}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#065F46', border: '1px solid #6EE7B7', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
+          📥 Excel
         </button>
       </div>
 
@@ -452,6 +461,56 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
 }
 
 function FilterSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  function handlePrint() {
+    const HEAT: Record<string,string> = { hot:'badge-hot', cold:'badge-cold', dead:'badge-dead' }
+    const rows = filtered.map((c: any) => {
+      const contacts = (c.contacts || []).map((ct: any) => ct.name).join(', ')
+      return `<tr>
+        <td>${c.name}</td>
+        <td>${c.org_type || '—'}</td>
+        <td><span class="badge ${HEAT[c.heat_status] || ''}">${c.heat_status}</span></td>
+        <td>${c.go_no_go ? '✓ Go' : 'No-go'}</td>
+        <td>Wk ${c.week_group} · ${c.assigned_day || '—'}</td>
+        <td>${[c.street_address, c.city, c.state].filter(Boolean).join(', ')}</td>
+        <td style="font-size:7.5pt">${contacts}</td>
+        <td style="font-size:7.5pt">${c.notes || '—'}</td>
+      </tr>`
+    }).join('')
+    const hot = filtered.filter((c: any) => c.heat_status === 'hot').length
+    const cold = filtered.filter((c: any) => c.heat_status === 'cold').length
+    const dead = filtered.filter((c: any) => c.heat_status === 'dead').length
+    printWindow('Influence Centers',
+      `<div class="stat-row">
+         <div class="stat-box"><div class="stat-num">${filtered.length}</div><div class="stat-lbl">Facilities</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:#065F46">${hot}</div><div class="stat-lbl">Hot</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:#1E40AF">${cold}</div><div class="stat-lbl">Cold</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:#991B1B">${dead}</div><div class="stat-lbl">Dead</div></div>
+       </div>
+       <table>
+         <thead><tr>
+           <th>Facility</th><th>Type</th><th>Heat</th><th>Status</th>
+           <th>Route</th><th>Address</th><th>Contacts</th><th>Notes</th>
+         </tr></thead>
+         <tbody>${rows}</tbody>
+       </table>`,
+      `th:nth-child(7), td:nth-child(7) { max-width: 120px; }
+       th:nth-child(8), td:nth-child(8) { max-width: 100px; }`)
+  }
+
+  function handleExcel() {
+    const headers = ['Name','Org Type','Heat Status','Go/No-go','Week','Day',
+                     'Address','City','State','Zip','Contact Count','Notes']
+    const rows = filtered.map((c: any) => [
+      c.name, c.org_type, c.heat_status,
+      c.go_no_go ? 'Go' : 'No-go',
+      c.week_group, c.assigned_day,
+      c.street_address, c.city, c.state, c.zip,
+      (c.contacts || []).length, c.notes
+    ])
+    downloadExcel(`Vitalis_InfluenceCenters_${new Date().toISOString().slice(0,10)}.csv`, headers, rows)
+  }
+
+
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
       style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #DDD', fontSize: 13, color: '#555', background: '#fff', cursor: 'pointer' }}>

@@ -1,4 +1,5 @@
 'use client'
+import { printWindow } from '@/lib/printUtils'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, Trash2, Search, X } from 'lucide-react'
@@ -164,6 +165,41 @@ export default function ActivityLoggerClient({
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
+  function handlePrint() {
+    const ACT: Record<string,string> = { F:'badge-f', D:'badge-d', X:'badge-x' }
+    const ACT_LABEL: Record<string,string> = { F:'Face-to-face', D:'Drop-off', X:'Missed' }
+    const rows = filtered.map((log: any) => {
+      const centerName = log.center ? (Array.isArray(log.center) ? log.center[0]?.name : log.center?.name) : '—'
+      const contactName = log.contact ? (Array.isArray(log.contact) ? log.contact[0]?.name : log.contact?.name) : '—'
+      const loggerName = log.logger ? (Array.isArray(log.logger) ? log.logger[0]?.full_name : log.logger?.full_name) : '—'
+      return `<tr>
+        <td>${log.visit_date}</td>
+        <td><span class="badge ${ACT[log.activity_type] || ''}">${ACT_LABEL[log.activity_type] || log.activity_type}</span></td>
+        <td>${centerName}</td>
+        <td>${contactName}</td>
+        <td>${loggerName}</td>
+        <td style="font-size:7.5pt">${log.notes || '—'}</td>
+      </tr>`
+    }).join('')
+    const fCount = filtered.filter((l: any) => l.activity_type === 'F').length
+    const dCount = filtered.filter((l: any) => l.activity_type === 'D').length
+    const xCount = filtered.filter((l: any) => l.activity_type === 'X').length
+    const fRate = (fCount+dCount) > 0 ? Math.round(fCount/(fCount+dCount)*100) : 0
+    printWindow('Activity Log',
+      `<div class="stat-row">
+         <div class="stat-box"><div class="stat-num">${filtered.length}</div><div class="stat-lbl">Total</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:#065F46">${fCount}</div><div class="stat-lbl">F Visits</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:#6D28D9">${dCount}</div><div class="stat-lbl">D Drop-offs</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:#B45309">${xCount}</div><div class="stat-lbl">X Missed</div></div>
+         <div class="stat-box"><div class="stat-num" style="color:${fRate>=30?'#065F46':fRate>=20?'#D97706':'#DC2626'}">${fRate}%</div><div class="stat-lbl">F-Rate</div></div>
+       </div>
+       <table>
+         <thead><tr><th>Date</th><th>Type</th><th>Facility</th><th>Contact</th><th>Logged by</th><th>Notes</th></tr></thead>
+         <tbody>${rows}</tbody>
+       </table>`)
+  }
+
+
   return (
     <div style={{ padding: '24px 28px', maxWidth: 900, margin: '0 auto' }}>
 
@@ -212,14 +248,22 @@ export default function ActivityLoggerClient({
         </div>
       )}
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid #E5E7EB' }}>
-        {(['log', 'history'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            style={{ padding: '10px 20px', border: 'none', borderBottom: tab === t ? '2px solid #0B6B5C' : '2px solid transparent', background: 'none', fontWeight: tab === t ? 600 : 400, color: tab === t ? '#0B6B5C' : '#888', fontSize: 14, cursor: 'pointer', marginBottom: -1 }}>
-            {t === 'log' ? '✏️ Log a visit' : `📋 History (${logs.length})`}
+      {/* Tabs + print */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, borderBottom: '1px solid #E5E7EB' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {(['log', 'history'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{ padding: '10px 20px', border: 'none', borderBottom: tab === t ? '2px solid #0B6B5C' : '2px solid transparent', background: 'none', fontWeight: tab === t ? 600 : 400, color: tab === t ? '#0B6B5C' : '#888', fontSize: 14, cursor: 'pointer', marginBottom: -1 }}>
+              {t === 'log' ? '✏️ Log a visit' : `📋 History (${logs.length})`}
+            </button>
+          ))}
+        </div>
+        {tab === 'history' && (
+          <button onClick={handlePrint}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 4 }}>
+            🖨 Print Activity Log
           </button>
-        ))}
+        )}
       </div>
 
       {/* ── LOG FORM ── */}

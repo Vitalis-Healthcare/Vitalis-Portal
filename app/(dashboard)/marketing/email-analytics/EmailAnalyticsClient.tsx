@@ -1,4 +1,5 @@
 'use client'
+import { printWindow } from '@/lib/printUtils'
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { Upload, Trash2, Mail, ChevronDown, ChevronUp } from 'lucide-react'
@@ -188,13 +189,21 @@ export default function EmailAnalyticsClient({ initialCampaigns, optInCount }: P
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid #E5E7EB' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, borderBottom: '1px solid #E5E7EB' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
         {(['history','upload'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             style={{ padding: '10px 20px', border: 'none', borderBottom: tab === t ? '2px solid #0B6B5C' : '2px solid transparent', background: 'none', fontWeight: tab === t ? 600 : 400, color: tab === t ? '#0B6B5C' : '#888', fontSize: 14, cursor: 'pointer', marginBottom: -1 }}>
             {t === 'history' ? `📊 Campaigns (${campaigns.length})` : '📤 Upload CSV'}
           </button>
         ))}
+        </div>
+        {tab === 'history' && campaigns.length > 0 && (
+          <button onClick={handlePrint}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 4 }}>
+            🖨 Print / Export
+          </button>
+        )}
       </div>
 
       {/* ── HISTORY ── */}
@@ -374,6 +383,52 @@ export default function EmailAnalyticsClient({ initialCampaigns, optInCount }: P
 }
 
 function StatBox({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
+  function handlePrint() {
+    const campaignRows = campaigns.map(c => {
+      const matchedCount = c.opens.filter((o: any) => o.contact_id).length
+      return `<tr>
+        <td>${c.campaign_date}</td>
+        <td>${c.total_opened}</td>
+        <td>${c.total_sent > 0 ? c.total_sent : '—'}</td>
+        <td>${c.open_rate != null ? c.open_rate + '%' : '—'}</td>
+        <td>${matchedCount} / ${c.total_opened}</td>
+      </tr>`
+    }).join('')
+
+    // Top openers across all campaigns
+    const freq: Record<string,{name:string,count:number}> = {}
+    campaigns.forEach(c => c.opens.filter((o: any) => !o.email_address.includes('@vitalishealthcare.com'))
+      .forEach((o: any) => {
+        if (!freq[o.email_address]) freq[o.email_address] = { name: o.name_in_csv || o.email_address, count: 0 }
+        freq[o.email_address].count++
+      }))
+    const topOpenerRows = Object.values(freq).sort((a,b) => b.count - a.count).slice(0,15)
+      .map(o => `<tr><td>${o.name}</td><td style="text-align:center">${o.count}</td><td style="text-align:center">${Math.round(o.count/campaigns.length*100)}%</td></tr>`).join('')
+
+    const withRate = campaigns.filter(c => c.open_rate != null && c.total_sent > 0)
+    const avgRate = withRate.length ? Math.round(withRate.reduce((s,c)=>s+(c.open_rate||0),0)/withRate.length) : null
+    const avgOpeners = campaigns.length ? Math.round(campaigns.reduce((s,c)=>s+c.total_opened,0)/campaigns.length) : 0
+
+    printWindow('Email Campaign Analytics',
+      `<div class="stat-row">
+         <div class="stat-box"><div class="stat-num">${campaigns.length}</div><div class="stat-lbl">Campaigns</div></div>
+         <div class="stat-box"><div class="stat-num">${avgRate != null ? avgRate+'%' : '—'}</div><div class="stat-lbl">Avg Open Rate</div></div>
+         <div class="stat-box"><div class="stat-num">${avgOpeners}</div><div class="stat-lbl">Avg Openers</div></div>
+         <div class="stat-box"><div class="stat-num">${optInCount}</div><div class="stat-lbl">Opt-in Contacts</div></div>
+       </div>
+       <h3>Campaign History</h3>
+       <table>
+         <thead><tr><th>Date</th><th>Openers</th><th>Total Sent</th><th>Open Rate</th><th>CRM Matched</th></tr></thead>
+         <tbody>${campaignRows}</tbody>
+       </table>
+       <h3 style="margin-top:20px">Top Engagers (External Contacts)</h3>
+       <table>
+         <thead><tr><th>Contact</th><th>Campaigns Opened</th><th>Engagement %</th></tr></thead>
+         <tbody>${topOpenerRows}</tbody>
+       </table>`)
+  }
+
+
   return (
     <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: '16px 14px', textAlign: 'center' }}>
       <div style={{ fontSize: 24, fontWeight: 700, color }}>{value}</div>
