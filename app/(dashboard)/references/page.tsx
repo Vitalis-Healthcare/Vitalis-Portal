@@ -18,7 +18,7 @@ export default async function ReferencesPage() {
   let refs: any[] = []
   // Fetch all caregivers for admin to show "not sent" slots too
   const { data: allCaregivers } = isAdmin
-    ? await svc.from('profiles').select('id, full_name').eq('role', 'caregiver').eq('status', 'active').order('full_name')
+    ? await svc.from('profiles').select('id, full_name, status').eq('role', 'caregiver').order('full_name')
     : { data: [] }
 
   if (isAdmin) {
