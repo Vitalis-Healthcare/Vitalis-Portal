@@ -31,11 +31,7 @@ export async function GET(req: NextRequest) {
     .order('doc_id')
     .limit(10)
 
-  // Full content search — strip HTML tags server-side via regexp_replace
-  // This uses Postgres pattern matching on the raw html_content
-  const { data: byContent } = await svc.rpc('search_pp_content', { search_term: q }).limit ? null : null
-
-  // Fallback: use ilike on html_content directly (tags included but still finds text)
+  // Full content search via ilike on html_content (finds any word in policy body)
   const { data: byHtml } = await svc
     .from('pp_policies')
     .select('doc_id, title, domain, version, keywords, status')
