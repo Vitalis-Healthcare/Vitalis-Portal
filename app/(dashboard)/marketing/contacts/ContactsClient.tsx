@@ -344,20 +344,23 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}><X size={20} /></button>
             </div>
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #F0F0F0', padding: '0 24px' }}>
-              {(['details', 'comments'] as const).map(t => (
-                <button key={t} onClick={() => setModalTab(t)}
-                  style={{ padding: '10px 16px', border: 'none', borderBottom: modalTab === t ? '2px solid #0B6B5C' : '2px solid transparent', background: 'none', fontWeight: modalTab === t ? 600 : 400, color: modalTab === t ? '#0B6B5C' : '#888', fontSize: 13, cursor: 'pointer', marginBottom: -1 }}>
-                  {t === 'details' ? '📋 Details' : '💬 Comments'}
-                </button>
-              ))}
-            </div>
             {/* Body */}
             <div style={{ padding: '20px 24px' }}>
+              {/* Tab selector */}
+              <div style={{ display: 'flex', gap: 0, margin: '-4px -24px 16px', borderBottom: '1px solid #F0F0F0', padding: '0 24px' }}>
+                {(['details', 'comments'] as const).map(t => (
+                  <button key={t} onClick={() => setModalTab(t)}
+                    style={{ padding: '10px 16px', border: 'none', borderBottom: modalTab === t ? '2px solid #0B6B5C' : '2px solid transparent', background: 'none', fontWeight: modalTab === t ? 600 : 400, color: modalTab === t ? '#0B6B5C' : '#888', fontSize: 13, cursor: 'pointer', marginBottom: -1 }}>
+                    {t === 'details' ? '📋 Details' : '💬 Comments'}
+                  </button>
+                ))}
+              </div>
+
+              {modalTab === 'details' && (
+                <>
+
               {error && <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
-              {modalTab === 'details' && (<>
               <F label="Full name *">
                 <input value={modal.contact.name} onChange={e => setField('name', e.target.value)}
                   placeholder="e.g. Gina Liberto" style={inp} />
@@ -410,19 +413,8 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
                   placeholder="Any notes about this contact…" rows={3} style={{ ...inp, resize: 'vertical' as const }} />
               </F>
             </div>
-
-            {/* Footer */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid #F0F0F0' }}>
-              <button onClick={closeModal} disabled={saving}
-                style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #DDD', background: '#fff', color: '#555', fontSize: 14, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={handleSave} disabled={saving}
-                style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0B6B5C', color: '#fff', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
-                {saving ? 'Saving…' : modal.mode === 'add' ? 'Add contact' : 'Save changes'}
-              </button>
-            </div>
-              </>)}
+                </>
+              )}
 
               {modalTab === 'comments' && modal.mode === 'edit' && (
                 <div style={{ height: 420, overflow: 'auto' }}>
@@ -440,6 +432,17 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
                   Save this contact first, then you can add comments.
                 </div>
               )}
+            {/* Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid #F0F0F0' }}>
+              <button onClick={closeModal} disabled={saving}
+                style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #DDD', background: '#fff', color: '#555', fontSize: 14, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={saving}
+                style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0B6B5C', color: '#fff', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                {saving ? 'Saving…' : modal.mode === 'add' ? 'Add contact' : 'Save changes'}
+              </button>
+            </div>
           </div>
         </div>
       )}

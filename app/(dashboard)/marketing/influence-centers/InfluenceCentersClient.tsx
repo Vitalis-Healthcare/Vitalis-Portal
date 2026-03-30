@@ -318,21 +318,23 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}><X size={20} /></button>
             </div>
 
-            {/* Modal tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #F0F0F0', padding: '0 24px' }}>
-              {(['details', 'comments'] as const).map(t => (
-                <button key={t} onClick={() => setModalTab(t)}
-                  style={{ padding: '10px 16px', border: 'none', borderBottom: modalTab === t ? '2px solid #0B6B5C' : '2px solid transparent', background: 'none', fontWeight: modalTab === t ? 600 : 400, color: modalTab === t ? '#0B6B5C' : '#888', fontSize: 13, cursor: 'pointer', marginBottom: -1 }}>
-                  {t === 'details' ? '📋 Details' : '💬 Comments'}
-                </button>
-              ))}
-            </div>
-
             {/* Modal body */}
             <div style={{ padding: '20px 24px' }}>
+              {/* Tab selector */}
+              <div style={{ display: 'flex', gap: 0, margin: '-4px -24px 16px', borderBottom: '1px solid #F0F0F0', padding: '0 24px' }}>
+                {(['details', 'comments'] as const).map(t => (
+                  <button key={t} onClick={() => setModalTab(t)}
+                    style={{ padding: '10px 16px', border: 'none', borderBottom: modalTab === t ? '2px solid #0B6B5C' : '2px solid transparent', background: 'none', fontWeight: modalTab === t ? 600 : 400, color: modalTab === t ? '#0B6B5C' : '#888', fontSize: 13, cursor: 'pointer', marginBottom: -1 }}>
+                    {t === 'details' ? '📋 Details' : '💬 Comments'}
+                  </button>
+                ))}
+              </div>
+
+              {modalTab === 'details' && (
+                <>
+
               {error && <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
-              {modalTab === 'details' && (<div>
               <FieldGroup label="Facility name *">
                 <input value={modal.center.name} onChange={e => setField('name', e.target.value)}
                   placeholder="e.g. Autumn Lake Healthcare at Arcola"
@@ -426,23 +428,11 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
                   placeholder="Any notes about this facility…" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
               </FieldGroup>
             </div>
+                </>
+              )}
 
-            {/* Modal footer */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid #F0F0F0' }}>
-              <button onClick={closeModal} disabled={saving}
-                style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #DDD', background: '#fff', color: '#555', fontSize: 14, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={handleSave} disabled={saving}
-                style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0B6B5C', color: '#fff', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
-                {saving ? 'Saving…' : modal.mode === 'add' ? 'Add facility' : 'Save changes'}
-              </button>
-            </div>
-              </div>)}
-
-              {/* Comments tab */}
               {modalTab === 'comments' && modal.mode === 'edit' && (
-                <div style={{ marginTop: 4, height: 440, overflow: 'auto' }}>
+                <div style={{ height: 420, overflow: 'auto' }}>
                   <CommentsPanel
                     entityType="center"
                     entityId={modal.center.id || ''}
@@ -454,9 +444,20 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
               )}
               {modalTab === 'comments' && modal.mode === 'add' && (
                 <div style={{ padding: '24px 0', textAlign: 'center', color: '#AAA', fontSize: 13 }}>
-                  Save the center first, then come back to add comments.
+                  Save this center first, then you can add comments.
                 </div>
               )}
+            {/* Modal footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid #F0F0F0' }}>
+              <button onClick={closeModal} disabled={saving}
+                style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #DDD', background: '#fff', color: '#555', fontSize: 14, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={saving}
+                style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0B6B5C', color: '#fff', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                {saving ? 'Saving…' : modal.mode === 'add' ? 'Add facility' : 'Save changes'}
+              </button>
+            </div>
           </div>
         </div>
       )}
