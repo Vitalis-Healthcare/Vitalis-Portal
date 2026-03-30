@@ -1,3 +1,4 @@
+'use client'
 
   // ── Status filter toggle ─────────────────────────────────────────────────
   function StatusToggle({ value, onChange, counts }: {
@@ -24,7 +25,6 @@
     )
   }
 
-'use client'
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
