@@ -96,12 +96,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Non-admin callers (supervisor/staff) can only invite caregivers
-  const callerRole = adminProfile?.role || ''
-  if (callerRole !== 'admin' && role !== 'caregiver') {
-    return NextResponse.json({ error: 'You can only invite caregivers.' }, { status: 403 })
-  }
-
   if (!RESEND_KEY) {
     return NextResponse.json({ error: 'RESEND_API_KEY is not configured.' }, { status: 500 })
   }
@@ -110,6 +104,12 @@ export async function POST(req: NextRequest) {
   const full_name  = body.full_name?.trim()
   const email      = body.email?.trim().toLowerCase()
   const role       = body.role || 'caregiver'
+
+  // Non-admin callers can only invite caregivers — enforce server-side
+  const callerRole = adminProfile?.role || ''
+  if (callerRole !== 'admin' && role !== 'caregiver') {
+    return NextResponse.json({ error: 'You can only invite caregivers.' }, { status: 403 })
+  }
   const department = body.department?.trim() || null
   const phone      = body.phone?.trim() || null
 
