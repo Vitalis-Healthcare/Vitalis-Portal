@@ -28,7 +28,7 @@ export default async function PPPage() {
     : profile?.role === 'caregiver' ? 'CNA' : 'All Staff'
 
   const { data: policies } = await svc.from('pp_policies')
-    .select('doc_id, domain, tier, title, version, review_date, applicable_roles, status')
+    .select('doc_id, domain, tier, title, version, review_date, applicable_roles, status, keywords')
     .in('status', ['active', 'under-review']).order('doc_id')
 
   const { data: myAcks } = await svc.from('pp_acknowledgments')
