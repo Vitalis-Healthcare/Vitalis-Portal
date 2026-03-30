@@ -64,8 +64,13 @@ interface Lead {
   assignee?: any; creator?: any
 }
 
+interface Stage { key: string; label: string; color: string; bg_color: string; order_index: number }
+interface ServiceType { id: string; label: string }
+interface ReferralSource { id: string; name: string; type: string; organization?: string }
+
 interface Props {
   leads: Lead[]; staff: { id: string; full_name: string }[]
+  stages: Stage[]; serviceTypes: ServiceType[]; referralSources: ReferralSource[]
   currentUserId: string; currentUserName: string
   lastActivity: Record<string, any>; nextFollowUp: Record<string, string>
 }
@@ -87,7 +92,10 @@ function StageChip({ status }: { status: string }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function LeadsClient({ leads, staff, currentUserId, currentUserName, lastActivity, nextFollowUp }: Props) {
+export default function LeadsClient({ leads, staff, stages: dbStages, serviceTypes: dbServiceTypes, referralSources, currentUserId, currentUserName, lastActivity, nextFollowUp }: Props) {
+  // Use DB stages/serviceTypes if available, fall back to constants
+  const ACTIVE_STAGES = dbStages.length > 0 ? dbStages.map(s => ({ key: s.key, label: s.label, color: s.color, bg: s.bg_color })) : STAGES.map(s => ({ key: s.key, label: s.label, color: s.color, bg: s.bg }))
+  const ACTIVE_CARE_TYPES = dbServiceTypes.length > 0 ? dbServiceTypes.map(s => s.label) : CARE_TYPES
   const router = useRouter()
   const [view, setView] = useState<'pipeline' | 'list'>('pipeline')
   const [search, setSearch] = useState('')
@@ -267,7 +275,7 @@ export default function LeadsClient({ leads, staff, currentUserId, currentUserNa
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inp, width: 'auto', padding: '8px 12px' }}>
           <option value="all">All Stages</option>
-          {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          {ACTIVE_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
         </select>
         <select value={filterSource} onChange={e => setFilterSource(e.target.value)} style={{ ...inp, width: 'auto', padding: '8px 12px' }}>
           <option value="all">All Sources</option>
@@ -285,7 +293,7 @@ export default function LeadsClient({ leads, staff, currentUserId, currentUserNa
       {/* ── Pipeline view ── */}
       {view === 'pipeline' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-          {STAGES.slice(0,8).map(stage => {
+          {ACTIVE_STAGES.map(stage => {
             const stageLeads = filtered.filter(l => l.status === stage.key)
             const stageValue = stageLeads.reduce((sum, l) => {
               const r = calcRevenue(l.estimated_hours_week, l.hourly_rate)
@@ -472,8 +480,17 @@ export default function LeadsClient({ leads, staff, currentUserId, currentUserNa
 
                 {form.source === 'referral' && (
                   <div>
-                    <label style={lbl}>Referred By</label>
+                    <label style={lbl}>Referred By (free text)</label>
                     <input value={form.referral_name} onChange={e => set('referral_name', e.target.value)} placeholder="Referrer name / organisation" style={inp}/>
+                  </div>
+                )}
+                {referralSources.length > 0 && (
+                  <div>
+                    <label style={lbl}>Link to Referral Source</label>
+                    <select value={(form as any).referral_source_id || ''} onChange={e => set('referral_source_id', e.target.value)} style={inp}>
+                      <option value="">— None —</option>
+                      {referralSources.map(rs => <option key={rs.id} value={rs.id}>{rs.name}{rs.organization ? ` · ${rs.organization}` : ''}</option>)}
+                    </select>
                   </div>
                 )}
 
@@ -489,7 +506,7 @@ export default function LeadsClient({ leads, staff, currentUserId, currentUserNa
                 <div style={{ gridColumn: '1/-1' }}>
                   <label style={lbl}>Care Services Requested</label>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {CARE_TYPES.map(ct => {
+                    {ACTIVE_CARE_TYPES.map((ct: string) => {
                       const active = form.care_types.includes(ct)
                       return (
                         <button key={ct} type="button"

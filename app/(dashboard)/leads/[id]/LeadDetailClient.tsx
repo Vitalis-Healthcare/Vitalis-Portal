@@ -80,6 +80,8 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
+  const [deletingActivityId, setDeletingActivityId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ ...initialLead, estimated_hours_week: initialLead.estimated_hours_week?.toString() || '', hourly_rate: initialLead.hourly_rate?.toString() || '' })
   const [actForm, setActForm] = useState({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' })
   const setE = (k: string, v: any) => setEditForm(f => ({ ...f, [k]: v }))
@@ -131,6 +133,42 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
       alert('Failed to log activity')
     }
     setSaving(false)
+  }
+
+  const handleEditActivity = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingActivity || !actForm.content.trim()) return
+    setSaving(true)
+    const res = await fetch('/api/leads/update-activity', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: editingActivity.id, ...actForm }),
+    })
+    if (res.ok) {
+      const { activity } = await res.json()
+      setActivities(prev => prev.map(a => a.id === editingActivity.id
+        ? { ...a, ...activity } : a))
+      setEditingActivity(null)
+      setActForm({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' })
+    } else { alert('Failed to update activity') }
+    setSaving(false)
+  }
+
+  const handleDeleteActivity = async (id: string) => {
+    if (!confirm('Delete this activity log entry?')) return
+    setDeletingActivityId(id)
+    const res = await fetch('/api/leads/delete-activity', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (res.ok) setActivities(prev => prev.filter(a => a.id !== id))
+    else alert('Failed to delete activity')
+    setDeletingActivityId(null)
+  }
+
+  const openEditActivity = (a: Activity) => {
+    setEditingActivity(a)
+    setActForm({ activity_type: a.activity_type, content: a.content, outcome: a.outcome || '', next_follow_up: a.next_follow_up || '' })
+    setLogOpen(true)
   }
 
   const handleStatusChange = async (newStatus: string) => {
@@ -280,13 +318,21 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                         <span style={{ fontSize: 11, color: '#CBD5E0', whiteSpace: 'nowrap' }}>{fmtDateTime(a.created_at)}</span>
                       </div>
                       <p style={{ fontSize: 13, color: '#4A6070', margin: '0 0 4px', lineHeight: 1.6 }}>{a.content}</p>
-                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                         {a.next_follow_up && (
                           <span style={{ fontSize: 11, fontWeight: 600, color: a.next_follow_up < today ? '#DC2626' : '#457B9D' }}>
                             {a.next_follow_up < today ? '⚠️' : '📅'} Follow up: {fmtDate(a.next_follow_up)}
                           </span>
                         )}
                         <span style={{ fontSize: 11, color: '#CBD5E0' }}>by {getName(a.author) || 'Unknown'}</span>
+                        {!isStatusChange && (
+                          <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                            <button onClick={() => openEditActivity(a)} style={{ padding: '3px 8px', background: '#EFF2F5', border: 'none', borderRadius: 5, fontSize: 11, color: '#4A6070', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
+                            <button onClick={() => handleDeleteActivity(a.id)} disabled={deletingActivityId === a.id} style={{ padding: '3px 8px', background: '#FEE2E2', border: 'none', borderRadius: 5, fontSize: 11, color: '#DC2626', cursor: 'pointer', fontWeight: 600 }}>
+                              {deletingActivityId === a.id ? '…' : 'Delete'}
+                            </button>
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -398,10 +444,10 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           onClick={e => { if (e.target === e.currentTarget) setLogOpen(false) }}>
           <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <div style={{ padding: '18px 24px', borderBottom: '1px solid #EFF2F5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2E44', margin: 0 }}>Log Activity</h3>
-              <button onClick={() => setLogOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2E44', margin: 0 }}>{editingActivity ? 'Edit Activity' : 'Log Activity'}</h3>
+              <button onClick={() => { setLogOpen(false); setEditingActivity(null); setActForm({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' }) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
             </div>
-            <form onSubmit={handleLogActivity} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form onSubmit={editingActivity ? handleEditActivity : handleLogActivity} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={lbl}>Activity Type</label>
                 <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -430,9 +476,9 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="submit" disabled={saving} style={{ flex: 1, padding: '11px', background: '#457B9D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                  {saving ? 'Saving…' : '📝 Log Activity'}
+                  {saving ? 'Saving…' : editingActivity ? '💾 Save Changes' : '📝 Log Activity'}
                 </button>
-                <button type="button" onClick={() => setLogOpen(false)} style={{ padding: '11px 18px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
+                <button type="button" onClick={() => { setLogOpen(false); setEditingActivity(null); setActForm({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' }) }} style={{ padding: '11px 18px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
               </div>
             </form>
           </div>

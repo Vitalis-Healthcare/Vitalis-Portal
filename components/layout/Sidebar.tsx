@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, GraduationCap, BadgeCheck, Users, BarChart3,
   Settings, UserCheck, ClipboardList, LogOut, UserCog,
-  ShieldCheck, AlertTriangle, Sparkles, Target,
+  ShieldCheck, AlertTriangle, Sparkles, Target, Handshake, SlidersHorizontal,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -24,7 +24,9 @@ const adminSections = [
     { href: '/references',  label: 'References',             icon: UserCheck },
     { href: '/appraisals',  label: 'Appraisals',             icon: ClipboardList },
     { href: '/staff',       label: 'Staff Portal',           icon: Users },
-    { href: '/leads',       label: 'Leads & Pipeline',       icon: Target },
+    { href: '/leads',               label: 'Leads & Pipeline',    icon: Target },
+    { href: '/leads/referral-sources',  label: 'Referral Sources',    icon: Handshake },
+    { href: '/leads/settings',          label: 'Pipeline Settings',   icon: SlidersHorizontal },
   ]},
   { label: 'ADMIN', items: [
     { href: '/users',    label: 'User Management', icon: UserCog },

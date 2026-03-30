@@ -12,6 +12,12 @@ export default async function LeadsPage() {
   const { data: profile } = await svc.from('profiles').select('role, full_name').eq('id', user.id).single()
   if (!['admin', 'supervisor'].includes(profile?.role || '')) redirect('/dashboard')
 
+  const [{ data: stages }, { data: serviceTypes }, { data: referralSources }] = await Promise.all([
+    svc.from('lead_stages').select('*').eq('is_active', true).order('order_index'),
+    svc.from('lead_service_types').select('*').eq('is_active', true).order('order_index'),
+    svc.from('referral_sources').select('id, name, type, organization').eq('is_active', true).order('name'),
+  ])
+
   const { data: leads } = await svc
     .from('leads')
     .select(`
@@ -61,6 +67,9 @@ export default async function LeadsPage() {
     <LeadsClient
       leads={leads || []}
       staff={staff || []}
+      stages={stages || []}
+      serviceTypes={serviceTypes || []}
+      referralSources={referralSources || []}
       currentUserId={user.id}
       currentUserName={profile?.full_name || ''}
       lastActivity={lastActivity}
