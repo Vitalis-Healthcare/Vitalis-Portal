@@ -9,7 +9,7 @@ import {
   LayoutDashboard, GraduationCap, BadgeCheck, Users, BarChart3,
   Settings, UserCheck, ClipboardList, LogOut, UserCog,
   ShieldCheck, AlertTriangle, Sparkles, Target, Handshake, SlidersHorizontal,
-  Building2, BookUser, Map, Activity, Mail, Brain,
+  Building2, BookUser, Map, Activity, Mail, Brain, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -37,6 +37,7 @@ const adminSections = [
     { href: '/marketing/activity-logger',    label: 'Activity Logger',      icon: Activity },
     { href: '/marketing/email-analytics',    label: 'Email Analytics',      icon: Mail },
     { href: '/marketing/intelligence',       label: 'Intelligence',         icon: Brain },
+    { href: '/marketing/report',              label: 'Generate Report',      icon: FileText },
   ]},
   { label: 'ADMIN', items: [
     { href: '/users',    label: 'User Management', icon: UserCog },
