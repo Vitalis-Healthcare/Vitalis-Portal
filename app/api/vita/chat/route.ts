@@ -118,7 +118,9 @@ export async function POST(req: NextRequest) {
   const wantsReferralSrc  = /referral source|where.*lead|lead.*source|how.*find|genworth|carescout|word of mouth|referral.*partner|source.*referral/i.test(q)
 
   // If question is ambiguous, load all contexts
-  const loadAll = !wantsTraining && !wantsCredentials && !wantsAppraisal && !wantsPolicy
+  const loadAll = !wantsTraining && !wantsCredentials && !wantsAppraisal && !wantsPolicy && !wantsLeads && !wantsMarketing && !wantsStaff && !wantsReferralSrc
+  // For admin/supervisor broad queries, load everything
+  const loadAllAdmin = isAdminRole && loadAll
 
   // ── Build context in parallel ──────────────────────────────────────────────
   const [trainingCtx, credCtx, appraisalCtx, policyCtx, leadsCtx, marketingCtx, staffCtx, referralSrcCtx] = await Promise.all([
@@ -126,10 +128,10 @@ export async function POST(req: NextRequest) {
     (wantsCredentials || loadAll) ? buildCredentialContext(user.id, svc) : Promise.resolve(''),
     (wantsAppraisal || loadAll) ? buildAppraisalContext(user.id, svc) : Promise.resolve(''),
     (wantsPolicy || loadAll || wantsRegulatory) ? buildPolicyContext(message, svc) : Promise.resolve({ catalogue: '', relevant: '' }),
-    (isAdminRole && (wantsLeads || loadAll)) ? buildLeadsContext(svc) : Promise.resolve(''),
-    (isAdminRole && (wantsMarketing || loadAll)) ? buildMarketingContext(svc) : Promise.resolve(''),
-    (isAdminRole && (wantsStaff || loadAll)) ? buildStaffRosterContext(svc) : Promise.resolve(''),
-    (isAdminRole && (wantsReferralSrc || loadAll)) ? buildReferralSourceContext(svc) : Promise.resolve(''),
+    (isAdminRole && (wantsLeads || loadAllAdmin)) ? buildLeadsContext(svc) : Promise.resolve(''),
+    (isAdminRole && (wantsMarketing || loadAllAdmin)) ? buildMarketingContext(svc) : Promise.resolve(''),
+    (isAdminRole && (wantsStaff || loadAllAdmin)) ? buildStaffRosterContext(svc) : Promise.resolve(''),
+    (isAdminRole && (wantsReferralSrc || loadAllAdmin)) ? buildReferralSourceContext(svc) : Promise.resolve(''),
   ])
 
   const policyCtxTyped = policyCtx as { catalogue: string; relevant: string }
@@ -190,8 +192,6 @@ RESPONSE STYLE:
 - Proactively surface urgent issues (expiring credentials, overdue follow-ups) even if not directly asked.
 - For complex requests, structure your response with clear sections.
 - Always end action items with the relevant portal link.
-7. REGULATORY KNOWLEDGE: You know Maryland COMAR, CMS CoPs, and Joint Commission standards. For very specific or current regulatory questions, use web search to verify.
-
 ACTION LINKS (include these naturally in your responses when relevant):
 • Go take/continue a course: /lms/courses/[course-id]/take
 • Browse training: /lms

@@ -413,7 +413,7 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
                     ) : (
                       <VideoPlayer
                         src={currentSection.video_url}
-                        onEnded={() => markComplete(currentSection.id)}
+                        onEnded={() => markSectionComplete(currentSection.id)}
                       />
                     )}
                   </div>
