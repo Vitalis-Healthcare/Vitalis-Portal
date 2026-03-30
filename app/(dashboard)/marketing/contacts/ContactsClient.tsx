@@ -1,5 +1,5 @@
 'use client'
-import { printWindow, downloadExcel } from '@/lib/printUtils'
+import CommentsPanel from '@/components/marketing/CommentsPanel'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, Search, Pencil, Trash2, X, Mail } from 'lucide-react'
@@ -77,6 +77,7 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
   const [centerFilter, setCenterFilter] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [emailFilter, setEmailFilter] = useState('')
+  const [modalTab, setModalTab] = useState<'details' | 'comments'>('details')
   const [modal, setModal] = useState<{
     open: boolean
     mode: 'add' | 'edit'
@@ -113,7 +114,7 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
 
   function openAdd() {
     setError('')
-    setModal({ open: true, mode: 'add', contact: { ...BLANK } })
+    setModalTab('details'); setModal({ open: true, mode: 'add', contact: { ...BLANK } })
   }
 
   function openEdit(c: Contact) {
@@ -136,6 +137,7 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
   }
 
   function closeModal() {
+    setModalTab('details')
     if (saving) return
     setModal(m => ({ ...m, open: false }))
   }
@@ -213,26 +215,6 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  function handlePrint() {
-    const rows = filtered.map((c: any) => {
-      const center = Array.isArray(c.center) ? c.center[0] : c.center
-      return '<tr><td>'+c.name+'</td><td>'+(c.role||'—')+'</td><td>'+(center?.name||'—')+'</td><td>'+(c.email||'—')+'</td><td>'+(c.mobile||c.direct_line||'—')+'</td><td>'+(c.email_blast_opt_in ? '✓ Yes' : 'No')+'</td><td style="font-size:7.5pt">'+(c.notes||'—')+'</td></tr>'
-    }).join('')
-    printWindow('Contacts & Referrers',
-      '<p style="margin-bottom:12px;color:#555;font-size:9pt">'+filtered.length+' contacts'+(search ? ' · filtered by: "'+search+'"' : '')+'</p>'
-      +'<table><thead><tr><th>Name</th><th>Role</th><th>Facility</th><th>Email</th><th>Phone</th><th>Email Blast</th><th>Notes</th></tr></thead><tbody>'+rows+'</tbody></table>')
-  }
-
-  function handleExcel() {
-    const headers = ['Name','Role','Facility','Email','Mobile','Direct Line','Email Blast Opt-in','Notes']
-    const rows = filtered.map((c: any) => {
-      const center = Array.isArray(c.center) ? c.center[0] : c.center
-      return [c.name, c.role, center?.name, c.email, c.mobile, c.direct_line, c.email_blast_opt_in ? 'Yes' : 'No', c.notes]
-    })
-    downloadExcel('Vitalis_Contacts_'+new Date().toISOString().slice(0,10)+'.csv', headers, rows)
-  }
-
-
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1200, margin: '0 auto' }}>
 
@@ -249,8 +231,6 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
           <Plus size={16} /> Add Contact
         </button>
-        <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>🖨 Print</button>
-        <button onClick={handleExcel} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#065F46', border: '1px solid #6EE7B7', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>📥 Excel</button>
       </div>
 
       {/* Email stats */}
@@ -364,10 +344,20 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}><X size={20} /></button>
             </div>
 
+            {/* Tabs */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #F0F0F0', padding: '0 24px' }}>
+              {(['details', 'comments'] as const).map(t => (
+                <button key={t} onClick={() => setModalTab(t)}
+                  style={{ padding: '10px 16px', border: 'none', borderBottom: modalTab === t ? '2px solid #0B6B5C' : '2px solid transparent', background: 'none', fontWeight: modalTab === t ? 600 : 400, color: modalTab === t ? '#0B6B5C' : '#888', fontSize: 13, cursor: 'pointer', marginBottom: -1 }}>
+                  {t === 'details' ? '📋 Details' : '💬 Comments'}
+                </button>
+              ))}
+            </div>
             {/* Body */}
             <div style={{ padding: '20px 24px' }}>
               {error && <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
+              {modalTab === 'details' && (<>
               <F label="Full name *">
                 <input value={modal.contact.name} onChange={e => setField('name', e.target.value)}
                   placeholder="e.g. Gina Liberto" style={inp} />
@@ -432,6 +422,24 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
                 {saving ? 'Saving…' : modal.mode === 'add' ? 'Add contact' : 'Save changes'}
               </button>
             </div>
+              </>)}
+
+              {modalTab === 'comments' && modal.mode === 'edit' && (
+                <div style={{ height: 420, overflow: 'auto' }}>
+                  <CommentsPanel
+                    entityType="contact"
+                    entityId={modal.contact.id || ''}
+                    entityName={modal.contact.name || ''}
+                    currentUserId={currentUserId}
+                    isAdmin={true}
+                  />
+                </div>
+              )}
+              {modalTab === 'comments' && modal.mode === 'add' && (
+                <div style={{ padding: '24px 0', textAlign: 'center', color: '#AAA', fontSize: 13 }}>
+                  Save this contact first, then you can add comments.
+                </div>
+              )}
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 'use client'
-import { printWindow, downloadExcel } from '@/lib/printUtils'
+import CommentsPanel from '@/components/marketing/CommentsPanel'
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -70,6 +70,7 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
   const [heatFilter, setHeatFilter] = useState('')
   const [dayFilter, setDayFilter] = useState('')
   const [weekFilter, setWeekFilter] = useState('')
+  const [modalTab, setModalTab] = useState<'details' | 'comments'>('details')
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; center: Omit<Center, 'id' | 'contacts'> & { id?: string } }>({
     open: false, mode: 'add', center: { ...BLANK },
   })
@@ -100,7 +101,7 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
 
   function openAdd() {
     setError('')
-    setModal({ open: true, mode: 'add', center: { ...BLANK } })
+    setModalTab('details'); setModal({ open: true, mode: 'add', center: { ...BLANK } })
   }
 
   function openEdit(c: Center) {
@@ -119,6 +120,7 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
   }
 
   function closeModal() {
+    setModalTab('details')
     if (saving) return
     setModal(m => ({ ...m, open: false }))
   }
@@ -188,31 +190,6 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
-  function handlePrint() {
-    const HEAT: Record<string,string> = { hot:'badge-hot', cold:'badge-cold', dead:'badge-dead' }
-    const hot = filtered.filter((c: any) => c.heat_status === 'hot').length
-    const cold = filtered.filter((c: any) => c.heat_status === 'cold').length
-    const dead = filtered.filter((c: any) => c.heat_status === 'dead').length
-    const rows = filtered.map((c: any) => {
-      const contacts = (c.contacts || []).map((ct: any) => ct.name).join(', ')
-      return '<tr><td>'+c.name+'</td><td>'+(c.org_type||'—')+'</td><td><span class="badge '+(HEAT[c.heat_status]||'')+'">'+c.heat_status+'</span></td><td>'+(c.go_no_go ? '✓ Go' : 'No-go')+'</td><td>Wk'+c.week_group+' · '+(c.assigned_day||'—')+'</td><td>'+[c.street_address,c.city,c.state].filter(Boolean).join(', ')+'</td><td style="font-size:7.5pt">'+contacts+'</td></tr>'
-    }).join('')
-    printWindow('Influence Centers',
-      '<div class="stat-row"><div class="stat-box"><div class="stat-num">'+filtered.length+'</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:#065F46">'+hot+'</div><div class="stat-lbl">Hot</div></div><div class="stat-box"><div class="stat-num" style="color:#1E40AF">'+cold+'</div><div class="stat-lbl">Cold</div></div><div class="stat-box"><div class="stat-num" style="color:#991B1B">'+dead+'</div><div class="stat-lbl">Dead</div></div></div>'
-      +'<table><thead><tr><th>Facility</th><th>Type</th><th>Heat</th><th>Status</th><th>Route</th><th>Address</th><th>Contacts</th></tr></thead><tbody>'+rows+'</tbody></table>')
-  }
-
-  function handleExcel() {
-    const headers = ['Name','Org Type','Heat Status','Go/No-go','Week','Day','Address','City','State','Zip','Contact Count','Notes']
-    const rows = filtered.map((c: any) => [
-      c.name, c.org_type, c.heat_status, c.go_no_go ? 'Go' : 'No-go',
-      c.week_group, c.assigned_day, c.street_address, c.city, c.state, c.zip,
-      (c.contacts || []).length, c.notes
-    ])
-    downloadExcel('Vitalis_InfluenceCenters_'+new Date().toISOString().slice(0,10)+'.csv', headers, rows)
-  }
-
-
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1200, margin: '0 auto' }}>
 
@@ -230,8 +207,6 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
         <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
           <Plus size={16} /> Add Facility
         </button>
-        <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>🖨 Print</button>
-        <button onClick={handleExcel} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#065F46', border: '1px solid #6EE7B7', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>📥 Excel</button>
       </div>
 
       {/* Mini stats */}
@@ -343,10 +318,21 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}><X size={20} /></button>
             </div>
 
+            {/* Modal tabs */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #F0F0F0', padding: '0 24px' }}>
+              {(['details', 'comments'] as const).map(t => (
+                <button key={t} onClick={() => setModalTab(t)}
+                  style={{ padding: '10px 16px', border: 'none', borderBottom: modalTab === t ? '2px solid #0B6B5C' : '2px solid transparent', background: 'none', fontWeight: modalTab === t ? 600 : 400, color: modalTab === t ? '#0B6B5C' : '#888', fontSize: 13, cursor: 'pointer', marginBottom: -1 }}>
+                  {t === 'details' ? '📋 Details' : '💬 Comments'}
+                </button>
+              ))}
+            </div>
+
             {/* Modal body */}
             <div style={{ padding: '20px 24px' }}>
               {error && <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
+              {modalTab === 'details' && (<div>
               <FieldGroup label="Facility name *">
                 <input value={modal.center.name} onChange={e => setField('name', e.target.value)}
                   placeholder="e.g. Autumn Lake Healthcare at Arcola"
@@ -452,6 +438,25 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
                 {saving ? 'Saving…' : modal.mode === 'add' ? 'Add facility' : 'Save changes'}
               </button>
             </div>
+              </div>)}
+
+              {/* Comments tab */}
+              {modalTab === 'comments' && modal.mode === 'edit' && (
+                <div style={{ marginTop: 4, height: 440, overflow: 'auto' }}>
+                  <CommentsPanel
+                    entityType="center"
+                    entityId={modal.center.id || ''}
+                    entityName={modal.center.name || ''}
+                    currentUserId={currentUserId}
+                    isAdmin={true}
+                  />
+                </div>
+              )}
+              {modalTab === 'comments' && modal.mode === 'add' && (
+                <div style={{ padding: '24px 0', textAlign: 'center', color: '#AAA', fontSize: 13 }}>
+                  Save the center first, then come back to add comments.
+                </div>
+              )}
           </div>
         </div>
       )}
