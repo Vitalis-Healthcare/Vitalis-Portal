@@ -188,30 +188,54 @@ export default function ReportClient({ userName }: Props) {
 
   return (
     <>
-      {/* Print styles — visibility approach works through Next.js nested layout */}
+      {/* Print styles — no position:fixed so multi-page works correctly */}
       <style>{`
         @media print {
-          @page { margin: 18mm 16mm; size: A4; }
+          @page { margin: 18mm 16mm; size: A4 portrait; }
+          /* visibility cascades through Next.js layout without position:fixed */
           body { visibility: hidden !important; }
-          #print-report-root { visibility: visible !important; position: fixed; top: 0; left: 0; width: 100%; background: #fff; }
+          #print-report-root { visibility: visible !important; background: #fff; }
           #print-report-root * { visibility: visible !important; }
-          #print-report-root {
-            font-size: 11pt !important;
-            color: #000 !important;
-          }
           /* Typography */
-          h1 { font-size: 20pt !important; color: #0B6B5C !important; }
-          h3 { font-size: 13pt !important; page-break-after: avoid !important; }
-          h4 { font-size: 11pt !important; page-break-after: avoid !important; }
-          p, li { font-size: 10pt !important; line-height: 1.5 !important; }
-          table { font-size: 9pt !important; width: 100% !important; border-collapse: collapse !important; }
-          th { background: #0B6B5C !important; color: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          tr:nth-child(even) td { background: #F9FAFB !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          #print-report-root { font-size: 10pt !important; color: #000 !important; line-height: 1.5 !important; }
+          h1 { font-size: 20pt !important; color: #0B6B5C !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          h3 { font-size: 13pt !important; page-break-after: avoid !important; break-after: avoid !important; margin-top: 20px !important; }
+          h4 { font-size: 11pt !important; page-break-after: avoid !important; break-after: avoid !important; }
+          p, li { font-size: 10pt !important; line-height: 1.6 !important; }
+          /* Tables — keep rows together, avoid mid-table breaks */
+          table {
+            font-size: 9pt !important;
+            width: 100% !important;
+            border-collapse: collapse !important;
+            page-break-inside: auto !important;
+          }
+          tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+          thead { display: table-header-group !important; }
+          th {
+            background: #0B6B5C !important;
+            color: #fff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            padding: 6px 10px !important;
+          }
+          tr:nth-child(even) td {
+            background: #F9FAFB !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           td, th { padding: 5px 8px !important; border: 1px solid #E5E7EB !important; }
-          /* Section breaks */
-          .print-section { page-break-inside: avoid !important; }
-          /* Letterhead colors */
-          .print-header-bar { border-bottom: 3px solid #0B6B5C !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          /* Section headings start new section but don't force page break */
+          .print-section { page-break-inside: avoid !important; break-inside: avoid !important; }
+          /* Letterhead */
+          .print-header-bar {
+            border-bottom: 3px solid #0B6B5C !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+          }
+          /* Bullet points */
+          div[style*="display: flex"] { page-break-inside: avoid !important; break-inside: avoid !important; }
         }
       `}</style>
 
