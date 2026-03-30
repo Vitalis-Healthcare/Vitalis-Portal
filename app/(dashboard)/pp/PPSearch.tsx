@@ -25,6 +25,7 @@ const DOMAINS: Record<string, { name: string; bg: string; text: string; icon: st
 export default function PPSearch({ policies }: { policies: Policy[] }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [focused, setFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -63,18 +64,18 @@ export default function PPSearch({ policies }: { policies: Policy[] }) {
           ref={inputRef}
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true) }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => { setOpen(true); setFocused(true) }}
+          onBlur={() => setFocused(false)}
           placeholder="Search policies by title, ID, or domain…"
           style={{
             width: '100%', padding: '9px 36px 9px 36px',
-            borderRadius: 10, border: '1.5px solid rgba(255,255,255,0.25)',
-            background: 'rgba(255,255,255,0.15)', color: '#fff',
-            fontSize: 13, outline: 'none', fontFamily: 'inherit',
-            boxSizing: 'border-box',
-            backdropFilter: 'blur(4px)',
+            borderRadius: 10,
+            border: `1.5px solid ${focused ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)'}`,
+            background: focused ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.15)',
+            color: '#fff', fontSize: 13, outline: 'none', fontFamily: 'inherit',
+            boxSizing: 'border-box', backdropFilter: 'blur(4px)',
+            transition: 'border-color 0.15s, background 0.15s',
           }}
-          onFocus={e => { e.target.style.borderColor = 'rgba(255,255,255,0.5)'; e.target.style.background = 'rgba(255,255,255,0.2)' }}
-          onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.25)'; e.target.style.background = 'rgba(255,255,255,0.15)' }}
         />
         {query && (
           <button
