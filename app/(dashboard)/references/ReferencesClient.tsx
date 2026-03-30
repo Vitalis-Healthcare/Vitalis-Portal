@@ -63,7 +63,6 @@ export default function ReferencesClient({ refs, caregivers = [], userId, fullNa
   const [saving, setSaving]     = useState(false)
   const [resending, setResending] = useState<string | null>(null)
   const [viewSub, setViewSub]     = useState<{ id: string; type: 'professional'|'character'; slot: number; name?: string; caregiverName: string } | null>(null)
-  const [statusFilter, setStatusFilter] = useState<'all'|'active'|'inactive'>('active')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterCaregiver, setFilterCaregiver] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
