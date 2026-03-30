@@ -43,6 +43,7 @@ const adminNav: NavSection[] = [
       { href: '/credentials', label: 'Credentials',         icon: BadgeCheck },
       { href: '/appraisals',  label: 'Appraisals',          icon: ClipboardList },
       { href: '/references',  label: 'References',          icon: UserCheck },
+      { href: '/reports',     label: 'Reports',             icon: BarChart3 },
     ],
   },
   {
@@ -70,7 +71,6 @@ const adminNav: NavSection[] = [
     type: 'flat', label: 'ADMIN',
     items: [
       { href: '/users',    label: 'User Management', icon: UserCog },
-      { href: '/reports',  label: 'Reports',         icon: BarChart3 },
       { href: '/settings', label: 'Settings',        icon: Settings },
     ],
   },
@@ -91,6 +91,13 @@ const staffNav: NavSection[] = [
       { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
       { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
       { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
+    ],
+  },
+  {
+    type: 'group', id: 'workforce', label: 'Workforce', emoji: '👥',
+    items: [
+      { href: '/users',    label: 'Caregiver Management', icon: UserCog },
+      { href: '/reports',  label: 'Reports',              icon: BarChart3 },
     ],
   },
 ]

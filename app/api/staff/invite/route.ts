@@ -92,8 +92,14 @@ export async function POST(req: NextRequest) {
   const { data: adminProfile } = await svc
     .from('profiles').select('role, full_name').eq('id', user.id).single()
 
-  if (!['admin', 'supervisor'].includes(adminProfile?.role || '')) {
+  if (!['admin', 'supervisor', 'staff'].includes(adminProfile?.role || '')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // Non-admin callers (supervisor/staff) can only invite caregivers
+  const callerRole = adminProfile?.role || ''
+  if (callerRole !== 'admin' && role !== 'caregiver') {
+    return NextResponse.json({ error: 'You can only invite caregivers.' }, { status: 403 })
   }
 
   if (!RESEND_KEY) {

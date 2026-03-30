@@ -21,11 +21,12 @@ const lbl: React.CSSProperties = {
   fontSize: 12, fontWeight: 600, color: '#4A6070', display: 'block', marginBottom: 5,
 }
 
-function InvitePanel({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function InvitePanel({ onClose, onSuccess, caregiverOnly = false }: { onClose: () => void; onSuccess: () => void; caregiverOnly?: boolean }) {
   const supabase = createClient()
   const [step, setStep] = useState<'form' | 'sent'>('form')
   const [sending, setSending] = useState(false)
   const [form, setForm] = useState({ full_name: '', email: '', role: 'caregiver', department: '' })
+  // Lock role for non-admin callers
 
   const handleInvite = async () => {
     if (!form.full_name.trim() || !form.email.trim()) { alert('Name and email are required.'); return }
@@ -97,9 +98,15 @@ function InvitePanel({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 20 }}>
         <div>
           <label style={lbl}>Role</label>
-          <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} style={inp}>
-            {ROLES.map(r => <option key={r} value={r} style={{ textTransform: 'capitalize' }}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
-          </select>
+          {caregiverOnly ? (
+            <div style={{ ...inp, background: '#F8FAFB', color: '#2A9D8F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+              👤 Caregiver
+            </div>
+          ) : (
+            <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} style={inp}>
+              {ROLES.map(r => <option key={r} value={r} style={{ textTransform: 'capitalize' }}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+            </select>
+          )}
         </div>
         <div>
           <label style={lbl}>Department</label>
@@ -256,7 +263,7 @@ function EditPanel({ profile, onClose, onSuccess }: { profile: Profile; onClose:
   )
 }
 
-export default function UsersClient({ profiles, currentUserId }: { profiles: Profile[]; currentUserId: string }) {
+export default function UsersClient({ profiles, currentUserId, currentUserRole = 'admin' }: { profiles: Profile[]; currentUserId: string; currentUserRole?: string }) {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [panel, setPanel] = useState<null | 'invite' | { type: 'edit'; profile: Profile }>(null)
@@ -349,7 +356,7 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
               </button>
             </div>
             {panel === 'invite'
-              ? <InvitePanel onClose={() => setPanel(null)} onSuccess={() => { showToast('Invite sent!'); router.refresh() }} />
+              ? <InvitePanel onClose={() => setPanel(null)} onSuccess={() => { showToast('Invite sent!'); router.refresh() }} caregiverOnly={currentUserRole !== 'admin'} />
               : <EditPanel profile={(panel as any).profile} onClose={() => setPanel(null)} onSuccess={() => showToast('Profile updated')} />
             }
           </div>
@@ -359,15 +366,21 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
       {/* Page header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>User Management</h1>
-          <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>{active} active staff · manage roles, invite, and deactivate</p>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>
+            {currentUserRole === 'admin' ? 'User Management' : 'Caregiver Management'}
+          </h1>
+          <p style={{ fontSize: 14, color: '#8FA0B0', marginTop: 4 }}>
+            {currentUserRole === 'admin'
+              ? `${active} active staff · manage roles, invite, and deactivate`
+              : `${profiles.filter(p => p.status === 'active').length} active caregivers · invite and manage caregiver accounts`}
+          </p>
         </div>
         <button onClick={() => setPanel('invite')} style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px',
           background: '#0E7C7B', color: '#fff', border: 'none', borderRadius: 8,
           fontSize: 14, fontWeight: 600, cursor: 'pointer',
         }}>
-          <UserPlus size={16} /> Invite Staff
+          <UserPlus size={16} /> {currentUserRole === 'admin' ? 'Invite Staff' : 'Add Caregiver'}
         </button>
       </div>
 
@@ -513,12 +526,17 @@ export default function UsersClient({ profiles, currentUserId }: { profiles: Pro
                   </td>
                   <td style={{ padding: '13px 16px' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button
-                        onClick={() => setPanel({ type: 'edit', profile: p })}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#EFF2F5', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>
-                        <Edit2 size={12} /> Edit
-                      </button>
-                      {p.id !== currentUserId && (
+                      {currentUserRole === 'admin' && (
+                        <button
+                          onClick={() => setPanel({ type: 'edit', profile: p })}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#EFF2F5', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>
+                          <Edit2 size={12} /> Edit
+                        </button>
+                      )}
+                      {currentUserRole !== 'admin' && p.status !== 'pending' && (
+                        <span style={{ fontSize: 11, color: '#B0BEC5', padding: '6px 0' }}>Manage in Directory</span>
+                      )}
+                      {currentUserRole === 'admin' && p.id !== currentUserId && (
                         <button
                           onClick={() => handleDeleteUser(p.id, p.full_name)}
                           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#B91C1C' }}>
