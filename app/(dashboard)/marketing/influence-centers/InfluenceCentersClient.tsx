@@ -332,7 +332,6 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
 
               {modalTab === 'details' && (
                 <>
-
               {error && <div style={{ background: '#FEE2E2', color: '#DC2626', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
               <FieldGroup label="Facility name *">
@@ -427,7 +426,6 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
                 <textarea value={modal.center.notes || ''} onChange={e => setField('notes', e.target.value)}
                   placeholder="Any notes about this facility…" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
               </FieldGroup>
-            </div>
                 </>
               )}
 
@@ -447,7 +445,8 @@ export default function InfluenceCentersClient({ initialCenters, currentUserId }
                   Save this center first, then you can add comments.
                 </div>
               )}
-            {/* Modal footer */}
+            </div>
+{/* Modal footer */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid #F0F0F0' }}>
               <button onClick={closeModal} disabled={saving}
                 style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #DDD', background: '#fff', color: '#555', fontSize: 14, cursor: 'pointer' }}>
