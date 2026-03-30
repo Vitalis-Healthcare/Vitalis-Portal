@@ -9,7 +9,7 @@ import {
   LayoutDashboard, GraduationCap, BadgeCheck, Users, BarChart3,
   Settings, UserCheck, ClipboardList, LogOut, UserCog,
   ShieldCheck, AlertTriangle, Sparkles, Target, Handshake, SlidersHorizontal,
-  Building2, BookUser,
+  Building2, BookUser, Map, Activity, Mail,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -33,6 +33,9 @@ const adminSections = [
     { href: '/marketing',                    label: 'Marketing Overview',   icon: Building2 },
     { href: '/marketing/influence-centers',  label: 'Influence Centers',    icon: Building2 },
     { href: '/marketing/contacts',           label: 'Contacts & Referrers', icon: BookUser },
+    { href: '/marketing/route-builder',      label: 'Route Builder',        icon: Map },
+    { href: '/marketing/activity-logger',    label: 'Activity Logger',      icon: Activity },
+    { href: '/marketing/email-analytics',    label: 'Email Analytics',      icon: Mail },
   ]},
   { label: 'ADMIN', items: [
     { href: '/users',    label: 'User Management', icon: UserCog },
@@ -124,7 +127,6 @@ export default function Sidebar({
                     fontWeight: active ? 600 : 400, fontSize: 14,
                     border: active ? '1px solid #0E7C7B22' : '1px solid transparent',
                     cursor: 'pointer', transition: 'all 0.15s',
-                    // Larger touch target on mobile
                     minHeight: 44,
                   }}>
                     <Icon size={16} />
