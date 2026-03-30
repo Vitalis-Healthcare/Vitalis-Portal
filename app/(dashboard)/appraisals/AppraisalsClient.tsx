@@ -58,7 +58,7 @@ const SCORE_LABELS: Record<number, string> = { 1: 'Does Not Meet', 2: 'Needs Imp
 const SCORE_COLOR: Record<number, string>  = { 1: '#E63946', 2: '#F4A261', 3: '#457B9D', 4: '#2A9D8F' }
 const SCORE_BG:    Record<number, string>  = { 1: '#FDE8E9', 2: '#FEF3EA', 3: '#EBF4FF', 4: '#E6F6F4' }
 
-interface Caregiver { id: string; full_name: string }
+interface Caregiver { id: string; full_name: string; status: string }
 interface Appraisal {
   id: string; status: string; appraisal_period?: string; comments?: string
   signed_at?: string; caregiver_signature?: string; sent_at?: string; created_at: string
