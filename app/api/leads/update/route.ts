@@ -13,7 +13,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { id, logActivity, previousStatus, ...fields } = await req.json()
+  const body = await req.json()
+  const { id, logActivity, previousStatus, ...fields } = body
+  // Null-coerce empty strings — Postgres rejects '' for uuid/date columns
+  const UUID_FIELDS = ['referral_source_id', 'assigned_to']
+  const DATE_FIELDS = ['expected_close_date', 'expected_start_date', 'won_date']
+  for (const f of [...UUID_FIELDS, ...DATE_FIELDS]) {
+    if ((fields as any)[f] === '') (fields as any)[f] = null
+  }
   if (!id) return NextResponse.json({ error: 'Lead ID required' }, { status: 400 })
 
   const { data: lead, error } = await svc.from('leads').update(fields).eq('id', id).select().single()

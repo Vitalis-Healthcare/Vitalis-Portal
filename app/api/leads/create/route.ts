@@ -15,6 +15,14 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const { full_name, source } = body
+  // Null-coerce empty strings — Postgres rejects '' for uuid/date columns
+  if (body.referral_source_id === '') body.referral_source_id = null
+  if (body.assigned_to === '') body.assigned_to = null
+  if (body.created_by === '') body.created_by = null
+  if (body.expected_close_date === '') body.expected_close_date = null
+  if (body.expected_start_date === '') body.expected_start_date = null
+  if (body.won_date === '') body.won_date = null
+
   if (!full_name?.trim() || !source) {
     return NextResponse.json({ error: 'Name and source are required' }, { status: 400 })
   }
