@@ -95,6 +95,8 @@ export async function DELETE(req: Request) {
     const auth = await requireAdminOrSupervisor()
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     const { user, svc, profile } = auth
+    if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+
     const { id } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
