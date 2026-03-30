@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -53,6 +54,66 @@ interface CourseProps {
   }
   enrollment: Enrollment
   initialProgress: SectionProgress[]
+}
+
+
+// ── Video player that prevents skipping ahead ─────────────────────────────
+function VideoPlayer({ src, onEnded }: { src: string; onEnded: () => void }) {
+  const videoRef = React.useRef<HTMLVideoElement>(null)
+  const [maxWatched, setMaxWatched] = React.useState(0)
+  const [blocked, setBlocked] = React.useState(false)
+
+  const handleTimeUpdate = () => {
+    const v = videoRef.current
+    if (!v) return
+    // Track furthest point reached
+    if (v.currentTime > maxWatched) {
+      setMaxWatched(v.currentTime)
+    }
+  }
+
+  const handleSeeking = () => {
+    const v = videoRef.current
+    if (!v) return
+    // If trying to seek past what they've watched, snap back
+    if (v.currentTime > maxWatched + 1) {
+      v.currentTime = maxWatched
+      setBlocked(true)
+      setTimeout(() => setBlocked(false), 2000)
+    }
+  }
+
+  const handleEnded = () => {
+    onEnded()
+  }
+
+  return (
+    <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: '#000' }}>
+      <video
+        ref={videoRef}
+        src={src}
+        controls
+        controlsList="nodownload"
+        style={{ width: '100%', display: 'block' }}
+        onTimeUpdate={handleTimeUpdate}
+        onSeeking={handleSeeking}
+        onEnded={handleEnded}
+      />
+      {blocked && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(0,0,0,0.82)', color: '#fff',
+          padding: '12px 20px', borderRadius: 10,
+          fontSize: 13, fontWeight: 600, textAlign: 'center',
+          pointerEvents: 'none', zIndex: 10,
+          border: '1px solid rgba(255,255,255,0.15)',
+        }}>
+          ⏭ Please watch the video in full before moving ahead
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function CoursePlayer({ course, enrollment: initialEnrollment, initialProgress }: CourseProps) {
@@ -350,10 +411,9 @@ export default function CoursePlayer({ course, enrollment: initialEnrollment, in
                         />
                       </div>
                     ) : (
-                      <video
+                      <VideoPlayer
                         src={currentSection.video_url}
-                        controls
-                        style={{ width: '100%', borderRadius: 10 }}
+                        onEnded={() => markComplete(currentSection.id)}
                       />
                     )}
                   </div>

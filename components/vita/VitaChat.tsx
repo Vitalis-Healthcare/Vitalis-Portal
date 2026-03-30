@@ -34,15 +34,48 @@ const VITA_GREEN = '#0B6B5C'
 const VITA_LIGHT = '#1A9B87'
 
 export default function VitaChat({ userId, userRole, userName, ppRole, snapshot }: Props) {
-  const [messages, setMessages] = useState<Message[]>([])
+  const STORAGE_KEY = `vita_history_${userId}`
+  const MAX_STORED = 50 // keep last 50 messages in localStorage
+
+  const [messages, setMessages] = useState<Message[]>(() => {
+    // Load from localStorage on first render
+    if (typeof window === 'undefined') return []
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      return stored ? JSON.parse(stored) : []
+    } catch { return [] }
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    try {
+      const toStore = messages.slice(-MAX_STORED)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore))
+    } catch {}
+  }, [messages, STORAGE_KEY])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  const clearHistory = () => {
+    setMessages([])
+    try { localStorage.removeItem(STORAGE_KEY) } catch {}
+  }
+
+  const fmtHistoryDate = (iso: string) => {
+    const d = new Date(iso)
+    const today = new Date()
+    const isToday = d.toDateString() === today.toDateString()
+    if (isToday) return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+           d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  }
 
   // Build personalised suggested questions from the snapshot
   const suggestions: { emoji: string; text: string; category: string }[] = []
@@ -136,7 +169,7 @@ export default function VitaChat({ userId, userRole, userName, ppRole, snapshot 
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 24px rgba(11,107,92,0.10)', border: '1px solid #E2E8F0', height: 'clamp(560px, 75vh, 720px)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 24px rgba(11,107,92,0.10)', border: '1px solid #E2E8F0', height: 'clamp(560px, 75vh, 720px)', position: 'relative' }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{ background: `linear-gradient(135deg, ${VITA_GREEN}, ${VITA_LIGHT})`, padding: '18px 20px', flexShrink: 0 }}>
@@ -148,10 +181,20 @@ export default function VitaChat({ userId, userRole, userName, ppRole, snapshot 
             <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>Vita</div>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>Your Vitalis AI Companion</div>
           </div>
-          {/* Live dot */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 20, padding: '4px 10px' }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#6EE7B7', boxShadow: '0 0 6px #6EE7B7' }} />
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>Live</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {messages.length > 0 && (
+              <button onClick={() => setShowHistory(h => !h)}
+                title="View chat history"
+                style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 20, padding: '4px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 12 }}>🕐</span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>{messages.length}</span>
+              </button>
+            )}
+            {/* Live dot */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 20, padding: '4px 10px' }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#6EE7B7', boxShadow: '0 0 6px #6EE7B7' }} />
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>Live</span>
+            </div>
           </div>
         </div>
 
@@ -164,6 +207,40 @@ export default function VitaChat({ userId, userRole, userName, ppRole, snapshot 
           ))}
         </div>
       </div>
+
+      {/* ── History sidebar ───────────────────────────────────────────────── */}
+      {showHistory && (
+        <div style={{ position: 'absolute', top: 90, left: 0, right: 0, bottom: 64, background: '#fff', zIndex: 10, overflowY: 'auto', padding: '12px 14px', borderTop: '1px solid #EFF2F5' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1A2E44' }}>🕐 Chat History ({messages.length} messages)</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={clearHistory}
+                style={{ fontSize: 11, color: '#E63946', background: '#FEE2E2', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+                Clear All
+              </button>
+              <button onClick={() => setShowHistory(false)}
+                style={{ fontSize: 11, color: '#8FA0B0', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>
+                Close
+              </button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {messages.slice().reverse().map((m, i) => (
+              <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: m.role === 'user' ? '#E6F6F4' : '#F8FAFB', border: '1px solid #EFF2F5' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: m.role === 'user' ? '#0B6B5C' : '#8FA0B0', textTransform: 'uppercase' }}>
+                    {m.role === 'user' ? `You` : 'Vita'}
+                  </span>
+                  <span style={{ fontSize: 10, color: '#CBD5E0' }}>{fmtHistoryDate(m.timestamp)}</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#1A2E44', lineHeight: 1.5, maxHeight: 60, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {m.content.slice(0, 200)}{m.content.length > 200 ? '…' : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Messages ───────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -356,8 +433,16 @@ export default function VitaChat({ userId, userRole, userName, ppRole, snapshot 
             ↑
           </button>
         </div>
-        <div style={{ fontSize: 10, color: '#CBD5E0', marginTop: 6, textAlign: 'center' }}>
-          Vita · Powered by Vitalis knowledge + Anthropic AI · Maryland COMAR & CMS aware
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+          <div style={{ fontSize: 10, color: '#CBD5E0' }}>
+            Vita · Powered by Vitalis knowledge + Anthropic AI · Maryland COMAR & CMS aware
+          </div>
+          {messages.length > 0 && (
+            <button onClick={clearHistory}
+              style={{ fontSize: 10, color: '#CBD5E0', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }}>
+              Clear chat
+            </button>
+          )}
         </div>
       </div>
     </div>
