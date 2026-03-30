@@ -224,9 +224,16 @@ A table of facilities that haven't been visited recently, are stalled, or need a
 
 Be direct, specific, and data-driven. Avoid generic marketing advice — every recommendation should be grounded in Vitalis's actual data or the specific Maryland market context you find from web search.`
 
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable is not set')
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4000,
