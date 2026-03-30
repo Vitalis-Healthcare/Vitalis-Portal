@@ -188,12 +188,37 @@ export default function ReportClient({ userName }: Props) {
 
   return (
     <>
-      {/* Print styles */}
+      {/* Print styles — isolate report body, hide all portal chrome */}
       <style>{`
         @media print {
-          .no-print { display: none !important; }
-          .report-body { padding: 0 !important; max-width: 100% !important; }
-          body { font-size: 12px; }
+          /* Hide everything */
+          body > * { display: none !important; }
+          /* Show only the print target */
+          #print-report-root,
+          #print-report-root * { display: revert !important; }
+          /* Clean page setup */
+          @page { margin: 18mm 16mm; size: A4; }
+          #print-report-root {
+            position: fixed !important;
+            top: 0 !important; left: 0 !important;
+            width: 100% !important;
+            font-size: 11pt !important;
+            color: #000 !important;
+            background: #fff !important;
+          }
+          /* Typography */
+          h1 { font-size: 20pt !important; color: #0B6B5C !important; }
+          h3 { font-size: 13pt !important; page-break-after: avoid !important; }
+          h4 { font-size: 11pt !important; page-break-after: avoid !important; }
+          p, li { font-size: 10pt !important; line-height: 1.5 !important; }
+          table { font-size: 9pt !important; width: 100% !important; border-collapse: collapse !important; }
+          th { background: #0B6B5C !important; color: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          tr:nth-child(even) td { background: #F9FAFB !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          td, th { padding: 5px 8px !important; border: 1px solid #E5E7EB !important; }
+          /* Section breaks */
+          .print-section { page-break-inside: avoid !important; }
+          /* Letterhead colors */
+          .print-header-bar { border-bottom: 3px solid #0B6B5C !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
       `}</style>
 
@@ -335,10 +360,10 @@ export default function ReportClient({ userName }: Props) {
               </div>
             )}
 
-            {/* The report itself */}
-            <div ref={reportRef} className="report-body" style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 16, padding: '40px 44px' }}>
+            {/* The report itself — id used for print isolation */}
+            <div id="print-report-root" ref={reportRef} className="report-body" style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 16, padding: '40px 44px' }}>
               {/* Vitalis letterhead */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, paddingBottom: 20, borderBottom: '3px solid #0B6B5C' }}>
+              <div className="print-section print-header-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, paddingBottom: 20, borderBottom: '3px solid #0B6B5C' }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#0B6B5C', letterSpacing: '2px', marginBottom: 4 }}>VITALIS HEALTHCARE SERVICES</div>
                   <div style={{ fontSize: 11, color: '#888' }}>8757 Georgia Ave., Suite 440 · Silver Spring, MD 20910</div>
