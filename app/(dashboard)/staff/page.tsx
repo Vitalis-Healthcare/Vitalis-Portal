@@ -36,7 +36,6 @@ export default async function StaffPage() {
     .from('profiles')
     .select('*')
     .eq('role', 'caregiver')
-    .eq('status', 'active')
     .order('full_name')
 
   const staffIds = (allStaff || []).map((s: any) => s.id)
