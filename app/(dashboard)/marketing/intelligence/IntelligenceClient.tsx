@@ -361,7 +361,7 @@ export default function IntelligenceClient() {
           {/* High email engagement, cold heat status — opportunity */}
           {(() => {
             const opportunity = facilities.filter(f =>
-              f.email_engagement_pct >= 50 && f.heat_status === 'cold' && f.heat_status !== 'dead'
+              f.email_engagement_pct >= 50 && f.heat_status === 'cold'
             )
             return opportunity.length > 0 ? (
               <ActionCard title="🔥 Hidden opportunities — high email engagement, not yet hot" color="#6D28D9" bg="#EDE9FE">
