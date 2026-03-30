@@ -59,21 +59,16 @@ export default function RouteBuilderClient({ centers }: Props) {
       {/* Print styles */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          #print-route-root,
-          #print-route-root * { display: revert !important; }
           @page { margin: 10mm 12mm; size: A4 landscape; }
-          #print-route-root {
-            position: fixed !important;
-            top: 0 !important; left: 0 !important;
-            width: 100% !important;
-            font-size: 9pt !important;
-            background: #fff !important;
-          }
+          /* visibility approach works through Next.js nested layout */
+          body { visibility: hidden !important; }
+          #print-route-root { visibility: visible !important; position: fixed; top: 0; left: 0; width: 100%; background: #fff; }
+          #print-route-root * { visibility: visible !important; }
           .no-print { display: none !important; }
-          .day-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc !important; }
-          .route-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 12px !important; }
-          .day-card { margin-bottom: 12px; }
+          .day-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ddd !important; }
+          .route-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 10px !important; }
+          .day-card { margin-bottom: 10px; }
+          body, p, div, span { font-size: 9pt !important; }
           h1, h2 { font-size: 14pt !important; }
           h3 { font-size: 10pt !important; }
         }

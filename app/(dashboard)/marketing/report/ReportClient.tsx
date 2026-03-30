@@ -188,23 +188,16 @@ export default function ReportClient({ userName }: Props) {
 
   return (
     <>
-      {/* Print styles — isolate report body, hide all portal chrome */}
+      {/* Print styles — visibility approach works through Next.js nested layout */}
       <style>{`
         @media print {
-          /* Hide everything */
-          body > * { display: none !important; }
-          /* Show only the print target */
-          #print-report-root,
-          #print-report-root * { display: revert !important; }
-          /* Clean page setup */
           @page { margin: 18mm 16mm; size: A4; }
+          body { visibility: hidden !important; }
+          #print-report-root { visibility: visible !important; position: fixed; top: 0; left: 0; width: 100%; background: #fff; }
+          #print-report-root * { visibility: visible !important; }
           #print-report-root {
-            position: fixed !important;
-            top: 0 !important; left: 0 !important;
-            width: 100% !important;
             font-size: 11pt !important;
             color: #000 !important;
-            background: #fff !important;
           }
           /* Typography */
           h1 { font-size: 20pt !important; color: #0B6B5C !important; }
