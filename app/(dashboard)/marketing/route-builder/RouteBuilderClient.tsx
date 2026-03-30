@@ -59,18 +59,37 @@ export default function RouteBuilderClient({ centers }: Props) {
       {/* Print styles */}
       <style>{`
         @media print {
-          @page { margin: 10mm 12mm; size: A4 landscape; }
-          /* visibility approach works through Next.js nested layout */
+          @page { margin: 14mm 16mm; size: A4 portrait; }
           body { visibility: hidden !important; }
-          #print-route-root { visibility: visible !important; position: fixed; top: 0; left: 0; width: 100%; background: #fff; }
+          #print-route-root { visibility: visible !important; background: #fff; }
           #print-route-root * { visibility: visible !important; }
           .no-print { display: none !important; }
-          .day-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ddd !important; }
-          .route-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 10px !important; }
-          .day-card { margin-bottom: 10px; }
-          body, p, div, span { font-size: 9pt !important; }
-          h1, h2 { font-size: 14pt !important; }
-          h3 { font-size: 10pt !important; }
+          .route-grid { display: block !important; }
+          .day-card {
+            display: block !important;
+            width: 100% !important;
+            margin-bottom: 20px !important;
+            border: 1px solid #ccc !important;
+            border-radius: 6px !important;
+            padding: 10px 14px !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+          .day-header {
+            background: #0B6B5C !important;
+            color: #fff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .facility-list {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+          }
+          .facility-entry { break-inside: avoid !important; }
+          body, p, div, span { font-size: 9pt !important; line-height: 1.4 !important; }
+          h1 { font-size: 16pt !important; }
+          h2 { font-size: 11pt !important; }
         }
       `}</style>
 
