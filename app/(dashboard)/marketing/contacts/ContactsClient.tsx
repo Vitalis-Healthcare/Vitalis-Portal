@@ -213,6 +213,26 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  function handlePrint() {
+    const rows = filtered.map((c: any) => {
+      const center = Array.isArray(c.center) ? c.center[0] : c.center
+      return '<tr><td>'+c.name+'</td><td>'+(c.role||'—')+'</td><td>'+(center?.name||'—')+'</td><td>'+(c.email||'—')+'</td><td>'+(c.mobile||c.direct_line||'—')+'</td><td>'+(c.email_blast_opt_in ? '✓ Yes' : 'No')+'</td><td style="font-size:7.5pt">'+(c.notes||'—')+'</td></tr>'
+    }).join('')
+    printWindow('Contacts & Referrers',
+      '<p style="margin-bottom:12px;color:#555;font-size:9pt">'+filtered.length+' contacts'+(search ? ' · filtered by: "'+search+'"' : '')+'</p>'
+      +'<table><thead><tr><th>Name</th><th>Role</th><th>Facility</th><th>Email</th><th>Phone</th><th>Email Blast</th><th>Notes</th></tr></thead><tbody>'+rows+'</tbody></table>')
+  }
+
+  function handleExcel() {
+    const headers = ['Name','Role','Facility','Email','Mobile','Direct Line','Email Blast Opt-in','Notes']
+    const rows = filtered.map((c: any) => {
+      const center = Array.isArray(c.center) ? c.center[0] : c.center
+      return [c.name, c.role, center?.name, c.email, c.mobile, c.direct_line, c.email_blast_opt_in ? 'Yes' : 'No', c.notes]
+    })
+    downloadExcel('Vitalis_Contacts_'+new Date().toISOString().slice(0,10)+'.csv', headers, rows)
+  }
+
+
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1200, margin: '0 auto' }}>
 
@@ -229,14 +249,8 @@ export default function ContactsClient({ initialContacts, centers, currentUserId
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
           <Plus size={16} /> Add Contact
         </button>
-        <button onClick={handlePrint}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
-          🖨 Print
-        </button>
-        <button onClick={handleExcel}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#065F46', border: '1px solid #6EE7B7', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
-          📥 Excel
-        </button>
+        <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>🖨 Print</button>
+        <button onClick={handleExcel} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#065F46', border: '1px solid #6EE7B7', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>📥 Excel</button>
       </div>
 
       {/* Email stats */}
@@ -437,41 +451,6 @@ const lbl: React.CSSProperties = {
 }
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
-  function handlePrint() {
-    const rows = filtered.map((ct: any) => {
-      const center = Array.isArray(ct.center) ? ct.center[0] : ct.center
-      return `<tr>
-        <td>${ct.name || ''}</td>
-        <td>${ct.role || '—'}</td>
-        <td>${center?.name || '—'}</td>
-        <td>${ct.email || '—'}</td>
-        <td>${ct.mobile || ct.direct_line || '—'}</td>
-        <td>${ct.email_blast_opt_in ? '✓ Yes' : 'No'}</td>
-        <td>${ct.notes || '—'}</td>
-      </tr>`
-    }).join('')
-    printWindow('Contacts & Referrers',
-      `<p style="margin-bottom:12px;color:#555;font-size:9pt">${filtered.length} contacts${search ? ' · filtered by: "'+search+'"' : ''}</p>
-       <table>
-         <thead><tr>
-           <th>Name</th><th>Role</th><th>Facility</th>
-           <th>Email</th><th>Phone</th><th>Email Blast</th><th>Notes</th>
-         </tr></thead>
-         <tbody>${rows}</tbody>
-       </table>`)
-  }
-
-  function handleExcel() {
-    const headers = ['Name','Role','Facility','Email','Mobile','Direct Line','Email Blast Opt-in','Notes']
-    const rows = filtered.map((ct: any) => {
-      const center = Array.isArray(ct.center) ? ct.center[0] : ct.center
-      return [ct.name, ct.role, center?.name, ct.email, ct.mobile, ct.direct_line,
-              ct.email_blast_opt_in ? 'Yes' : 'No', ct.notes]
-    })
-    downloadExcel(`Vitalis_Contacts_${new Date().toISOString().slice(0,10)}.csv`, headers, rows)
-  }
-
-
   return (
     <div style={{ marginBottom: 16 }}>
       <label style={lbl}>{label}</label>

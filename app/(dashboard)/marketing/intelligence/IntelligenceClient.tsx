@@ -92,6 +92,23 @@ export default function IntelligenceClient() {
     return acc
   }, {} as Record<string, number>)
 
+  function handlePrint() {
+    const contactRows = contacts.map((c: any, i: number) => {
+      const HEAT: Record<string,string> = { hot:'badge-hot', cold:'badge-cold', dead:'badge-dead' }
+      const scoreColor = c.total_score >= 70 ? '#065F46' : c.total_score >= 50 ? '#0B6B5C' : c.total_score >= 30 ? '#D97706' : '#888'
+      return '<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong></td><td>'+c.facility_name+'</td><td><span class="badge '+(HEAT[c.facility_heat]||'')+'">'+c.facility_heat+'</span></td><td style="text-align:center">'+c.email_opens+' ('+c.email_pct+'%)</td><td style="text-align:center;font-weight:700;color:'+scoreColor+'">'+c.total_score+'</td><td style="text-align:center">'+(c.days_since_facility_visit != null ? c.days_since_facility_visit+'d ago' : '—')+'</td></tr>'
+    }).join('')
+    const facilityRows = facilities.map((f: any) => {
+      const HL: Record<string,string> = { strong:'Strong', building:'Building', stalled:'Stalled', cold:'Cold', dead:'Dead' }
+      return '<tr><td>'+f.name+'</td><td>'+f.heat_status+'</td><td>'+(HL[f.relationship_health]||f.relationship_health)+'</td><td style="text-align:center">Wk'+f.week_group+' '+(f.assigned_day?.slice(0,3)||'—')+'</td><td style="text-align:center">'+f.f_visits+'F / '+f.d_visits+'D</td><td style="text-align:center">'+f.f_rate+'%</td><td style="text-align:center">'+(f.days_since_visit != null ? f.days_since_visit+'d' : '—')+'</td><td style="text-align:center">'+f.email_engagement_pct+'%</td></tr>'
+    }).join('')
+    printWindow('Marketing Intelligence',
+      '<div class="stat-row"><div class="stat-box"><div class="stat-num">'+(summary?.total_visits||0)+'</div><div class="stat-lbl">Total Visits</div></div><div class="stat-box"><div class="stat-num" style="color:'+((summary?.overall_f_rate||0)>=30?'#065F46':'#DC2626')+'">'+(summary?.overall_f_rate||0)+'%</div><div class="stat-lbl">F-Rate</div></div><div class="stat-box"><div class="stat-num">'+(summary?.unmatched_openers||0)+'</div><div class="stat-lbl">Unmatched Openers</div></div></div>'
+      +'<h3>Contact Engagement Scores (Top '+contacts.length+')</h3><table><thead><tr><th>#</th><th>Contact</th><th>Facility</th><th>Heat</th><th>Email Opens</th><th>Score/100</th><th>Last Visit</th></tr></thead><tbody>'+contactRows+'</tbody></table>'
+      +'<h3>Facility Relationship Matrix</h3><table><thead><tr><th>Facility</th><th>Heat</th><th>Health</th><th>Route</th><th>Visits</th><th>F-Rate</th><th>Last Visit</th><th>Email Eng.</th></tr></thead><tbody>'+facilityRows+'</tbody></table>')
+  }
+
+
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1200, margin: '0 auto' }}>
 
@@ -103,8 +120,7 @@ export default function IntelligenceClient() {
           <p style={{ color: '#888', fontSize: 13, margin: '4px 0 0' }}>Engagement scores across visits, email opens, and facility heat</p>
         </div>
         {!loading && !error && (
-          <button onClick={handlePrint}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer', marginTop: 20 }}>
+          <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0B6B5C', border: '1px solid #0B6B5C', borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer', marginTop: 20 }}>
             🖨 Print Report
           </button>
         )}
@@ -436,54 +452,6 @@ function SumCard({ label, value, color, sub }: { label: string; value: string; c
 }
 
 function ActionCard({ title, color, bg, children }: { title: string; color: string; bg: string; children: React.ReactNode }) {
-  function handlePrint() {
-    const contactRows = contacts.map((c:any,i:number) => {
-      const HEAT: Record<string,string> = { hot:'badge-hot', cold:'badge-cold', dead:'badge-dead' }
-      const scoreColor = c.total_score >= 70 ? '#065F46' : c.total_score >= 50 ? '#0B6B5C' : c.total_score >= 30 ? '#D97706' : '#888'
-      return `<tr>
-        <td>${i+1}</td>
-        <td><strong>${c.name}</strong><br><span style="font-size:7.5pt;color:#888">${c.role||''}</span></td>
-        <td>${c.facility_name}</td>
-        <td><span class="badge ${HEAT[c.facility_heat]||''}">${c.facility_heat}</span></td>
-        <td style="text-align:center">${c.email_opens} (${c.email_pct}%)</td>
-        <td style="text-align:center;font-weight:700;color:${scoreColor}">${c.total_score}</td>
-        <td style="text-align:center">${c.days_since_facility_visit != null ? c.days_since_facility_visit+'d ago' : '—'}</td>
-      </tr>`
-    }).join('')
-
-    const HEALTH_LABEL: Record<string,string> = { strong:'Strong', building:'Building', stalled:'Stalled', cold:'Cold', dead:'Dead' }
-    const HEALTH_BADGE: Record<string,string> = { strong:'badge-f', building:'', stalled:'', cold:'', dead:'badge-dead' }
-    const facilityRows = facilities.map((f:any) => `<tr>
-      <td>${f.name}</td>
-      <td>${f.heat_status}</td>
-      <td>${HEALTH_LABEL[f.relationship_health]||f.relationship_health}</td>
-      <td style="text-align:center">Wk${f.week_group} ${f.assigned_day?.slice(0,3)||'—'}</td>
-      <td style="text-align:center">${f.f_visits}F / ${f.d_visits}D</td>
-      <td style="text-align:center">${f.f_rate}%</td>
-      <td style="text-align:center">${f.days_since_visit != null ? f.days_since_visit+'d' : '—'}</td>
-      <td style="text-align:center">${f.email_engagement_pct}%</td>
-    </tr>`).join('')
-
-    printWindow('Marketing Intelligence',
-      `<div class="stat-row">
-         <div class="stat-box"><div class="stat-num">${summary?.total_visits||0}</div><div class="stat-lbl">Total Visits</div></div>
-         <div class="stat-box"><div class="stat-num" style="color:${(summary?.overall_f_rate||0)>=30?'#065F46':'#DC2626'}">${summary?.overall_f_rate||0}%</div><div class="stat-lbl">F-Rate</div></div>
-         <div class="stat-box"><div class="stat-num">${summary?.total_campaigns||0}</div><div class="stat-lbl">Campaigns</div></div>
-         <div class="stat-box"><div class="stat-num" style="color:#D97706">${summary?.unmatched_openers||0}</div><div class="stat-lbl">Unmatched Openers</div></div>
-       </div>
-       <h3>Contact Engagement Scores (Top ${contacts.length})</h3>
-       <table>
-         <thead><tr><th>#</th><th>Contact</th><th>Facility</th><th>Heat</th><th>Email Opens</th><th>Score/100</th><th>Last Visit</th></tr></thead>
-         <tbody>${contactRows}</tbody>
-       </table>
-       <h3>Facility Relationship Matrix</h3>
-       <table>
-         <thead><tr><th>Facility</th><th>Heat</th><th>Health</th><th>Route</th><th>Visits</th><th>F-Rate</th><th>Last Visit</th><th>Email Eng.</th></tr></thead>
-         <tbody>${facilityRows}</tbody>
-       </table>`)
-  }
-
-
   return (
     <div style={{ background: bg, border: `1px solid ${color}30`, borderRadius: 12, padding: 20 }}>
       <div style={{ fontWeight: 700, fontSize: 15, color, marginBottom: 12 }}>{title}</div>
