@@ -509,3 +509,104 @@ export async function buildLeadsContext(svc: any): Promise<string> {
     return 'LEADS CONTEXT: Unable to load pipeline data.'
   }
 }
+
+// ── Marketing context (admin/supervisor only) ──────────────────────────────
+export async function buildMarketingContext(svc: any): Promise<string> {
+  try {
+    const lines: string[] = ['MARKETING CONTEXT (52 Weeks Marketing Programme):']
+
+    // Influence center heat map summary
+    const { data: centers } = await svc
+      .from('marketing_influence_centers')
+      .select('name, heat_status, assigned_day, week_group, go_no_go')
+      .order('name')
+
+    if (centers && centers.length > 0) {
+      const hot  = centers.filter((c: any) => c.heat_status === 'hot')
+      const cold = centers.filter((c: any) => c.heat_status === 'cold')
+      const dead = centers.filter((c: any) => c.heat_status === 'dead')
+      lines.push(`\nINFLUENCE CENTERS: ${centers.length} total | ${hot.length} hot | ${cold.length} cold | ${dead.length} dead`)
+      if (hot.length > 0) {
+        lines.push(`HOT FACILITIES (priority relationship focus):`)
+        for (const c of hot) lines.push(`  • ${c.name} (Week ${c.week_group}, ${c.assigned_day || 'unassigned'})`)
+      }
+      if (dead.length > 0) {
+        lines.push(`DEAD FACILITIES (written off — low private pay potential):`)
+        for (const c of dead.slice(0, 8)) lines.push(`  • ${c.name}`)
+        if (dead.length > 8) lines.push(`  … and ${dead.length - 8} more`)
+      }
+    }
+
+    // Recent field activity summary
+    const { data: logs } = await svc
+      .from('marketing_visit_logs')
+      .select('visit_date, activity_type, marketing_influence_centers(name)')
+      .order('visit_date', { ascending: false })
+      .limit(50)
+
+    if (logs && logs.length > 0) {
+      const fCount = logs.filter((l: any) => l.activity_type === 'F').length
+      const dCount = logs.filter((l: any) => l.activity_type === 'D').length
+      const xCount = logs.filter((l: any) => l.activity_type === 'X').length
+      const fRate  = (fCount + dCount) > 0 ? Math.round(fCount / (fCount + dCount) * 100) : 0
+      const lastDate = logs[0]?.visit_date
+      lines.push(`\nFIELD ACTIVITY (last 50 logs):`)
+      lines.push(`  F (face-to-face): ${fCount} | D (drop-off): ${dCount} | X (missed): ${xCount}`)
+      lines.push(`  F-rate: ${fRate}% (target is higher F — face-to-face builds referral relationships)`)
+      lines.push(`  Most recent visit: ${lastDate}`)
+    }
+
+    // Email campaign performance
+    const { data: campaigns } = await svc
+      .from('marketing_email_campaigns')
+      .select('campaign_date, total_opened, open_rate, total_sent')
+      .order('campaign_date', { ascending: false })
+      .limit(10)
+
+    if (campaigns && campaigns.length > 0) {
+      const withRate = campaigns.filter((c: any) => c.open_rate != null && c.total_sent > 0)
+      const avgRate  = withRate.length > 0
+        ? Math.round(withRate.reduce((a: number, c: any) => a + c.open_rate, 0) / withRate.length)
+        : null
+      const avgOpeners = Math.round(campaigns.reduce((a: number, c: any) => a + c.total_opened, 0) / campaigns.length)
+      lines.push(`\nEMAIL BLAST (last 10 campaigns):`)
+      lines.push(`  Avg open rate: ${avgRate != null ? avgRate + '%' : 'N/A (total sent unknown)'}`)
+      lines.push(`  Avg openers per blast: ${avgOpeners}`)
+      lines.push(`  Most recent: ${campaigns[0].campaign_date} — ${campaigns[0].total_opened} openers`)
+    }
+
+    // Top engaged contacts (external only)
+    const { data: opens } = await svc
+      .from('marketing_email_opens')
+      .select('email_address, name_in_csv, contact_id, marketing_contacts(name, marketing_influence_centers(name))')
+      .not('email_address', 'ilike', '%vitalishealthcare.com')
+
+    if (opens && opens.length > 0) {
+      const freq: Record<string, { name: string; facility: string; count: number }> = {}
+      for (const o of opens) {
+        const contact = Array.isArray(o.marketing_contacts) ? o.marketing_contacts[0] : o.marketing_contacts
+        const facility = contact
+          ? (Array.isArray(contact.marketing_influence_centers)
+              ? contact.marketing_influence_centers[0]?.name
+              : (contact.marketing_influence_centers as any)?.name) || '—'
+          : '—'
+        const key = o.email_address
+        if (!freq[key]) freq[key] = { name: o.name_in_csv || contact?.name || o.email_address, facility, count: 0 }
+        freq[key].count++
+      }
+      const top = Object.values(freq).sort((a, b) => b.count - a.count).slice(0, 8)
+      const totalCamps = campaigns?.length || 1
+      lines.push(`\nTOP ENGAGED CONTACTS (most campaign opens, external only):`)
+      for (const t of top) {
+        const pct = Math.round(t.count / totalCamps * 100)
+        lines.push(`  • ${t.name} @ ${t.facility} — opened ${t.count} campaigns (${pct}% engagement)`)
+      }
+      lines.push(`  ⬆ These contacts are warm — they are reading every email. Prioritise F-visits to their facilities.`)
+    }
+
+    return lines.join('\n')
+  } catch (err) {
+    console.error('buildMarketingContext error:', err)
+    return 'MARKETING CONTEXT: Unable to load marketing data.'
+  }
+}

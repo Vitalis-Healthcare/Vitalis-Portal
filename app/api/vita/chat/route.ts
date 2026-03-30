@@ -17,6 +17,7 @@ import {
   buildAppraisalContext,
   buildPolicyContext,
   buildLeadsContext,
+  buildMarketingContext,
 } from '@/lib/vita/context'
 
 // ── Regulatory knowledge base embedded in system prompt ──────────────────────
@@ -110,17 +111,19 @@ export async function POST(req: NextRequest) {
   const wantsPolicy       = /policy|procedure|polic|COMAR|regulat|comply|compliance|rule|protocol/i.test(q)
   const wantsRegulatory   = /COMAR|CMS|Joint Commission|maryland law|regulation|OHCQ|federal|state law|requirement/i.test(q)
   const wantsLeads        = /lead|pipeline|prospect|enquir|inquiry|referral.*source|revenue.*pipeline|close.*date|follow.?up|conversion|client.*acquisition|new.*client|potential.*client/i.test(q)
+  const wantsMarketing    = /marketing|influence center|referrer|email blast|open rate|facility.*visit|visit.*facilit|drop.?off|face.?to.?face|route|heat status|52 weeks|campaign|peace|weekly blast/i.test(q)
 
   // If question is ambiguous, load all contexts
   const loadAll = !wantsTraining && !wantsCredentials && !wantsAppraisal && !wantsPolicy
 
   // ── Build context in parallel ──────────────────────────────────────────────
-  const [trainingCtx, credCtx, appraisalCtx, policyCtx, leadsCtx] = await Promise.all([
+  const [trainingCtx, credCtx, appraisalCtx, policyCtx, leadsCtx, marketingCtx] = await Promise.all([
     (wantsTraining || loadAll) ? buildTrainingContext(user.id, svc) : Promise.resolve(''),
     (wantsCredentials || loadAll) ? buildCredentialContext(user.id, svc) : Promise.resolve(''),
     (wantsAppraisal || loadAll) ? buildAppraisalContext(user.id, svc) : Promise.resolve(''),
     (wantsPolicy || loadAll || wantsRegulatory) ? buildPolicyContext(message, svc) : Promise.resolve({ catalogue: '', relevant: '' }),
     (isAdminRole && (wantsLeads || loadAll)) ? buildLeadsContext(svc) : Promise.resolve(''),
+    (isAdminRole && (wantsMarketing || loadAll)) ? buildMarketingContext(svc) : Promise.resolve(''),
   ])
 
   const policyCtxTyped = policyCtx as { catalogue: string; relevant: string }
@@ -145,6 +148,7 @@ ${appraisalCtx ? `\n${appraisalCtx}` : ''}
 ${policyCtxTyped.catalogue ? `\nVITALIS POLICY CATALOGUE:\n${policyCtxTyped.catalogue}` : ''}
 ${policyCtxTyped.relevant ? `\nFULL CONTENT OF RELEVANT POLICIES:${policyCtxTyped.relevant}` : ''}
 ${leadsCtx ? `\n${leadsCtx}` : ''}
+${marketingCtx ? `\n${marketingCtx}` : ''}
 ${REGULATORY_KNOWLEDGE}
 
 YOUR CAPABILITIES & BEHAVIOUR:
@@ -155,6 +159,7 @@ YOUR CAPABILITIES & BEHAVIOUR:
 4. APPRAISAL COACHING: If asked about their performance or how to improve, reference actual scores. Be encouraging but specific. Don't sugarcoat low scores — be honest and constructive.
 5. POLICY EXPERT: Answer from Vitalis policy content. Always cite the policy ID (e.g. VHS-D1-003). Link to: /pp/[docId]
 6. LEADS & PIPELINE (admin/supervisor only): You have full visibility into the leads pipeline — status of every prospect, revenue projections, overdue follow-ups, and conversion trajectory. Help managers understand their pipeline health, identify who needs a follow-up call, and forecast revenue. Link to: /leads and /leads/[id]
+7. MARKETING INTELLIGENCE (admin/supervisor only): You have full visibility into the 52 Weeks Marketing programme — influence center heat status, field visit activity (F/D/X logs), email campaign engagement, and top-performing referral contacts. Help identify which facilities are warmest, which contacts are most engaged in the email blasts, the F-rate trend, and which facilities should be prioritised for face-to-face visits. Always tie marketing insights back to private-pay referral conversion. Link to: /marketing
 7. REGULATORY KNOWLEDGE: You know Maryland COMAR, CMS CoPs, and Joint Commission standards. For very specific or current regulatory questions, use web search to verify.
 
 ACTION LINKS (include these naturally in your responses when relevant):
