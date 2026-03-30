@@ -24,6 +24,7 @@ interface Center {
   assigned_day: string | null
   week_group: number
   visit_order: number | null
+  go_no_go: boolean
   contacts: Contact[]
 }
 
@@ -55,39 +56,90 @@ export default function RouteBuilderClient({ centers }: Props) {
   const totalDays = DAYS.filter(d => byDay[d].length > 0).length
 
   function printSchedule() {
-    const el = document.getElementById('print-route-root')
-    if (!el) return
-    const win = window.open('', '_blank', 'width=900,height=700')
-    if (!win) { window.print(); return }
-    const css = `
-      @page { margin: 14mm 16mm; size: A4 portrait; }
-      * { box-sizing: border-box; }
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 9pt; color: #111; margin: 0; padding: 16px; background: #fff; }
-      h1 { font-size: 16pt; font-weight: 700; color: #0B6B5C; margin: 0 0 4px; }
-      h2 { font-size: 10pt; color: #888; font-weight: 400; margin: 0 0 16px; }
-      .print-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 3px solid #0B6B5C; margin-bottom: 20px; }
-      .route-grid { display: block; }
-      .day-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px 14px; margin-bottom: 18px; break-inside: avoid; page-break-inside: avoid; }
-      .day-header { background: #0B6B5C; color: #fff; border-radius: 4px; padding: 6px 12px; margin: -12px -14px 12px; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .day-header h3 { margin: 0; font-size: 11pt; font-weight: 700; color: #fff; }
-      .facility-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-      .facility-entry { border: 1px solid #eee; border-radius: 4px; padding: 6px 8px; break-inside: avoid; }
-      .facility-name { font-weight: 600; font-size: 9pt; color: #111; margin-bottom: 2px; }
-      .facility-addr { font-size: 8pt; color: #888; margin-bottom: 4px; }
-      .contact-entry { font-size: 8pt; color: #444; padding: 2px 0; }
-      .heat-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
-      .heat-hot { background: #10B981; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .heat-cold { background: #3B82F6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .heat-dead { background: #EF4444; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .stats-bar { display: flex; gap: 20px; margin-bottom: 16px; font-size: 9pt; color: #555; }
-      .no-print { display: none !important; }
-    `
-    win.document.write('<html><head><title>Vitalis Route Schedule</title><style>' + css + '</style></head><body>' + el.innerHTML + '</body></html>')
+    const win = window.open('', '_blank', 'width=850,height=700')
+    if (!win) return
+
+    const DAYS = ['Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    const weekCenters = centers.filter(c => c.week_group === activeWeek && c.go_no_go)
+    const HEAT_COLOR: Record<string, string> = { hot: '#10B981', cold: '#3B82F6', dead: '#EF4444' }
+
+    // Build rows for each day
+    let bodyHtml = ''
+
+    // Header
+    bodyHtml += `
+      <div class="page-header">
+        <div>
+          <h1>Vitalis Healthcare Services</h1>
+          <h2>Route Schedule — Week ${activeWeek} &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h2>
+        </div>
+        <div class="header-meta">
+          <div>${weekCenters.length} facilities &nbsp;·&nbsp; ${DAYS.filter(d => weekCenters.some(c => c.assigned_day === d)).length} active days</div>
+          <div style="font-size:8pt;color:#888;margin-top:4px">RSA #3879R · Silver Spring, MD</div>
+        </div>
+      </div>`
+
+    for (const day of DAYS) {
+      const dayCenters = weekCenters
+        .filter(c => c.assigned_day === day)
+        .sort((a, b) => (a.visit_order || 99) - (b.visit_order || 99))
+      if (dayCenters.length === 0) continue
+
+      bodyHtml += `<div class="day-block">
+        <div class="day-header">
+          <span class="day-name">${day}</span>
+          <span class="day-count">${dayCenters.length} stops</span>
+        </div>
+        <div class="facility-grid">`
+
+      for (const c of dayCenters) {
+        const addr = [c.street_address, c.city, c.state].filter(Boolean).join(', ')
+        const dot = `<span class="heat-dot" style="background:${HEAT_COLOR[c.heat_status] || '#9CA3AF'}"></span>`
+        bodyHtml += `<div class="facility-card">
+          <div class="fac-name">${dot}${c.name}</div>
+          ${addr ? `<div class="fac-addr">${addr}</div>` : ''}
+          ${c.contacts.map(ct => `<div class="contact">${ct.name}${ct.role ? ` <span class="role">· ${ct.role}</span>` : ''}</div>`).join('')}
+        </div>`
+      }
+
+      bodyHtml += `</div></div>`
+    }
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Vitalis Route Schedule — Week ${activeWeek}</title>
+  <style>
+    @page { margin: 14mm 16mm; size: A4 portrait; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 9pt; color: #111; background: #fff; padding: 0; }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0B6B5C; padding-bottom: 12px; margin-bottom: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h1 { font-size: 15pt; font-weight: 800; color: #0B6B5C; margin-bottom: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h2 { font-size: 9pt; color: #666; font-weight: 400; }
+    .header-meta { text-align: right; font-size: 9pt; color: #555; }
+    .day-block { margin-bottom: 18px; break-inside: avoid; page-break-inside: avoid; }
+    .day-header { background: #0B6B5C; color: #fff; padding: 7px 12px; border-radius: 5px 5px 0 0; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .day-name { font-size: 11pt; font-weight: 700; }
+    .day-count { font-size: 9pt; opacity: 0.85; }
+    .facility-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; overflow: hidden; }
+    .facility-card { padding: 8px 10px; border-right: 1px solid #eee; border-bottom: 1px solid #eee; break-inside: avoid; }
+    .facility-card:nth-child(even) { border-right: none; }
+    .fac-name { font-weight: 700; font-size: 9pt; color: #111; margin-bottom: 2px; }
+    .fac-addr { font-size: 7.5pt; color: #888; margin-bottom: 4px; }
+    .contact { font-size: 8pt; color: #444; padding: 1px 0 1px 8px; border-left: 2px solid #E5E7EB; margin-top: 2px; }
+    .role { color: #888; font-weight: 400; }
+    .heat-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  </style>
+</head>
+<body>${bodyHtml}</body>
+</html>`
+
+    win.document.write(html)
     win.document.close()
     win.focus()
-    setTimeout(() => { win.print(); win.close() }, 500)
+    setTimeout(() => { win.print(); win.close() }, 600)
   }
-
 
   return (
     <>
