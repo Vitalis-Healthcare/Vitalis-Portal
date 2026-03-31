@@ -760,14 +760,12 @@ export default function UsersClient({
         </div>
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {/* AxisCare import — admin only */}
-          {currentUserRole === 'admin' && (
-            <button
-              onClick={() => setPanel('axiscare')}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#1A2E44', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-              <Download size={15} /> Import from AxisCare
-            </button>
-          )}
+          {/* AxisCare import — admin, supervisor and staff */}
+          <button
+            onClick={() => setPanel('axiscare')}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#1A2E44', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            <Download size={15} /> Import from AxisCare
+          </button>
           <button
             onClick={() => setPanel('invite')}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#0E7C7B', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>

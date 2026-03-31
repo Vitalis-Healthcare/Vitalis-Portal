@@ -43,7 +43,6 @@ const adminNav: NavSection[] = [
       { href: '/credentials', label: 'Credentials',          icon: BadgeCheck },
       { href: '/appraisals',  label: 'Appraisals',           icon: ClipboardList },
       { href: '/references',  label: 'References',           icon: UserCheck },
-      { href: '/users',       label: 'Caregiver Management', icon: UserCog },
       { href: '/reports',     label: 'Reports',              icon: BarChart3 },
     ],
   },
