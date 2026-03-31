@@ -37,7 +37,9 @@ export async function GET(_req: NextRequest) {
   }
 
   // ── Fetch all pages from AxisCare ──────────────────────────────────────────
-  const baseUrl = `https://${site}.axiscare.com`
+  // Strip any accidental trailing slashes or .axiscare.com suffix from the site number
+  const cleanSite = site.replace(/\.axiscare\.com.*$/i, '').replace(/\/$/, '').trim()
+  const baseUrl = `https://${cleanSite}.axiscare.com`
   const axisHeaders = {
     'Authorization': `Bearer ${token}`,
     'X-AxisCare-Api-Version': '2023-10-01',
@@ -58,6 +60,7 @@ export async function GET(_req: NextRequest) {
         return NextResponse.json({
           success: false,
           error: `AxisCare API returned ${res.status}. Check your API token and site number.`,
+          debug: { status: res.status, url: nextUrl.split('?')[0] },
         }, { status: 502 })
       }
 
@@ -67,11 +70,12 @@ export async function GET(_req: NextRequest) {
       nextUrl = data?.results?.nextPage || null
       pages++
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('[axiscare/caregivers] Fetch error:', err)
     return NextResponse.json({
       success: false,
-      error: 'Could not reach AxisCare. Check your AXISCARE_SITE_NUMBER is correct.',
+      error: `Could not reach AxisCare at ${baseUrl}. Verify AXISCARE_SITE_NUMBER is just the number (e.g. 14356), not the full domain.`,
+      debug: { attempted_url: baseUrl, message: err?.message || String(err) },
     }, { status: 502 })
   }
 

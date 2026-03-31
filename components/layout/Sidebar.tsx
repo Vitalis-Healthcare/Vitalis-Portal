@@ -43,6 +43,7 @@ const adminNav: NavSection[] = [
       { href: '/credentials', label: 'Credentials',          icon: BadgeCheck },
       { href: '/appraisals',  label: 'Appraisals',           icon: ClipboardList },
       { href: '/references',  label: 'References',           icon: UserCheck },
+      { href: '/users',       label: 'Caregiver Management', icon: UserCog },
       { href: '/reports',     label: 'Reports',              icon: BarChart3 },
     ],
   },
@@ -120,8 +121,12 @@ const caregiverNav: NavSection[] = [
   },
 ]
 
-function NavGroupSection({ group, pathname, onNavigate }: { group: NavGroup; pathname: string; onNavigate?: () => void }) {
-  const hasActive = group.items.some(item =>
+function NavGroupSection({ group, pathname, role, onNavigate }: { group: NavGroup; pathname: string; role?: string; onNavigate?: () => void }) {
+  // Admin already has /users in the ADMIN flat section — filter it from Workforce group to avoid duplicates
+  const items = role === 'admin'
+    ? group.items.filter(item => item.href !== '/users')
+    : group.items
+  const hasActive = items.some(item =>
     pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
   )
   const storageKey = `sidebar_group_${group.id}`
@@ -172,7 +177,7 @@ function NavGroupSection({ group, pathname, onNavigate }: { group: NavGroup; pat
 
       {open && (
         <div style={{ paddingBottom: 2 }}>
-          {group.items.map(item => {
+          {items.map(item => {
             const active = pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href))
             const Icon = item.icon
@@ -262,7 +267,7 @@ export default function Sidebar({ role, onNavigate }: { role: string; onNavigate
           // Hide the ADMIN flat section from supervisors/staff — they get Caregiver Management in Workforce instead
           if (section.type === 'flat' && (section as NavFlat).label === 'ADMIN' && role !== 'admin') return null
           return section.type === 'group'
-            ? <NavGroupSection key={(section as NavGroup).id} group={section as NavGroup} pathname={pathname} onNavigate={onNavigate} />
+            ? <NavGroupSection key={(section as NavGroup).id} group={section as NavGroup} pathname={pathname} role={role} onNavigate={onNavigate} />
             : <FlatSection key={i} section={section as NavFlat} pathname={pathname} onNavigate={onNavigate} />
         })}
       </div>

@@ -63,7 +63,13 @@ function AxisCareImportPanel({
     fetch('/api/axiscare/caregivers')
       .then(r => r.json())
       .then(data => {
-        if (!data.success) { setErrorMsg(data.error || 'Failed to connect to AxisCare'); setStage('error'); return }
+        if (!data.success) {
+          const msg = data.error || 'Failed to connect to AxisCare'
+          const debug = data.debug ? `\n\nDebug: ${JSON.stringify(data.debug)}` : ''
+          setErrorMsg(msg + debug)
+          setStage('error')
+          return
+        }
         setCaregivers(data.caregivers || [])
         setStage('selecting')
       })
