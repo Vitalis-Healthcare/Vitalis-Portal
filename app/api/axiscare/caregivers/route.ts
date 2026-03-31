@@ -47,7 +47,7 @@ export async function GET(_req: NextRequest) {
   }
 
   const allCaregivers: any[] = []
-  let nextUrl: string | null = `${baseUrl}/api/caregivers?limit=200`
+  let nextUrl: string | null = `${baseUrl}/api/caregivers?limit=500`
   let pages = 0
 
   try {
@@ -65,12 +65,30 @@ export async function GET(_req: NextRequest) {
       }
 
       const data = await res.json()
-      const caregiverData = data?.results?.caregivers
-      const batch: any[] = Array.isArray(caregiverData) ? caregiverData : []
+
+      // AxisCare can return items under different keys depending on the endpoint.
+      // Use the same extractItems pattern confirmed working in the KPI pull script.
+      // Also: stop paging immediately if a page returns 0 items (prevents infinite
+      // loops — AxisCare sometimes sets nextPage even on null/empty pages).
+      const r = data?.results
+      let batch: any[] = []
+      if (r) {
+        for (const key of ['caregivers', 'clients', 'visits', 'applicants', 'leads', 'schedules']) {
+          if (Array.isArray(r[key])) { batch = r[key]; break }
+        }
+        if (batch.length === 0 && Array.isArray(r)) batch = r
+      } else if (Array.isArray(data)) {
+        batch = data
+      }
+
+      if (batch.length === 0) break   // stop paging on empty page
+
       for (const item of batch) {
         allCaregivers.push(item)
       }
-      nextUrl = typeof data?.results?.nextPage === 'string' ? data.results.nextPage : null
+      nextUrl = (r && typeof r === 'object' && !Array.isArray(r) && typeof r.nextPage === 'string')
+        ? r.nextPage
+        : null
       pages++
     }
   } catch (err: any) {
