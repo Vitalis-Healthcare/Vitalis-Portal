@@ -50,7 +50,7 @@ export async function GET(_req: NextRequest) {
 
   try {
     while (nextUrl && pages < 10) {
-      const res = await fetch(nextUrl, { headers: axisHeaders })
+      const res: Response = await fetch(nextUrl, { headers: axisHeaders })
 
       if (!res.ok) {
         const errText = await res.text()
