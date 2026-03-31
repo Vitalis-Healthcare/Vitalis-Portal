@@ -924,7 +924,29 @@ export default function UsersClient({
                           <Edit2 size={12} /> Edit
                         </button>
                       )}
-                      {currentUserRole !== 'admin' && p.status !== 'pending' && (
+                      {currentUserRole !== 'admin' && p.role === 'caregiver' && p.status !== 'pending' && (
+                        <button
+                          onClick={async () => {
+                            const newStatus = p.status === 'active' ? 'inactive' : 'active'
+                            const res = await fetch('/api/admin/update-profile', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ userId: p.id, updates: { status: newStatus } }),
+                            })
+                            if (res.ok) { showToast(`${p.full_name} set to ${newStatus}`); router.refresh() }
+                            else alert('Failed to update status.')
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', border: 'none',
+                            background: p.status === 'active' ? '#FEF2F2' : '#E6F6F4',
+                            color: p.status === 'active' ? '#B91C1C' : '#0A5C5B',
+                          }}>
+                          {p.status === 'active' ? '⏸ Deactivate' : '▶ Activate'}
+                        </button>
+                      )}
+                      {currentUserRole !== 'admin' && p.role !== 'caregiver' && p.status !== 'pending' && (
                         <span style={{ fontSize: 11, color: '#B0BEC5', padding: '6px 0' }}>Manage in Directory</span>
                       )}
                       {currentUserRole === 'admin' && p.id !== currentUserId && (

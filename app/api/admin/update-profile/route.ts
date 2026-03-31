@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
 
   const svc = createServiceClient()
   const { data: admin } = await svc.from('profiles').select('role').eq('id', user.id).single()
-  if (!['admin', 'supervisor'].includes(admin?.role || '')) {
+  if (!['admin', 'supervisor', 'staff'].includes(admin?.role || '')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
