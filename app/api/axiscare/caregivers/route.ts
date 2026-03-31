@@ -65,9 +65,12 @@ export async function GET(_req: NextRequest) {
       }
 
       const data = await res.json()
-      const batch: any[] = data?.results?.caregivers || []
-      allCaregivers.push(...batch)
-      nextUrl = data?.results?.nextPage || null
+      const caregiverData = data?.results?.caregivers
+      const batch: any[] = Array.isArray(caregiverData) ? caregiverData : []
+      for (const item of batch) {
+        allCaregivers.push(item)
+      }
+      nextUrl = typeof data?.results?.nextPage === 'string' ? data.results.nextPage : null
       pages++
     }
   } catch (err: any) {
