@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
     'preferred_schedule', 'estimated_hours_week', 'hourly_rate',
     'expected_start_date', 'expected_close_date', 'won_date', 'lost_date',
     'lost_reason', 'notes', 'assigned_to',
+    // ── v0.1.0: address + DOB for CareMatch360 hand-off ──
+    'address', 'city', 'state', 'zip', 'date_of_birth',
   ]
   const fields: Record<string, any> = {}
   for (const col of ALLOWED_COLUMNS) {
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   // Null-coerce empty strings — Postgres rejects '' for uuid/date columns
   const UUID_FIELDS = ['referral_source_id', 'assigned_to']
-  const DATE_FIELDS = ['expected_close_date', 'expected_start_date', 'won_date', 'lost_date']
+  const DATE_FIELDS = ['expected_close_date', 'expected_start_date', 'won_date', 'lost_date', 'date_of_birth']
   for (const f of [...UUID_FIELDS, ...DATE_FIELDS]) {
     if (fields[f] === '' || fields[f] === 'Invalid Date') fields[f] = null
   }

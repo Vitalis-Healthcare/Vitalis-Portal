@@ -26,6 +26,7 @@ export default async function LeadsPage() {
       estimated_hours_week, hourly_rate, expected_start_date, expected_close_date,
       won_date, lost_date, lost_reason, notes, created_at, updated_at,
       assigned_to, created_by,
+      address, city, state, zip, date_of_birth,
       assignee:assigned_to(full_name),
       creator:created_by(full_name)
     `)

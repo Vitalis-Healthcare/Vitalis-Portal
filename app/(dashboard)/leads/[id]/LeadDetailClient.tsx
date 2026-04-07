@@ -61,6 +61,8 @@ interface Lead {
   expected_start_date?: string; expected_close_date?: string
   won_date?: string; lost_date?: string; lost_reason?: string; notes?: string
   created_at: string; updated_at: string; assigned_to?: string
+  // ── v0.1.0: address + DOB for CareMatch360 hand-off ──
+  address?: string; city?: string; state?: string; zip?: string; date_of_birth?: string
   assignee?: any; creator?: any
 }
 interface Activity {
@@ -426,6 +428,18 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               <div><label style={lbl}>Client Name</label><input value={editForm.client_name || ''} onChange={e => setE('client_name', e.target.value)} style={inp}/></div>
               <div><label style={lbl}>Phone</label><input value={editForm.phone || ''} onChange={e => setE('phone', e.target.value)} style={inp}/></div>
               <div><label style={lbl}>Email</label><input type="email" value={editForm.email || ''} onChange={e => setE('email', e.target.value)} style={inp}/></div>
+              {/* ── v0.1.0: Address + DOB for CareMatch360 hand-off ── */}
+              <div style={{ marginTop: 4, paddingTop: 12, borderTop: '1px dashed #E2E8F0', fontSize: 11, fontWeight: 700, color: '#0B6B5C', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Client Home Address & DOB
+              </div>
+              <div><label style={lbl}>Street Address</label><input value={editForm.address || ''} onChange={e => setE('address', e.target.value)} placeholder="123 Main St" style={inp}/></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10 }}>
+                <div><label style={lbl}>City</label><input value={editForm.city || ''} onChange={e => setE('city', e.target.value)} placeholder="Silver Spring" style={inp}/></div>
+                <div><label style={lbl}>State</label><input value={editForm.state || ''} onChange={e => setE('state', e.target.value)} placeholder="MD" maxLength={2} style={inp}/></div>
+                <div><label style={lbl}>ZIP</label><input value={editForm.zip || ''} onChange={e => setE('zip', e.target.value)} placeholder="20910" maxLength={10} style={inp}/></div>
+              </div>
+              <div><label style={lbl}>Date of Birth</label><input type="date" value={editForm.date_of_birth || ''} onChange={e => setE('date_of_birth', e.target.value)} style={{ ...inp, maxWidth: 220 }}/></div>
+              <div style={{ paddingBottom: 4, borderBottom: '1px dashed #E2E8F0' }} />
               <div>
                 <label style={lbl}>Care Types</label>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -465,6 +479,32 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           ) : (
             /* Read-only details */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {(() => {
+                const addrLine = [lead.address, [lead.city, lead.state].filter(Boolean).join(', '), lead.zip].filter(Boolean).join(' · ')
+                let ageStr = '—'
+                if (lead.date_of_birth) {
+                  const dob = new Date(lead.date_of_birth)
+                  if (!isNaN(dob.getTime())) {
+                    const now = new Date()
+                    let age = now.getFullYear() - dob.getFullYear()
+                    const m = now.getMonth() - dob.getMonth()
+                    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--
+                    ageStr = `${age} yrs (${dob.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})`
+                  }
+                }
+                return (
+                  <>
+                    <div>
+                      <div style={lbl}>Home Address</div>
+                      <div style={{ fontSize: 13, color: '#1A2E44' }}>{addrLine || '—'}</div>
+                    </div>
+                    <div>
+                      <div style={lbl}>Date of Birth</div>
+                      <div style={{ fontSize: 13, color: '#1A2E44' }}>{ageStr}</div>
+                    </div>
+                  </>
+                )
+              })()}
               {[
                 { label: 'Source', value: lead.source.replace(/_/g, ' ') + (lead.referral_name ? ` — ${lead.referral_name}` : '') },
                 { label: 'Relationship', value: lead.relationship?.replace(/_/g, ' ') },

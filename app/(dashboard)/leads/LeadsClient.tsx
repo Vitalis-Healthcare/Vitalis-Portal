@@ -61,6 +61,8 @@ interface Lead {
   expected_start_date?: string; expected_close_date?: string
   won_date?: string; lost_date?: string; lost_reason?: string; notes?: string
   created_at: string; updated_at: string; assigned_to?: string; created_by?: string
+  // ── v0.1.0: address + DOB for CareMatch360 hand-off ──
+  address?: string; city?: string; state?: string; zip?: string; date_of_birth?: string
   assignee?: any; creator?: any
 }
 
@@ -112,6 +114,8 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
     care_types: [] as string[], condition_notes: '', preferred_schedule: '',
     estimated_hours_week: '', hourly_rate: '', notes: '',
     expected_close_date: '', expected_start_date: '',
+    // ── v0.1.0: address + DOB for CareMatch360 hand-off ──
+    address: '', city: '', state: 'MD', zip: '', date_of_birth: '',
     assigned_to: currentUserId, status: 'new',
   }
   const [form, setForm] = useState(BLANK_FORM)
@@ -182,6 +186,12 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
       client_name: form.client_name || null,
       expected_close_date: form.expected_close_date || null,
       expected_start_date: form.expected_start_date || null,
+      // ── v0.1.0: null-coerce empty address + DOB so Postgres accepts them ──
+      address: form.address || null,
+      city: form.city || null,
+      state: form.state || null,
+      zip: form.zip || null,
+      date_of_birth: form.date_of_birth || null,
     }
     const res = await fetch('/api/leads/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -477,6 +487,41 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                   <label style={lbl}>Email</label>
                   <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@example.com" style={inp}/>
                 </div>
+
+                {/* ── v0.1.0: Client home address + DOB (needed for CareMatch360 hand-off) ── */}
+                <div style={{ gridColumn: '1/-1', marginTop: 4, paddingTop: 14, borderTop: '1px dashed #E2E8F0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#0B6B5C', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
+                    Client Home Address & DOB
+                  </div>
+                </div>
+
+                <div style={{ gridColumn: '1/-1' }}>
+                  <label style={lbl}>Street Address</label>
+                  <input value={form.address} onChange={e => set('address', e.target.value)} placeholder="123 Main St" style={inp}/>
+                </div>
+
+                <div>
+                  <label style={lbl}>City</label>
+                  <input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Silver Spring" style={inp}/>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={lbl}>State</label>
+                    <input value={form.state} onChange={e => set('state', e.target.value)} placeholder="MD" maxLength={2} style={inp}/>
+                  </div>
+                  <div>
+                    <label style={lbl}>ZIP</label>
+                    <input value={form.zip} onChange={e => set('zip', e.target.value)} placeholder="20910" maxLength={10} style={inp}/>
+                  </div>
+                </div>
+
+                <div style={{ gridColumn: '1/-1' }}>
+                  <label style={lbl}>Date of Birth</label>
+                  <input type="date" value={form.date_of_birth} onChange={e => set('date_of_birth', e.target.value)} max={today} style={{ ...inp, maxWidth: 220 }}/>
+                </div>
+
+                <div style={{ gridColumn: '1/-1', marginTop: 4, paddingTop: 14, borderTop: '1px dashed #E2E8F0' }} />
 
                 {/* Source */}
                 <div>
