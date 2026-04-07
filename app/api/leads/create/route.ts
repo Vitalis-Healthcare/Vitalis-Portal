@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { sendLeadEvent } from '@/lib/carematch-webhook'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -45,6 +46,14 @@ export async function POST(req: NextRequest) {
     created_by: user.id,
     activity_type: 'note',
     content: `Lead created — source: ${source}${body.referral_name ? ` (referred by ${body.referral_name})` : ''}`,
+  })
+
+  // ── v0.2.0: fire CareMatch360 webhook (fire-and-forget) ──
+  // We don't await — the user shouldn't have their UI block on a downstream
+  // service, and we don't want a CareMatch360 outage to fail lead creation.
+  // Errors are logged inside sendLeadEvent.
+  sendLeadEvent('lead.created', lead).catch(err => {
+    console.error('[leads/create] webhook fire-and-forget error:', err)
   })
 
   return NextResponse.json({ lead })

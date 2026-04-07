@@ -87,6 +87,29 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [editForm, setEditForm] = useState({ ...initialLead, estimated_hours_week: initialLead.estimated_hours_week?.toString() || '', hourly_rate: initialLead.hourly_rate?.toString() || '' })
   const [actForm, setActForm] = useState({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' })
   const setE = (k: string, v: any) => setEditForm(f => ({ ...f, [k]: v }))
+
+  // ── v0.2.0: CareMatch360 sync state ──────────────────────────────────────
+  const [syncing, setSyncing] = useState(false)
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState<string>('')
+
+  const handleSyncToCarematch = async () => {
+    setSyncing(true); setSyncError('')
+    try {
+      const res = await fetch(`/api/leads/sync-to-carematch/${lead.id}`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        setSyncError(data.error || 'Sync failed')
+      } else {
+        setLastSyncedAt(data.sent_at || new Date().toISOString())
+      }
+    } catch (err: any) {
+      setSyncError(err.message || 'Sync failed')
+    } finally {
+      setSyncing(false)
+      setTimeout(() => { setSyncError(''); }, 6000)
+    }
+  }
   const setA = (k: string, v: any) => setActForm(f => ({ ...f, [k]: v }))
 
   const rev = calcRevenue(lead.estimated_hours_week, lead.hourly_rate)
@@ -286,6 +309,25 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
             <button onClick={() => setLogOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#457B9D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               <MessageSquare size={13}/> Log Activity
             </button>
+            {!editing && (
+              <button
+                onClick={handleSyncToCarematch}
+                disabled={syncing}
+                title="Re-send this lead to CareMatch360 for pre-matching"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px',
+                  background: syncing ? '#F3E8FF' : '#FAF5FF',
+                  color: '#7E22CE',
+                  border: '1.5px solid #C4B5FD',
+                  borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: syncing ? 'wait' : 'pointer',
+                  opacity: syncing ? 0.7 : 1,
+                }}
+              >
+                {syncing ? '⏳ Syncing…' : '🔗 Send to CareMatch360'}
+              </button>
+            )}
             <button onClick={() => setEditing(!editing)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: editing ? '#E63946' : '#EFF2F5', color: editing ? '#fff' : '#4A6070', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               {editing ? <><X size={13}/> Cancel</> : <><Edit3 size={13}/> Edit</>}
             </button>
@@ -308,6 +350,22 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
             )}
           </div>
         </div>
+
+        {/* CareMatch360 sync status banner */}
+        {(lastSyncedAt || syncError) && (
+          <div style={{
+            marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: 12.5,
+            background: syncError ? '#FEF2F2' : '#FAF5FF',
+            color:      syncError ? '#DC2626' : '#7E22CE',
+            border:     `1px solid ${syncError ? '#FECACA' : '#E9D5FF'}`,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            {syncError
+              ? <><span>⚠️</span> CareMatch360 sync failed: {syncError}</>
+              : <><span>✓</span> Sent to CareMatch360 at {new Date(lastSyncedAt!).toLocaleTimeString()}. A draft case is now available for pre-matching.</>
+            }
+          </div>
+        )}
 
         {/* Stage pipeline stepper */}
         <div style={{ marginTop: 20, display: 'flex', gap: 6, flexWrap: 'wrap' }}>

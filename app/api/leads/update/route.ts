@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { sendLeadEvent, detectEventType } from '@/lib/carematch-webhook'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -39,6 +40,10 @@ export async function POST(req: NextRequest) {
     if (fields[f] === '' || fields[f] === 'Invalid Date') fields[f] = null
   }
 
+  // ── v0.2.0: load the previous state so we can detect what changed ──
+  // Need this both for the activity log AND for webhook event-type detection.
+  const { data: prevLead } = await svc.from('leads').select('*').eq('id', id).single()
+
   const { data: lead, error } = await svc.from('leads').update(fields).eq('id', id).select().single()
   if (error) {
     console.error('leads/update error:', error.message, '| fields:', JSON.stringify(fields))
@@ -56,6 +61,16 @@ export async function POST(req: NextRequest) {
       lead_id: id, created_by: user.id,
       activity_type: 'status_change',
       content: `Status changed: ${labels[previousStatus] || previousStatus} → ${labels[fields.status] || fields.status}`,
+    })
+  }
+
+  // ── v0.2.0: fire CareMatch360 webhook (fire-and-forget) ──
+  // detectEventType inspects field deltas and returns the right event name,
+  // or null if nothing CareMatch360 cares about changed.
+  const eventType = detectEventType(prevLead, lead)
+  if (eventType) {
+    sendLeadEvent(eventType, lead, prevLead?.status).catch(err => {
+      console.error('[leads/update] webhook fire-and-forget error:', err)
     })
   }
 
