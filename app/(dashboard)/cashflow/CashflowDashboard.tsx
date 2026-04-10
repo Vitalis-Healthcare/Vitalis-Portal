@@ -12,6 +12,8 @@ type Row = {
   variance: number | null;
 };
 
+type Horizon = 6 | 12 | 24;
+
 const cream = '#faf7f2';
 const rule = '#e8e2d5';
 const ruleStrong = '#d9d1bf';
@@ -31,6 +33,18 @@ function fmtDate(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+const HORIZON_LABELS: Record<Horizon, string> = {
+  6: '6 weeks',
+  12: '12 weeks',
+  24: '24 weeks',
+};
+
+const SUBTITLES: Record<Horizon, string> = {
+  6: 'Six weeks of receipts, obligations, and the gap between plan and reality.',
+  12: 'Twelve weeks of receipts, obligations, and the gap between plan and reality.',
+  24: 'Twenty-four weeks of receipts, obligations, and the gap between plan and reality.',
+};
+
 export default function CashflowDashboard() {
   const [rows, setRows] = useState<Row[]>([]);
   const [defaultWeek, setDefaultWeek] = useState<string>('');
@@ -39,16 +53,17 @@ export default function CashflowDashboard() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string>('');
   const [weekEndDayName, setWeekEndDayName] = useState<string>('Friday');
+  const [horizon, setHorizon] = useState<Horizon>(12);
 
-  async function load() {
-    const r = await fetch('/api/cashflow/dashboard?weeks=12', { cache: 'no-store' });
+  async function load(h: Horizon = horizon) {
+    const r = await fetch(`/api/cashflow/dashboard?weeks=${h}`, { cache: 'no-store' });
     const j = await r.json();
     setRows(j.rows || []);
     if (j.weekEndDayName) setWeekEndDayName(j.weekEndDayName);
     setDefaultWeek(j.defaultActualWeek || '');
     if (!actualWeek) setActualWeek(j.defaultActualWeek || '');
   }
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { load(horizon); /* eslint-disable-next-line */ }, [horizon]);
 
   async function saveActual() {
     if (!actualWeek || !actualAmount) return;
@@ -56,7 +71,7 @@ export default function CashflowDashboard() {
     const r = await fetch('/api/cashflow/actuals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ week_ending: actualWeek, actual_closing: Number(actualAmount) }),
+      body: JSON.stringify({ week_ending: actualWeek, actual_cash: Number(actualAmount) }),
     });
     setSaving(false);
     if (r.ok) { setMsg('Saved.'); setActualAmount(''); await load(); }
@@ -76,7 +91,7 @@ export default function CashflowDashboard() {
             The week in cash
           </div>
           <div style={{ fontFamily: serif, fontStyle: 'italic', fontSize: 14, color: muted, marginTop: 6 }}>
-            Twelve weeks of receipts, obligations, and the gap between plan and reality.
+            {SUBTITLES[horizon]}
           </div>
         </div>
 
@@ -115,10 +130,41 @@ export default function CashflowDashboard() {
           )}
         </div>
 
-        {/* Ledger table */}
-        <div style={{ fontFamily: serif, fontSize: 11, letterSpacing: '0.14em', color: muted, textTransform: 'uppercase', marginBottom: 8 }}>
-          The Ledger
+        {/* Ledger heading + horizon selector */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+          <div style={{ fontFamily: serif, fontSize: 11, letterSpacing: '0.14em', color: muted, textTransform: 'uppercase' }}>
+            The Ledger
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+            <span style={{ fontFamily: serif, fontStyle: 'italic', fontSize: 12, color: muted }}>
+              Look ahead:
+            </span>
+            {([6, 12, 24] as Horizon[]).map((h, i) => (
+              <span key={h} style={{ display: 'flex', alignItems: 'baseline' }}>
+                {i > 0 && <span style={{ color: ruleStrong, margin: '0 8px', fontFamily: serif }}>·</span>}
+                <button
+                  onClick={() => setHorizon(h)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    fontFamily: serif,
+                    fontSize: 13,
+                    color: horizon === h ? ink : muted,
+                    fontStyle: horizon === h ? 'normal' : 'italic',
+                    fontWeight: horizon === h ? 600 : 400,
+                    borderBottom: horizon === h ? `1px solid ${ink}` : '1px solid transparent',
+                  }}
+                >
+                  {HORIZON_LABELS[h]}
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
+
+        {/* Ledger table */}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: serif }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${ink}`, borderTop: `1px solid ${ink}` }}>

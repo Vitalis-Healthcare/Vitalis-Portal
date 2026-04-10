@@ -3,9 +3,6 @@ import { createServiceClient } from '@/lib/supabase/service';
 
 export const dynamic = 'force-dynamic';
 
-// Postgres dow: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-// If week_start_dow = 6 (Saturday), then week ends on Friday (dow=5).
-// week_end_dow = (week_start_dow + 6) % 7
 function weekEndDow(startDow: number): number {
   return (startDow + 6) % 7;
 }
@@ -24,10 +21,11 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const weeks = Math.min(Math.max(parseInt(url.searchParams.get('weeks') || '12', 10), 4), 52);
+  // Allowed horizons: 6, 12, 24 (default 12). Clamp anything else to 12.
+  const rawWeeks = parseInt(url.searchParams.get('weeks') || '12', 10);
+  const weeks = [6, 12, 24].includes(rawWeeks) ? rawWeeks : 12;
   const sb = createServiceClient();
 
-  // Settings — use correct column names
   const { data: settings } = await sb
     .from('cf_settings')
     .select('opening_cash, opening_date, week_start_dow')
@@ -35,29 +33,39 @@ export async function GET(req: Request) {
     .single();
 
   const seedOpening = Number(settings?.opening_cash ?? 0);
-  const startDow = settings?.week_start_dow ?? 6; // default Saturday → Friday end
+  const startDow = settings?.week_start_dow ?? 6;
   const endDow = weekEndDow(startDow);
   const endDayName = DAY_NAMES[endDow];
 
-  // Build window: 4 past + (weeks-4) future, all ending on endDow
+  // Anchor logic: start at max(week containing opening_date, current week).
+  // That way the ledger begins when tracking began, but rolls forward with
+  // "today" once opening_date is in the past.
   const today = new Date();
-  const thisWeekEnd = weekEndingOf(today, endDow);
-  const start = addDays(thisWeekEnd, -7 * 4);
-  const end = addDays(thisWeekEnd, 7 * (weeks - 4));
+  const currentWeekEnd = weekEndingOf(today, endDow);
 
-  // Transactions with category joined for type (receipt/expense)
+  let startAnchor = currentWeekEnd;
+  if (settings?.opening_date) {
+    const od = new Date(settings.opening_date + 'T00:00:00');
+    const openingWeekEnd = weekEndingOf(od, endDow);
+    if (openingWeekEnd > currentWeekEnd) {
+      startAnchor = openingWeekEnd;
+    }
+  }
+
+  const start = startAnchor;                           // first row = anchor week
+  const end = addDays(start, 7 * (weeks - 1));         // last row = anchor + (weeks-1)
+
   const { data: txns, error: txnErr } = await sb
     .from('cf_transactions')
     .select('txn_date, amount, category_id, cf_categories(type, kind)')
     .is('deleted_at', null)
-    .gte('txn_date', iso(start))
+    .gte('txn_date', iso(addDays(start, -6)))          // include the full first week
     .lte('txn_date', iso(end));
 
   if (txnErr) {
     return NextResponse.json({ error: txnErr.message }, { status: 500 });
   }
 
-  // Actuals
   const { data: actuals } = await sb
     .from('cf_weekly_actuals')
     .select('week_ending, actual_cash')
@@ -112,7 +120,6 @@ export async function GET(req: Request) {
       variance,
     });
 
-    // Cascade: actual re-anchors next opening
     rollingOpening = actual_closing != null ? actual_closing : projected_closing;
   }
 
@@ -120,12 +127,13 @@ export async function GET(req: Request) {
   const defaultActualWeek =
     rows.filter(r => r.week_ending <= todayIso && r.actual_closing == null)
         .map(r => r.week_ending)
-        .pop() || iso(thisWeekEnd);
+        .pop() || iso(currentWeekEnd);
 
   return NextResponse.json({
     rows,
     defaultActualWeek,
     weekEndDayName: endDayName,
     openingCash: seedOpening,
+    horizonWeeks: weeks,
   });
 }
