@@ -9,7 +9,7 @@ type Category = { id: string; name: string; kind: string; type: 'receipt' | 'exp
 type Txn = {
   id: string; txn_date: string; category_id: string; amount: number;
   description: string | null; reference: string | null;
-  cf_categories?: { name: string; kind: string } | null;
+  cf_categories?: { name: string; kind: string; type: 'receipt' | 'expense' | null } | null;
 };
 
 export default function TransactionsClient({
