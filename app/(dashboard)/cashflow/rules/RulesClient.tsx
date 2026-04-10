@@ -109,7 +109,7 @@ export default function RulesClient({ categories, initialRules }: { categories: 
             </thead>
             <tbody>
               {rules.map((r: any, idx: number) => {
-                const isIncome = r.cf_categories?.kind === 'income';
+                const isIncome = r.cf_categories?.type === 'receipt';
                 return (
                   <tr key={r.id} style={{
                     borderBottom: `0.5px solid ${T.rule}`,

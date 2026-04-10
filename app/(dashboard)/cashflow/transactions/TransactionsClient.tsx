@@ -106,7 +106,7 @@ export default function TransactionsClient({
             </thead>
             <tbody>
               {txns.map((t, idx) => {
-                const isIncome = t.cf_categories?.kind === 'income';
+                const isIncome = t.cf_categories?.type === 'receipt';
                 return (
                   <tr key={t.id} style={{
                     borderBottom: `0.5px solid ${T.rule}`,
