@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import * as T from '../editorial-theme';
+import { groupCategories, renderGroupedOptions, SUB_GROUP_LABELS } from '../category-groups';
 
-type Category = { id: string; name: string; kind: 'income' | 'expense' };
+type Category = { id: string; name: string; kind: string; type: 'receipt' | 'expense' };
 type Rule = any;
 const FREQS = ['weekly', 'biweekly', 'semimonthly', 'monthly', 'quarterly', 'annual', 'one_time'];
 
@@ -19,8 +20,8 @@ export default function RulesClient({ categories, initialRules }: { categories: 
     end_date: '', day_of_month: '', active: true,
   });
 
-  const income = categories.filter(c => c.kind === 'income');
-  const expense = categories.filter(c => c.kind === 'expense');
+  const grouped = groupCategories(categories as any);
+  const groups = renderGroupedOptions(grouped);
 
   const submit = async () => {
     if (!form.category_id || !form.label || !form.amount) { toast.error('Category, label, amount required'); return; }
@@ -68,12 +69,7 @@ export default function RulesClient({ categories, initialRules }: { categories: 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px', gap: 12, marginBottom: 12 }}>
             <div><label style={T.label}>Category</label>
               <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} style={T.select}>
-                <optgroup label="── Income ──">
-                  {income.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </optgroup>
-                <optgroup label="── Expenses ──">
-                  {expense.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </optgroup>
+                {groups.map(g => (<optgroup key={g.label} label={g.label}>{g.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>))}
               </select></div>
             <div><label style={T.label}>Label</label>
               <input type="text" placeholder="e.g. Office rent" value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} style={T.input} /></div>

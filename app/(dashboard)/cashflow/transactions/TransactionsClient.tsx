@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import * as T from '../editorial-theme';
+import { groupCategories, renderGroupedOptions, SUB_GROUP_LABELS } from '../category-groups';
 
-type Category = { id: string; name: string; kind: 'income' | 'expense' };
+type Category = { id: string; name: string; kind: string; type: 'receipt' | 'expense' };
 type Txn = {
   id: string; txn_date: string; category_id: string; amount: number;
   description: string | null; reference: string | null;
@@ -23,8 +24,8 @@ export default function TransactionsClient({
     amount: '', description: '', reference: '',
   });
 
-  const income = categories.filter(c => c.kind === 'income');
-  const expense = categories.filter(c => c.kind === 'expense');
+  const grouped = groupCategories(categories as any);
+  const groups = renderGroupedOptions(grouped);
 
   const submit = async () => {
     if (!form.category_id || !form.amount) { toast.error('Category and amount required'); return; }
@@ -71,12 +72,7 @@ export default function TransactionsClient({
               <input type="date" value={form.txn_date} onChange={e => setForm({ ...form, txn_date: e.target.value })} style={T.input} /></div>
             <div><label style={T.label}>Category</label>
               <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} style={T.select}>
-                <optgroup label="── Income ──">
-                  {income.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </optgroup>
-                <optgroup label="── Expenses ──">
-                  {expense.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </optgroup>
+                {groups.map(g => (<optgroup key={g.label} label={g.label}>{g.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>))}
               </select></div>
             <div><label style={T.label}>Amount</label>
               <input type="number" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} style={T.input} /></div>

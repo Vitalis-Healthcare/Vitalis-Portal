@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import * as T from '../editorial-theme';
+import CategoriesManager from './CategoriesManager';
+import { Category } from '../category-groups';
 
 type Settings = {
   id?: string;
@@ -16,7 +18,7 @@ type Settings = {
 const DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const ENDS = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'];
 
-export default function SettingsClient({ initial }: { initial: Settings }) {
+export default function SettingsClient({ initial, initialCategories }: { initial: Settings; initialCategories: Category[] }) {
   const router = useRouter();
   const [form, setForm] = useState({
     company_name: initial?.company_name || 'Vitalis HealthCare Services LLC',
@@ -96,6 +98,8 @@ export default function SettingsClient({ initial }: { initial: Settings }) {
             </div>
           </div>
         </div>
+
+        <CategoriesManager initial={initialCategories} />
 
         <button onClick={save} disabled={saving} style={T.primaryBtn}>
           {saving ? 'Saving…' : 'Save the almanac'}
