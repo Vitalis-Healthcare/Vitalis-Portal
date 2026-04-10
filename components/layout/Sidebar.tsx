@@ -77,6 +77,8 @@ const adminNav: NavSection[] = [
   },
   {
     type: 'group',
+    id: 'cashflow',
+    emoji: '💰',
     label: 'Cashflow',
     items: [
       { href: '/cashflow',              label: 'Dashboard',    icon: Wallet },
