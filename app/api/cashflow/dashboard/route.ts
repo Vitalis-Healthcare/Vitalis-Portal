@@ -60,13 +60,13 @@ export async function GET(req: Request) {
   // Actuals
   const { data: actuals } = await sb
     .from('cf_weekly_actuals')
-    .select('week_ending, actual_closing')
+    .select('week_ending, actual_cash')
     .gte('week_ending', iso(start))
     .lte('week_ending', iso(end));
 
   const actualByWeek = new Map<string, number>();
   (actuals ?? []).forEach(a => {
-    if (a.actual_closing != null) actualByWeek.set(a.week_ending, Number(a.actual_closing));
+    if (a.actual_cash != null) actualByWeek.set(a.week_ending, Number(a.actual_cash));
   });
 
   const rows: Array<{

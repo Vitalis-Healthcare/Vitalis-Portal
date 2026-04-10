@@ -14,20 +14,24 @@ export async function GET() {
   return NextResponse.json({ actuals: data ?? [] });
 }
 
-// POST /api/cashflow/actuals  { week_ending: 'YYYY-MM-DD', actual_closing: number }
+// POST /api/cashflow/actuals  { week_ending: 'YYYY-MM-DD', actual_cash: number }
 // Upsert by week_ending — re-entering overwrites.
+//
+// Back-compat: accept legacy `actual_closing` field from any cached client
+// bundle until all users have reloaded.
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const week_ending = String(body.week_ending || '');
-  const actual_closing = Number(body.actual_closing);
-  if (!week_ending || !isFinite(actual_closing)) {
-    return NextResponse.json({ error: 'week_ending and actual_closing required' }, { status: 400 });
+  const rawAmount = body.actual_cash ?? body.actual_closing;
+  const actual_cash = Number(rawAmount);
+  if (!week_ending || !isFinite(actual_cash)) {
+    return NextResponse.json({ error: 'week_ending and actual_cash required' }, { status: 400 });
   }
   const sb = createServiceClient();
   const { data, error } = await sb
     .from('cf_weekly_actuals')
     .upsert(
-      { week_ending, actual_closing, entered_at: new Date().toISOString() },
+      { week_ending, actual_cash, entered_at: new Date().toISOString() },
       { onConflict: 'week_ending' }
     )
     .select()
