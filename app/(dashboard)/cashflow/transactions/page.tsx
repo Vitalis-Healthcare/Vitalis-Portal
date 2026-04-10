@@ -1,10 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import TransactionsClient from './TransactionsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function TransactionsPage() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const [{ data: categories }, { data: transactions }] = await Promise.all([
     supabase.from('cf_categories').select('*').order('kind').order('name'),
     supabase.from('cf_transactions').select('*, cf_categories(name,kind)').order('txn_date', { ascending: false }).limit(100),

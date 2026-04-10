@@ -1,10 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import SettingsClient from './SettingsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data } = await supabase.from('cf_settings').select('*').maybeSingle();
   return (
     <div className="p-6 max-w-2xl mx-auto">
