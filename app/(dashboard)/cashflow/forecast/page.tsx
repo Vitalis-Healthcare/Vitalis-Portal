@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { editorial } from '@/lib/cashflow/editorial-theme'
+import { editorial, editorialColors } from '@/lib/cashflow/editorial-theme'
 
 type ForecastItem = {
   id: string
   category_id: string
   category_name?: string
-  category_type?: 'income' | 'expense'
+  category_type?: string // 'receipt' | 'payment' in this schema
   bank_account_id: string | null
   bank_account_code?: string | null
   forecast_date: string
@@ -20,16 +20,18 @@ type ForecastItem = {
 type WeekGroup = {
   week_ending: string
   items: ForecastItem[]
-  subtotal_income: number
-  subtotal_expense: number
+  subtotal_in: number
+  subtotal_out: number
   net: number
 }
 
-type Category = { id: string; name: string; type: 'income' | 'expense' }
+type Category = { id: string; name: string; type: string }
 type BankAccount = { id: string; short_code: string; name: string }
 
 const HORIZONS = [12, 26, 52] as const
 type Horizon = typeof HORIZONS[number]
+
+const isReceipt = (t?: string) => t === 'receipt'
 
 const subtitleFor = (h: Horizon) =>
   h === 12 ? 'Twelve weeks of planned cash.' :
@@ -37,7 +39,7 @@ const subtitleFor = (h: Horizon) =>
   'Fifty-two weeks of planned cash.'
 
 const fmtMoney = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
 
 const fmtDate = (d: string) =>
   new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -53,14 +55,12 @@ export default function ForecastPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [accounts, setAccounts] = useState<BankAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [editingId, setEditingId] = useState<string | null>(null)
 
-  // add form state
   const [fDate, setFDate] = useState('')
   const [fCategory, setFCategory] = useState('')
   const [fAmount, setFAmount] = useState('')
   const [fLabel, setFLabel] = useState('')
-  const [fAccount, setFAccount] = useState('') // '' = unassigned
+  const [fAccount, setFAccount] = useState('')
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
@@ -109,16 +109,6 @@ export default function ForecastPage() {
     }
   }
 
-  const saveEdit = async (id: string, patch: Partial<ForecastItem>) => {
-    const res = await fetch(`/api/cashflow/forecast/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    })
-    if (res.ok) { setEditingId(null); load() }
-    else alert('Could not update.')
-  }
-
   return (
     <div style={editorial.page}>
       <div style={editorial.headerBlock}>
@@ -126,23 +116,24 @@ export default function ForecastPage() {
         <p style={editorial.subtitle}>{subtitleFor(horizon)}</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 16, alignItems: 'baseline', marginBottom: 28 }}>
-        <span style={editorial.label}>Look ahead:</span>
-        {HORIZONS.map(h => (
-          <button
-            key={h}
-            onClick={() => setHorizon(h)}
-            style={h === horizon ? editorial.pillActive : editorial.pill}
-          >
-            {h} weeks
-          </button>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 28, justifyContent: 'flex-end' }}>
+        <span style={{ ...editorial.label, marginRight: 12 }}>Look ahead:</span>
+        {HORIZONS.map((h, i) => (
+          <span key={h} style={{ display: 'inline-flex', alignItems: 'baseline' }}>
+            <button
+              onClick={() => setHorizon(h)}
+              style={h === horizon ? editorial.pillActive : editorial.pill}
+            >
+              {h} weeks
+            </button>
+            {i < HORIZONS.length - 1 && <span style={{ color: editorialColors.muted, margin: '0 2px' }}>·</span>}
+          </span>
         ))}
       </div>
 
-      {/* Add form */}
       <div style={editorial.card}>
-        <h2 style={editorial.sectionHead}>Enter into the book</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 140px 1fr 180px auto', gap: 12, alignItems: 'end' }}>
+        <h2 style={{ ...editorial.sectionHead, marginBottom: 16 }}>Enter into the book</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 120px 1fr 160px auto', gap: 14, alignItems: 'end' }}>
           <div>
             <label style={editorial.fieldLabel}>Date</label>
             <input type="date" value={fDate} onChange={e => setFDate(e.target.value)} style={editorial.input} />
@@ -151,7 +142,7 @@ export default function ForecastPage() {
             <label style={editorial.fieldLabel}>Category</label>
             <select value={fCategory} onChange={e => setFCategory(e.target.value)} style={editorial.input}>
               <option value="">— select —</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
@@ -175,47 +166,47 @@ export default function ForecastPage() {
         </div>
       </div>
 
-      {/* Week groups */}
       {loading ? (
         <p style={editorial.muted}>Reading the outlook…</p>
       ) : groups.length === 0 ? (
-        <div style={{ ...editorial.card, textAlign: 'center', padding: 48 }}>
-          <p style={{ ...editorial.subtitle, marginBottom: 0 }}>The outlook is clear.</p>
-          <p style={editorial.muted}>Nothing planned yet. Enter the first item above.</p>
+        <div style={{ ...editorial.card, textAlign: 'center', padding: 56 }}>
+          <p style={{ ...editorial.sectionHead, marginBottom: 8 }}>The outlook is clear.</p>
+          <p style={{ ...editorial.subtitle, margin: 0 }}>Nothing planned yet. Enter the first item above.</p>
         </div>
       ) : (
         groups.map(g => (
           <div key={g.week_ending} style={editorial.card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderBottom: '1px solid #e8e4d9', paddingBottom: 10, marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderBottom: `1px solid ${editorialColors.rule}`, paddingBottom: 12, marginBottom: 14 }}>
               <h3 style={editorial.sectionHead}>{fmtWeek(g.week_ending)}</h3>
-              <div style={{ fontFamily: 'Georgia, serif', fontSize: 14, color: '#5a5245' }}>
-                <span style={{ color: '#2d6b3f', marginRight: 14 }}>in {fmtMoney(g.subtotal_income)}</span>
-                <span style={{ color: '#8b3a2f', marginRight: 14 }}>out {fmtMoney(g.subtotal_expense)}</span>
-                <strong>net {fmtMoney(g.net)}</strong>
+              <div style={{ fontFamily: editorialColors.serif, fontSize: 14, color: editorialColors.muted }}>
+                <span style={{ color: editorialColors.good, marginRight: 18 }}>in {fmtMoney(g.subtotal_in)}</span>
+                <span style={{ color: editorialColors.bad, marginRight: 18 }}>out {fmtMoney(g.subtotal_out)}</span>
+                <span style={{ color: editorialColors.ink }}>net {fmtMoney(g.net)}</span>
               </div>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Georgia, serif' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: editorialColors.serif }}>
               <tbody>
-                {g.items.map(it => (
-                  <tr key={it.id} style={{ borderBottom: '1px solid #f2ede0' }}>
-                    <td style={{ padding: '10px 8px', width: 120, color: '#5a5245' }}>{fmtDate(it.forecast_date)}</td>
-                    <td style={{ padding: '10px 8px' }}>{it.label || <em style={{ color: '#8a8170' }}>(no label)</em>}</td>
-                    <td style={{ padding: '10px 8px' }}>
-                      <span style={editorial.chip}>{it.category_name}</span>
-                    </td>
-                    <td style={{ padding: '10px 8px' }}>
-                      <span style={it.bank_account_code ? editorial.chip : editorial.chipMuted}>
-                        {it.bank_account_code || 'unassigned'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: it.category_type === 'income' ? '#2d6b3f' : '#8b3a2f' }}>
-                      {it.category_type === 'income' ? '+' : '−'}{fmtMoney(Math.abs(it.amount))}
-                    </td>
-                    <td style={{ padding: '10px 8px', textAlign: 'right', width: 100 }}>
-                      <button onClick={() => strikeOut(it.id)} style={editorial.linkBtn}>Strike out</button>
-                    </td>
-                  </tr>
-                ))}
+                {g.items.map(it => {
+                  const receipt = isReceipt(it.category_type)
+                  return (
+                    <tr key={it.id} style={{ borderBottom: `1px solid ${editorialColors.rule}` }}>
+                      <td style={{ padding: '12px 8px', width: 130, color: editorialColors.muted }}>{fmtDate(it.forecast_date)}</td>
+                      <td style={{ padding: '12px 8px', color: editorialColors.ink }}>{it.label || <em style={{ color: editorialColors.muted }}>(no label)</em>}</td>
+                      <td style={{ padding: '12px 8px' }}><span style={editorial.chip}>{it.category_name}</span></td>
+                      <td style={{ padding: '12px 8px' }}>
+                        <span style={it.bank_account_code ? editorial.chip : editorial.chipMuted}>
+                          {it.bank_account_code || 'unassigned'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: receipt ? editorialColors.good : editorialColors.bad }}>
+                        {receipt ? '+' : '−'}{fmtMoney(Math.abs(it.amount))}
+                      </td>
+                      <td style={{ padding: '12px 8px', textAlign: 'right', width: 100 }}>
+                        <button onClick={() => strikeOut(it.id)} style={editorial.linkBtn}>Strike out</button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

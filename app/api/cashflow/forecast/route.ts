@@ -3,14 +3,16 @@ import { createServiceClient } from '@/lib/supabase/service'
 
 export const dynamic = 'force-dynamic'
 
-// Saturday-ending week (ISO-ish but ending Sat) — matches existing cashflow convention
 function weekEndingFor(dateStr: string): string {
+  // Saturday-ending week to match existing cashflow convention
   const d = new Date(dateStr + 'T00:00:00')
   const dow = d.getDay() // 0=Sun..6=Sat
   const daysToSat = (6 - dow + 7) % 7
   d.setDate(d.getDate() + daysToSat)
   return d.toISOString().slice(0, 10)
 }
+
+const isReceipt = (t?: string | null) => t === 'receipt'
 
 export async function GET(req: NextRequest) {
   const supabase = createServiceClient()
@@ -48,32 +50,37 @@ export async function GET(req: NextRequest) {
     .neq('short_code', 'LEGACY')
     .order('sort_order')
 
-  // Group by week_ending
   const groupMap = new Map<string, any>()
   for (const it of items || []) {
     const cat = (it as any).cf_categories
     const acct = (it as any).cf_bank_accounts
     const wk = weekEndingFor(it.forecast_date)
     if (!groupMap.has(wk)) {
-      groupMap.set(wk, { week_ending: wk, items: [], subtotal_income: 0, subtotal_expense: 0, net: 0 })
+      groupMap.set(wk, { week_ending: wk, items: [], subtotal_in: 0, subtotal_out: 0, net: 0 })
     }
     const g = groupMap.get(wk)
+    const amt = Math.abs(Number(it.amount))
     const flat = {
       id: it.id,
       category_id: it.category_id,
       category_name: cat?.name,
-      category_type: cat?.type,
+      category_type: cat?.type, // 'receipt' or 'payment'
       bank_account_id: it.bank_account_id,
       bank_account_code: acct?.short_code || null,
       forecast_date: it.forecast_date,
-      amount: Number(it.amount),
+      amount: amt,
       label: it.label,
       status: it.status,
       rule_id: it.rule_id,
     }
     g.items.push(flat)
-    if (cat?.type === 'income') { g.subtotal_income += flat.amount; g.net += flat.amount }
-    else { g.subtotal_expense += flat.amount; g.net -= flat.amount }
+    if (isReceipt(cat?.type)) {
+      g.subtotal_in += amt
+      g.net += amt
+    } else {
+      g.subtotal_out += amt
+      g.net -= amt
+    }
   }
 
   const groups = Array.from(groupMap.values()).sort((a, b) => a.week_ending.localeCompare(b.week_ending))
