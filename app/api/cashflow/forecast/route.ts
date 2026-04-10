@@ -1,19 +1,109 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/service';
-import { assertCashflowAdmin } from '@/lib/cashflow/auth';
-import { buildForecast } from '@/lib/cashflow/engine';
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/service'
+
+export const dynamic = 'force-dynamic'
+
+// Saturday-ending week (ISO-ish but ending Sat) — matches existing cashflow convention
+function weekEndingFor(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  const dow = d.getDay() // 0=Sun..6=Sat
+  const daysToSat = (6 - dow + 7) % 7
+  d.setDate(d.getDate() + daysToSat)
+  return d.toISOString().slice(0, 10)
+}
+
 export async function GET(req: NextRequest) {
-  try { await assertCashflowAdmin(); } catch { return new NextResponse('Forbidden',{status:403}); }
-  const weeks = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('weeks') || '26'), 1), 104);
-  const supabase = createServiceClient();
-  const [s, cats, rules, txns] = await Promise.all([
-    supabase.from('cf_settings').select('*').maybeSingle(),
-    supabase.from('cf_categories').select('*'),
-    supabase.from('cf_recurring_rules').select('*').eq('active', true),
-    supabase.from('cf_transactions').select('*'),
-  ]);
-  const settings = s.data || { company_name: null, opening_cash: 0, opening_date: new Date().toISOString().slice(0,10), week_start_dow: 1, min_cash_alert: 10000 };
-  const catMap: Record<string,{kind:'income'|'expense'}> = {};
-  for (const c of (cats.data||[])) catMap[c.id] = { kind: c.kind };
-  return NextResponse.json(buildForecast(settings as any, (rules.data||[]) as any, catMap, (txns.data||[]) as any, weeks));
+  const supabase = createServiceClient()
+  const horizonRaw = req.nextUrl.searchParams.get('horizon') || '26'
+  const horizon = [12, 26, 52].includes(parseInt(horizonRaw)) ? parseInt(horizonRaw) : 26
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const horizonEnd = new Date(today)
+  horizonEnd.setDate(horizonEnd.getDate() + horizon * 7)
+
+  const { data: items, error } = await supabase
+    .from('cf_forecast_items')
+    .select(`
+      id, category_id, bank_account_id, forecast_date, amount, label, status, rule_id,
+      cf_categories ( name, type ),
+      cf_bank_accounts ( short_code )
+    `)
+    .gte('forecast_date', today.toISOString().slice(0, 10))
+    .lte('forecast_date', horizonEnd.toISOString().slice(0, 10))
+    .neq('status', 'cancelled')
+    .order('forecast_date', { ascending: true })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const { data: categories } = await supabase
+    .from('cf_categories')
+    .select('id, name, type')
+    .order('name')
+
+  const { data: accounts } = await supabase
+    .from('cf_bank_accounts')
+    .select('id, short_code, name')
+    .eq('is_active', true)
+    .neq('short_code', 'LEGACY')
+    .order('sort_order')
+
+  // Group by week_ending
+  const groupMap = new Map<string, any>()
+  for (const it of items || []) {
+    const cat = (it as any).cf_categories
+    const acct = (it as any).cf_bank_accounts
+    const wk = weekEndingFor(it.forecast_date)
+    if (!groupMap.has(wk)) {
+      groupMap.set(wk, { week_ending: wk, items: [], subtotal_income: 0, subtotal_expense: 0, net: 0 })
+    }
+    const g = groupMap.get(wk)
+    const flat = {
+      id: it.id,
+      category_id: it.category_id,
+      category_name: cat?.name,
+      category_type: cat?.type,
+      bank_account_id: it.bank_account_id,
+      bank_account_code: acct?.short_code || null,
+      forecast_date: it.forecast_date,
+      amount: Number(it.amount),
+      label: it.label,
+      status: it.status,
+      rule_id: it.rule_id,
+    }
+    g.items.push(flat)
+    if (cat?.type === 'income') { g.subtotal_income += flat.amount; g.net += flat.amount }
+    else { g.subtotal_expense += flat.amount; g.net -= flat.amount }
+  }
+
+  const groups = Array.from(groupMap.values()).sort((a, b) => a.week_ending.localeCompare(b.week_ending))
+
+  return NextResponse.json({ groups, categories: categories || [], accounts: accounts || [] })
+}
+
+export async function POST(req: NextRequest) {
+  const supabase = createServiceClient()
+  const body = await req.json()
+  const { forecast_date, category_id, amount, label, bank_account_id } = body
+
+  if (!forecast_date || !category_id || amount == null) {
+    return NextResponse.json({ error: 'forecast_date, category_id, and amount are required' }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .from('cf_forecast_items')
+    .insert({
+      forecast_date,
+      category_id,
+      amount: Math.abs(Number(amount)),
+      label: label || null,
+      bank_account_id: bank_account_id || null,
+      rule_id: null,
+      status: 'planned',
+    })
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ item: data })
 }
