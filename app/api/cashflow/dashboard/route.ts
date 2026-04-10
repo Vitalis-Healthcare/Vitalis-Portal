@@ -3,11 +3,18 @@ import { createServiceClient } from '@/lib/supabase/service';
 
 export const dynamic = 'force-dynamic';
 
-// Helpers
-function fridayOf(d: Date): Date {
+// Postgres dow: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+// If week_start_dow = 6 (Saturday), then week ends on Friday (dow=5).
+// week_end_dow = (week_start_dow + 6) % 7
+function weekEndDow(startDow: number): number {
+  return (startDow + 6) % 7;
+}
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function weekEndingOf(d: Date, endDow: number): Date {
   const out = new Date(d);
-  const day = out.getDay(); // 0=Sun..6=Sat
-  const diff = (5 - day + 7) % 7; // days until Friday
+  const day = out.getDay();
+  const diff = (endDow - day + 7) % 7;
   out.setDate(out.getDate() + diff);
   out.setHours(0, 0, 0, 0);
   return out;
@@ -15,36 +22,45 @@ function fridayOf(d: Date): Date {
 function iso(d: Date) { return d.toISOString().slice(0, 10); }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 
-// GET /api/cashflow/dashboard?weeks=12
-// Returns weeks of data with variance cascade applied.
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const weeks = Math.min(Math.max(parseInt(url.searchParams.get('weeks') || '12', 10), 4), 52);
   const sb = createServiceClient();
 
-  // Build window: 4 past + (weeks-4) future, all Fridays
+  // Settings — use correct column names
+  const { data: settings } = await sb
+    .from('cf_settings')
+    .select('opening_cash, opening_date, week_start_dow')
+    .limit(1)
+    .single();
+
+  const seedOpening = Number(settings?.opening_cash ?? 0);
+  const startDow = settings?.week_start_dow ?? 6; // default Saturday → Friday end
+  const endDow = weekEndDow(startDow);
+  const endDayName = DAY_NAMES[endDow];
+
+  // Build window: 4 past + (weeks-4) future, all ending on endDow
   const today = new Date();
-  const thisFriday = fridayOf(today);
-  const start = addDays(thisFriday, -7 * 4);
-  const end = addDays(thisFriday, 7 * (weeks - 4));
+  const thisWeekEnd = weekEndingOf(today, endDow);
+  const start = addDays(thisWeekEnd, -7 * 4);
+  const end = addDays(thisWeekEnd, 7 * (weeks - 4));
 
-  // Pull settings for opening balance
-  const { data: settings } = await sb.from('cf_settings').select('*').limit(1).single();
-  const seedOpening = Number(settings?.opening_balance ?? 0);
-  const seedDate = settings?.opening_date ? new Date(settings.opening_date) : start;
-
-  // Pull active transactions in window
-  const { data: txns } = await sb
+  // Transactions with category joined for type (receipt/expense)
+  const { data: txns, error: txnErr } = await sb
     .from('cf_transactions')
-    .select('*')
+    .select('txn_date, amount, category_id, cf_categories(type, kind)')
     .is('deleted_at', null)
     .gte('txn_date', iso(start))
     .lte('txn_date', iso(end));
 
-  // Pull actuals in window
+  if (txnErr) {
+    return NextResponse.json({ error: txnErr.message }, { status: 500 });
+  }
+
+  // Actuals
   const { data: actuals } = await sb
     .from('cf_weekly_actuals')
-    .select('*')
+    .select('week_ending, actual_closing')
     .gte('week_ending', iso(start))
     .lte('week_ending', iso(end));
 
@@ -53,7 +69,6 @@ export async function GET(req: Request) {
     if (a.actual_closing != null) actualByWeek.set(a.week_ending, Number(a.actual_closing));
   });
 
-  // Bucket transactions by week-ending Friday
   const rows: Array<{
     week_ending: string;
     opening: number;
@@ -66,20 +81,20 @@ export async function GET(req: Request) {
   }> = [];
 
   let rollingOpening = seedOpening;
-  const seedWeekEnding = fridayOf(seedDate);
 
   for (let i = 0; i < weeks; i++) {
-    const we = addDays(start, 7 * i + 4); // Friday of week i (start is a Friday)
+    const we = addDays(start, 7 * i);
     const weStr = iso(we);
     const weekStart = addDays(we, -6);
 
     let income = 0, expense = 0;
-    (txns ?? []).forEach(t => {
+    (txns ?? []).forEach((t: any) => {
       const d = new Date(t.txn_date);
       if (d >= weekStart && d <= we) {
         const amt = Number(t.amount);
-        if (t.type === 'receipt') income += amt;
-        else expense += amt;
+        const type = t.cf_categories?.type;
+        if (type === 'receipt') income += amt;
+        else if (type === 'expense') expense += amt;
       }
     });
 
@@ -97,17 +112,20 @@ export async function GET(req: Request) {
       variance,
     });
 
-    // CASCADE: if this week has an actual, next week opens at the actual.
-    // Otherwise next week opens at the projected closing.
+    // Cascade: actual re-anchors next opening
     rollingOpening = actual_closing != null ? actual_closing : projected_closing;
   }
 
-  // Find most recent week_ending without an actual (for the input default)
   const todayIso = iso(today);
   const defaultActualWeek =
     rows.filter(r => r.week_ending <= todayIso && r.actual_closing == null)
         .map(r => r.week_ending)
-        .pop() || iso(thisFriday);
+        .pop() || iso(thisWeekEnd);
 
-  return NextResponse.json({ rows, defaultActualWeek });
+  return NextResponse.json({
+    rows,
+    defaultActualWeek,
+    weekEndDayName: endDayName,
+    openingCash: seedOpening,
+  });
 }

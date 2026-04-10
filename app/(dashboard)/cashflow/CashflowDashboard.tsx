@@ -38,11 +38,13 @@ export default function CashflowDashboard() {
   const [actualAmount, setActualAmount] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string>('');
+  const [weekEndDayName, setWeekEndDayName] = useState<string>('Friday');
 
   async function load() {
     const r = await fetch('/api/cashflow/dashboard?weeks=12', { cache: 'no-store' });
     const j = await r.json();
     setRows(j.rows || []);
+    if (j.weekEndDayName) setWeekEndDayName(j.weekEndDayName);
     setDefaultWeek(j.defaultActualWeek || '');
     if (!actualWeek) setActualWeek(j.defaultActualWeek || '');
   }
@@ -81,7 +83,7 @@ export default function CashflowDashboard() {
         {/* Actuals entry card */}
         <div style={{ background: '#fff', border: `0.5px solid ${rule}`, borderRadius: 4, padding: '20px 24px', marginBottom: 32 }}>
           <div style={{ fontFamily: serif, fontSize: 11, letterSpacing: '0.14em', color: muted, textTransform: 'uppercase', marginBottom: 4 }}>
-            Friday reconciliation
+            {weekEndDayName} reconciliation
           </div>
           <div style={{ fontFamily: serif, fontSize: 20, marginBottom: 14 }}>
             Enter last week's actual closing bank balance
