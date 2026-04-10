@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { assertCashflowAdmin } from '@/lib/cashflow/auth';
 export async function GET() {
   try { await assertCashflowAdmin(); } catch { return new NextResponse('Forbidden',{status:403}); }
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data, error } = await supabase.from('cf_settings').select('*').maybeSingle();
   if (error) return NextResponse.json({error:error.message},{status:500});
   return NextResponse.json(data);
@@ -11,7 +11,7 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   try { await assertCashflowAdmin(); } catch { return new NextResponse('Forbidden',{status:403}); }
   const body = await req.json();
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const existing = await supabase.from('cf_settings').select('id').maybeSingle();
   const payload = { ...body, updated_at: new Date().toISOString() };
   const res = existing.data?.id
