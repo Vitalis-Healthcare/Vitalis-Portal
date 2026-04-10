@@ -10,7 +10,7 @@ import {
   Settings, UserCheck, ClipboardList, LogOut, UserCog,
   ShieldCheck, AlertTriangle, Sparkles, Target, Handshake,
   SlidersHorizontal, ChevronDown, ChevronRight, TrendingUp,
-  Building2, BookUser, Map, Activity, Mail, Brain, FileText,
+  Building2, BookUser, Map, Activity, Mail, Brain, FileText, Wallet
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -75,6 +75,17 @@ const adminNav: NavSection[] = [
       { href: '/settings', label: 'Settings',        icon: Settings },
     ],
   },
+  {
+    type: 'group',
+    label: 'Cashflow',
+    items: [
+      { href: '/cashflow',              label: 'Dashboard',    icon: Wallet },
+      { href: '/cashflow/transactions', label: 'Transactions', icon: ClipboardList },
+      { href: '/cashflow/rules',        label: 'Rules',        icon: SlidersHorizontal },
+      { href: '/cashflow/settings',     label: 'Settings',     icon: Settings },
+    ],
+  },
+
 ]
 
 const staffNav: NavSection[] = [
