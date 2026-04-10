@@ -1,175 +1,171 @@
 // lib/cashflow/editorial-theme.ts
 // Canonical inline-style tokens for the Cashflow module.
-// Editorial aesthetic: warm off-white, Georgia serif, navy accents.
+// Palette matches CashflowDashboard.tsx exactly (cream/ink newspaper).
 // Inline styles only — no Tailwind inside cashflow.
 
 import type { CSSProperties } from 'react'
 
-const INK = '#1a1a1a'
-const INK_SOFT = '#5a5245'
-const INK_MUTED = '#8a8170'
-const PAPER = '#faf7f0'
-const RULE = '#e8e4d9'
-const RULE_SOFT = '#f2ede0'
-const NAVY = '#1e3a5f'
-const NAVY_DARK = '#14263f'
-const GOLD = '#b8935a'
-const GREEN = '#2d6b3f'
-const RED = '#8b3a2f'
+const CREAM = '#faf7f2'
+const RULE = '#e8e2d5'
+const RULE_STRONG = '#d9d1bf'
+const INK = '#2a241a'
+const MUTED = '#8a7d5f'
+const GOOD = '#3b6d11'
+const BAD = '#A32D2D'
+const SERIF = 'Georgia, "Iowan Old Style", "Palatino Linotype", serif'
 
 export const editorialColors = {
-  ink: INK,
-  inkSoft: INK_SOFT,
-  inkMuted: INK_MUTED,
-  paper: PAPER,
+  cream: CREAM,
   rule: RULE,
-  ruleSoft: RULE_SOFT,
-  navy: NAVY,
-  navyDark: NAVY_DARK,
-  gold: GOLD,
-  green: GREEN,
-  red: RED,
+  ruleStrong: RULE_STRONG,
+  ink: INK,
+  muted: MUTED,
+  good: GOOD,
+  bad: BAD,
+  serif: SERIF,
 }
 
 export const editorial: Record<string, CSSProperties> = {
   page: {
     maxWidth: 1100,
     margin: '0 auto',
-    padding: '32px 28px 64px',
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    padding: '40px 32px 80px',
+    fontFamily: SERIF,
     color: INK,
-    background: PAPER,
+    background: CREAM,
     minHeight: '100vh',
   },
   headerBlock: {
-    borderBottom: `2px solid ${INK}`,
-    paddingBottom: 16,
-    marginBottom: 24,
+    borderBottom: `1px solid ${RULE_STRONG}`,
+    paddingBottom: 18,
+    marginBottom: 28,
   },
   title: {
-    fontFamily: 'Georgia, "Times New Roman", serif',
-    fontSize: 42,
+    fontFamily: SERIF,
+    fontSize: 44,
     fontWeight: 400,
     letterSpacing: '-0.01em',
     margin: 0,
     color: INK,
   },
   subtitle: {
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 17,
     fontStyle: 'italic',
-    color: INK_SOFT,
-    margin: '8px 0 0',
+    color: MUTED,
+    margin: '10px 0 0',
   },
   label: {
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 14,
     fontStyle: 'italic',
-    color: INK_SOFT,
-    textTransform: 'none',
+    color: MUTED,
   },
   pill: {
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 14,
-    padding: '6px 14px',
-    border: `1px solid ${RULE}`,
+    padding: '5px 14px',
+    border: 'none',
     background: 'transparent',
-    color: INK_SOFT,
-    borderRadius: 2,
+    color: MUTED,
     cursor: 'pointer',
+    textDecoration: 'none',
   },
   pillActive: {
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 14,
-    padding: '6px 14px',
-    border: `1px solid ${NAVY}`,
-    background: NAVY,
-    color: '#fff',
-    borderRadius: 2,
+    fontWeight: 600,
+    padding: '5px 14px',
+    border: 'none',
+    background: 'transparent',
+    color: INK,
     cursor: 'pointer',
+    textDecoration: 'underline',
+    textUnderlineOffset: '4px',
   },
   card: {
     background: '#fff',
     border: `1px solid ${RULE}`,
-    padding: '20px 24px',
-    marginBottom: 20,
-    boxShadow: '0 1px 0 rgba(0,0,0,0.02)',
+    padding: '22px 26px',
+    marginBottom: 22,
   },
   sectionHead: {
-    fontFamily: 'Georgia, "Times New Roman", serif',
-    fontSize: 20,
+    fontFamily: SERIF,
+    fontSize: 22,
     fontWeight: 400,
     margin: 0,
     color: INK,
   },
   fieldLabel: {
     display: 'block',
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 12,
     fontStyle: 'italic',
-    color: INK_MUTED,
-    marginBottom: 4,
+    color: MUTED,
+    marginBottom: 5,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
   },
   input: {
     width: '100%',
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 15,
     padding: '8px 10px',
-    border: `1px solid ${RULE}`,
+    border: `1px solid ${RULE_STRONG}`,
     background: '#fff',
     color: INK,
-    borderRadius: 2,
+    borderRadius: 0,
     boxSizing: 'border-box',
   },
   primaryBtn: {
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 15,
-    padding: '9px 20px',
-    border: `1px solid ${NAVY_DARK}`,
-    background: NAVY,
-    color: '#fff',
-    borderRadius: 2,
+    padding: '9px 22px',
+    border: `1px solid ${INK}`,
+    background: INK,
+    color: CREAM,
+    borderRadius: 0,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
+    letterSpacing: '0.02em',
   },
   muted: {
-    fontFamily: 'Georgia, "Times New Roman", serif',
-    fontSize: 15,
+    fontFamily: SERIF,
+    fontSize: 16,
     fontStyle: 'italic',
-    color: INK_MUTED,
+    color: MUTED,
     textAlign: 'center',
-    padding: '24px 0',
+    padding: '28px 0',
   },
   chip: {
     display: 'inline-block',
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 12,
     padding: '2px 10px',
-    border: `1px solid ${GOLD}`,
-    background: '#fdf8ed',
-    color: INK_SOFT,
-    borderRadius: 2,
+    border: `1px solid ${RULE_STRONG}`,
+    background: CREAM,
+    color: INK,
   },
   chipMuted: {
     display: 'inline-block',
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 12,
     fontStyle: 'italic',
     padding: '2px 10px',
-    border: `1px dashed ${RULE}`,
+    border: `1px dashed ${RULE_STRONG}`,
     background: 'transparent',
-    color: INK_MUTED,
-    borderRadius: 2,
+    color: MUTED,
   },
   linkBtn: {
-    fontFamily: 'Georgia, "Times New Roman", serif',
+    fontFamily: SERIF,
     fontSize: 13,
     fontStyle: 'italic',
     padding: 0,
     border: 'none',
     background: 'transparent',
-    color: RED,
+    color: BAD,
     cursor: 'pointer',
     textDecoration: 'underline',
+    textUnderlineOffset: '3px',
   },
 }

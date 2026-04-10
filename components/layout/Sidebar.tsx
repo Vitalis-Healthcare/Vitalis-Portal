@@ -82,6 +82,7 @@ const adminNav: NavSection[] = [
     label: 'Cashflow',
     items: [
       { href: '/cashflow',              label: 'Dashboard',    icon: Wallet },
+      { href: '/cashflow/forecast',    label: 'The outlook',  icon: TrendingUp },
       { href: '/cashflow/transactions', label: 'Transactions', icon: ClipboardList },
       { href: '/cashflow/rules',        label: 'Rules',        icon: SlidersHorizontal },
       { href: '/cashflow/settings',     label: 'Settings',     icon: Settings },

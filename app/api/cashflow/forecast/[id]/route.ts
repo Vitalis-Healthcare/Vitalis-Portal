@@ -30,7 +30,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   const supabase = createServiceClient()
 
-  // Check status: matched items must be unmatched first (per amendment §1)
   const { data: existing, error: fetchErr } = await supabase
     .from('cf_forecast_items')
     .select('status, matched_actual_id')
