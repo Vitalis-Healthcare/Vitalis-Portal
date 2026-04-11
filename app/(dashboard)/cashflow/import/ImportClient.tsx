@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import * as T from '@/lib/cashflow/editorial-theme';
+import * as T from '../editorial-theme';
 import { groupCategories, renderGroupedOptions } from '../category-groups';
 
 type Category = { id: string; name: string; kind: string; type: 'receipt' | 'expense' };
