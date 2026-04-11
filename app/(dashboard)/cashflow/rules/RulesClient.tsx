@@ -6,13 +6,24 @@ import * as T from '../editorial-theme';
 import { groupCategories, renderGroupedOptions } from '../category-groups';
 
 type Category = { id: string; name: string; kind: string; type: 'receipt' | 'expense' };
+type CatJoin = { name: string; kind: string; type: 'receipt' | 'expense' };
 type Rule = {
   id: string;
   name: string;
   amount: number;
   frequency: string;
-  cf_categories?: { name: string; kind: string; type: 'receipt' | 'expense' };
+  cf_categories?: CatJoin | CatJoin[] | null;
 };
+
+// Supabase joined-relation guard: PostgREST may return single-row joins
+// as either an object or a single-element array depending on FK shape.
+// Always normalize before reading fields. (See cashflow-pitfalls.md)
+function catOf(r: Rule): CatJoin | null {
+  const c = r.cf_categories;
+  if (!c) return null;
+  if (Array.isArray(c)) return c[0] ?? null;
+  return c;
+}
 const FREQS = ['weekly', 'biweekly', 'semimonthly', 'monthly', 'quarterly', 'annual', 'one_time'];
 
 export default function RulesClient({ categories, initialRules }: { categories: Category[]; initialRules: Rule[] }) {
@@ -136,14 +147,15 @@ export default function RulesClient({ categories, initialRules }: { categories: 
             </thead>
             <tbody>
               {rules.map((r, idx) => {
-                const isIncome = r.cf_categories?.type === 'receipt';
+                const cat = catOf(r);
+                const isIncome = cat?.type === 'receipt';
                 return (
                   <tr key={r.id} style={{
                     borderBottom: `0.5px solid ${T.rule}`,
                     background: idx % 2 === 0 ? 'transparent' : 'rgba(232,226,213,0.25)',
                   }}>
                     <td style={{ padding: '12px', fontSize: 15, fontWeight: 500 }}>{r.name}</td>
-                    <td style={{ padding: '12px', fontSize: 14, color: T.muted }}>{r.cf_categories?.name || '—'}</td>
+                    <td style={{ padding: '12px', fontSize: 14, color: T.muted }}>{cat?.name || '—'}</td>
                     <td style={{ padding: '12px', fontSize: 13, fontStyle: 'italic', color: T.muted }}>{String(r.frequency).replace('_', ' ')}</td>
                     <td style={{ padding: '12px', fontSize: 15, textAlign: 'right', fontWeight: 500, color: isIncome ? T.good : T.bad }}>
                       {isIncome ? '+' : '−'}{fmt(Math.abs(r.amount))}
