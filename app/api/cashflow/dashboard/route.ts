@@ -71,13 +71,15 @@ export async function GET(req: Request) {
 
   if (fErr) return NextResponse.json({ error: fErr.message }, { status: 500 });
 
-  // ACTUALS — v0.5.5-a — repointed from cf_transactions to cf_actual_items.
-  // Filter matched_forecast_id IS NULL: matched items are already represented
-  // by their planned forecast row, so counting them again would double-count.
+  // ACTUALS — v0.5.5-c — adds transfer_pair_id IS NULL filter so paired transfers
+  // (which net to zero across two bank accounts) don't count as income or expense.
+  // matched_forecast_id IS NULL filter still applies — matched items are already
+  // represented by their planned forecast row.
   const { data: actualItems, error: tErr } = await sb
     .from('cf_actual_items')
     .select('actual_date, amount, cf_categories(type)')
     .is('matched_forecast_id', null)
+    .is('transfer_pair_id', null)
     .gte('actual_date', iso(weekWindowStart))
     .lte('actual_date', iso(end));
 
@@ -113,7 +115,6 @@ export async function GET(req: Request) {
     const weStr = iso(we);
     const weekStart = addDays(we, -6);
 
-    // Projections from forecast items
     let income = 0, expense = 0;
     (forecasts ?? []).forEach((f: any) => {
       const d = new Date(f.forecast_date + 'T00:00:00');
@@ -128,7 +129,6 @@ export async function GET(req: Request) {
     const net = income - expense;
     const projected_closing = rollingOpening + net;
 
-    // Signed sum of unmatched actual_items for this week (synthetic actual fallback)
     let txnNet = 0;
     let hasTxns = false;
     (actualItems ?? []).forEach((t: any) => {
@@ -142,7 +142,6 @@ export async function GET(req: Request) {
       }
     });
 
-    // Actual closing: (a) bank anchor wins, (b) else synthesize from items, (c) else null
     let actual_closing: number | null;
     if (actualByWeek.has(weStr)) {
       actual_closing = actualByWeek.get(weStr)!;
