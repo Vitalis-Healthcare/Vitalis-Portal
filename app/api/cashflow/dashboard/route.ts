@@ -19,6 +19,15 @@ function weekEndingOf(d: Date, endDow: number): Date {
 function iso(d: Date) { return d.toISOString().slice(0, 10); }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 
+// Pitfall #7 — joined cf_categories may be object OR array. Always normalize.
+type CatJoin = { type: 'receipt' | 'expense' | null };
+function catTypeOf(row: any): 'receipt' | 'expense' | null {
+  const c = row?.cf_categories;
+  if (!c) return null;
+  const obj: CatJoin | undefined = Array.isArray(c) ? c[0] : c;
+  return obj?.type ?? null;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const rawWeeks = parseInt(url.searchParams.get('weeks') || '12', 10);
@@ -62,13 +71,15 @@ export async function GET(req: Request) {
 
   if (fErr) return NextResponse.json({ error: fErr.message }, { status: 500 });
 
-  // ACTUALS — from cf_transactions (signed by category type)
-  const { data: txns, error: tErr } = await sb
-    .from('cf_transactions')
-    .select('txn_date, amount, cf_categories(type)')
-    .is('deleted_at', null)
-    .gte('txn_date', iso(weekWindowStart))
-    .lte('txn_date', iso(end));
+  // ACTUALS — v0.5.5-a — repointed from cf_transactions to cf_actual_items.
+  // Filter matched_forecast_id IS NULL: matched items are already represented
+  // by their planned forecast row, so counting them again would double-count.
+  const { data: actualItems, error: tErr } = await sb
+    .from('cf_actual_items')
+    .select('actual_date, amount, cf_categories(type)')
+    .is('matched_forecast_id', null)
+    .gte('actual_date', iso(weekWindowStart))
+    .lte('actual_date', iso(end));
 
   if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 });
 
@@ -108,7 +119,7 @@ export async function GET(req: Request) {
       const d = new Date(f.forecast_date + 'T00:00:00');
       if (d >= weekStart && d <= we) {
         const amt = Math.abs(Number(f.amount));
-        const type = f.cf_categories?.type;
+        const type = catTypeOf(f);
         if (type === 'receipt') income += amt;
         else if (type === 'expense') expense += amt;
       }
@@ -117,21 +128,21 @@ export async function GET(req: Request) {
     const net = income - expense;
     const projected_closing = rollingOpening + net;
 
-    // Signed txn sum for this week (for synthetic actual fallback)
+    // Signed sum of unmatched actual_items for this week (synthetic actual fallback)
     let txnNet = 0;
     let hasTxns = false;
-    (txns ?? []).forEach((t: any) => {
-      const d = new Date(t.txn_date + 'T00:00:00');
+    (actualItems ?? []).forEach((t: any) => {
+      const d = new Date(t.actual_date + 'T00:00:00');
       if (d >= weekStart && d <= we) {
         hasTxns = true;
         const amt = Math.abs(Number(t.amount));
-        const type = t.cf_categories?.type;
+        const type = catTypeOf(t);
         if (type === 'receipt') txnNet += amt;
         else if (type === 'expense') txnNet -= amt;
       }
     });
 
-    // Actual closing: (a) bank anchor wins, (b) else synthesize from txns, (c) else null
+    // Actual closing: (a) bank anchor wins, (b) else synthesize from items, (c) else null
     let actual_closing: number | null;
     if (actualByWeek.has(weStr)) {
       actual_closing = actualByWeek.get(weStr)!;
