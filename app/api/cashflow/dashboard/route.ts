@@ -30,8 +30,8 @@ function catTypeOf(row: any): 'receipt' | 'expense' | null {
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const rawWeeks = parseInt(url.searchParams.get('weeks') || '12', 10);
-  const weeks = [6, 12, 24].includes(rawWeeks) ? rawWeeks : 12;
+  const rawWeeks = parseInt(url.searchParams.get('weeks') || '26', 10);
+  const weeks = [12, 26, 52].includes(rawWeeks) ? rawWeeks : 26;
   const sb = createServiceClient();
 
   const { data: settings } = await sb
