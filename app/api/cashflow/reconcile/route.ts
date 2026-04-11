@@ -39,15 +39,9 @@ export async function GET(req: NextRequest) {
       .order('forecast_date', { ascending: true })
     if (fErr) throw fErr
 
-    const { data: txns, error: tErr } = await supabase
-      .from('cf_transactions')
-      .select('id, txn_date, amount, description, category_id, cf_categories(id,name,type)')
-      .gte('txn_date', startWeek)
-      .lte('txn_date', endWeek)
-      .is('deleted_at', null)
-      .order('txn_date', { ascending: true })
-    if (tErr) throw tErr
-
+    // v0.5.7 — cf_transactions read removed. cf_actual_items is the single
+    // source of truth for actuals (since v0.5.5). The reckoning's "Received"
+    // column is populated entirely from the cf_actual_items query below.
     const { data: actuals, error: aErr } = await supabase
       .from('cf_actual_items')
       .select('id, actual_date, amount, reference, category_id, bank_account_id, cf_categories(id,name,type), cf_bank_accounts(id,short_code)')
@@ -93,28 +87,6 @@ export async function GET(req: NextRequest) {
       g.planned.push(item)
       if (cat?.type === 'receipt') g.planned_in += Math.abs(item.amount)
       else g.planned_out += Math.abs(item.amount)
-    }
-
-    for (const t of txns || []) {
-      const wk = saturdayEnding(t.txn_date)
-      const g = groupsMap.get(wk)
-      if (!g) continue
-      const catRel = (t as any).cf_categories
-      const cat = Array.isArray(catRel) ? catRel[0] : catRel
-      const item = {
-        id: t.id,
-        source: 'transaction' as const,
-        category_name: cat?.name,
-        category_type: cat?.type,
-        bank_account_code: null,
-        the_date: t.txn_date,
-        amount: Number(t.amount),
-        description: t.description || '',
-        reference: null,
-      }
-      g.received.push(item)
-      if (cat?.type === 'receipt') g.received_in += Math.abs(item.amount)
-      else g.received_out += Math.abs(item.amount)
     }
 
     for (const a of actuals || []) {

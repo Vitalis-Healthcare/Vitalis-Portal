@@ -86,6 +86,13 @@ export async function GET(req: Request) {
   if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 });
 
   // BANK BALANCE ANCHORS — cf_weekly_actuals ground truth
+  //
+  // v0.5.7 — Filter out literal-zero anchors. A real bank balance of exactly $0
+  // is vanishingly rare; in practice a 0.00 row is a half-saved Friday
+  // reconciliation that never got a real number typed in. Letting those rows
+  // win the priority order causes Actual to render $0 for the affected week,
+  // which then poisons variance and the rolling opening for every later week.
+  // The txn-net branch handles the rare legitimate-zero case correctly.
   const { data: actuals } = await sb
     .from('cf_weekly_actuals')
     .select('week_ending, actual_cash')
@@ -94,7 +101,9 @@ export async function GET(req: Request) {
 
   const actualByWeek = new Map<string, number>();
   (actuals ?? []).forEach(a => {
-    if (a.actual_cash != null) actualByWeek.set(a.week_ending, Number(a.actual_cash));
+    if (a.actual_cash != null && Number(a.actual_cash) !== 0) {
+      actualByWeek.set(a.week_ending, Number(a.actual_cash));
+    }
   });
 
   const rows: Array<{
@@ -129,19 +138,30 @@ export async function GET(req: Request) {
     const net = income - expense;
     const projected_closing = rollingOpening + net;
 
+    // v0.5.7 — hasTxns is only flipped when the row actually contributes to
+    // txnNet (i.e. its category type resolved to receipt or expense). An
+    // uncategorised row (category_id NULL, allowed by schema for QBO imports)
+    // used to flip hasTxns true while contributing 0 to txnNet, which made
+    // branch #2 fire and produce a misleading rollingOpening + 0 actual.
     let txnNet = 0;
     let hasTxns = false;
     (actualItems ?? []).forEach((t: any) => {
       const d = new Date(t.actual_date + 'T00:00:00');
       if (d >= weekStart && d <= we) {
-        hasTxns = true;
         const amt = Math.abs(Number(t.amount));
         const type = catTypeOf(t);
-        if (type === 'receipt') txnNet += amt;
-        else if (type === 'expense') txnNet -= amt;
+        if (type === 'receipt') {
+          txnNet += amt;
+          hasTxns = true;
+        } else if (type === 'expense') {
+          txnNet -= amt;
+          hasTxns = true;
+        }
       }
     });
 
+    // Actual priority: (1) bank-balance anchor from cf_weekly_actuals,
+    // (2) rolling opening + txn net for the week, (3) null (renders as —).
     let actual_closing: number | null;
     if (actualByWeek.has(weStr)) {
       actual_closing = actualByWeek.get(weStr)!;
