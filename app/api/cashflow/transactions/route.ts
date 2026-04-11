@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { assertCashflowAdmin } from '@/lib/cashflow/auth';
 
-// v0.5.5-a — daybook now reads/writes cf_actual_items.
-// cf_transactions is no longer touched here. It will be dropped in v0.5.7.
+// v0.5.5-a-2 — daybook reads/writes cf_actual_items, restricted to source='manual'.
+// CSV imports (source='import') will appear on /cashflow/import ("The arrivals").
+// Matched items live on the reckoning. Each page owns its slice by source.
 
-const JOINED_SELECT = '*, cf_categories(name,kind,type)';
+const JOINED_SELECT = '*, cf_categories(name,kind,type), cf_bank_accounts(id,short_code,name)';
 
 export async function GET() {
   try { await assertCashflowAdmin(); } catch { return new NextResponse('Forbidden', { status: 403 }); }
@@ -13,6 +14,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('cf_actual_items')
     .select(JOINED_SELECT)
+    .eq('source', 'manual')
     .order('actual_date', { ascending: false })
     .limit(200);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
