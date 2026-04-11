@@ -294,7 +294,7 @@ export default function CashflowDashboard() {
                     </td>
                     <td style={{ padding: '12px', fontSize: 15, textAlign: 'right', fontWeight: 500 }}>{fmt(r.actual_closing)}</td>
                     <td style={{ padding: '12px', fontSize: 15, textAlign: 'right', color: vColor, fontWeight: r.variance != null ? 500 : 400 }}>
-                      {r.variance == null ? '—' : (r.variance >= 0 ? '+' : '') + fmt(r.variance).replace('-', '')}
+                      {r.variance == null ? '—' : fmtSigned(r.variance)}
                     </td>
                   </tr>
                   {isOpen && (
