@@ -1,6 +1,6 @@
 {
   "name": "vitalis-portal",
-  "version": "0.5.5-b",
+  "version": "0.5.5-c",
   "private": true,
   "scripts": {
     "dev": "next dev",
