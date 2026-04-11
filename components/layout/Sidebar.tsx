@@ -10,7 +10,7 @@ import {
   Settings, UserCheck, ClipboardList, LogOut, UserCog,
   ShieldCheck, AlertTriangle, Sparkles, Target, Handshake,
   SlidersHorizontal, ChevronDown, ChevronRight, TrendingUp,
-  Building2, BookUser, Map, Activity, Mail, Brain, FileText, Wallet, CheckSquare } from 'lucide-react'
+  Building2, BookUser, Map, Activity, Mail, Brain, FileText, Wallet, CheckSquare, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -80,12 +80,13 @@ const adminNav: NavSection[] = [
     emoji: '💰',
     label: 'Cashflow',
     items: [
-      { href: '/cashflow',              label: 'Dashboard',    icon: Wallet },
-      { href: '/cashflow/forecast',    label: 'The outlook',  icon: TrendingUp },
-        { href: '/cashflow/reconcile', label: 'The reckoning', icon: CheckSquare },
-      { href: '/cashflow/transactions', label: 'Transactions', icon: ClipboardList },
-      { href: '/cashflow/rules',        label: 'Rules',        icon: SlidersHorizontal },
-      { href: '/cashflow/settings',     label: 'Settings',     icon: Settings },
+      { href: '/cashflow',              label: 'Dashboard',     icon: Wallet },
+      { href: '/cashflow/forecast',     label: 'The outlook',   icon: TrendingUp },
+      { href: '/cashflow/transactions', label: 'The daybook',   icon: ClipboardList },
+      { href: '/cashflow/import',       label: 'The arrivals',  icon: Upload },
+      { href: '/cashflow/reconcile',    label: 'The reckoning', icon: CheckSquare },
+      { href: '/cashflow/rules',        label: 'Standing orders', icon: SlidersHorizontal },
+      { href: '/cashflow/settings',     label: 'Settings',      icon: Settings },
     ],
   },
 
