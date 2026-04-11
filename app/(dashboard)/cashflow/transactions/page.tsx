@@ -2,9 +2,8 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { requireCashflowAdmin } from '@/lib/cashflow/auth';
 import TransactionsClient from './TransactionsClient';
 
-// v0.5.5-a — server-side fetch rewired to cf_actual_items.
-// JOINED_SELECT must match the route handler's select shape (pitfall #9).
-const JOINED_SELECT = '*, cf_categories(name,kind,type)';
+// v0.5.5-a-2 — JOINED_SELECT and source filter MUST mirror the route handler exactly (pitfall #9).
+const JOINED_SELECT = '*, cf_categories(name,kind,type), cf_bank_accounts(id,short_code,name)';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,16 +12,27 @@ export default async function Page() {
   const sb = createServiceClient();
 
   const [catsRes, txnsRes, banksRes] = await Promise.all([
-    sb.from('cf_categories').select('id,name,kind,type').is('deleted_at', null).order('name'),
-    sb.from('cf_actual_items').select(JOINED_SELECT).order('actual_date', { ascending: false }).limit(200),
-    sb.from('cf_bank_accounts').select('id,name,is_active').eq('is_active', true).order('name'),
+    // cf_categories has NO deleted_at column — use is_active. Order by sort_order.
+    sb.from('cf_categories')
+      .select('id,name,kind,type')
+      .eq('is_active', true)
+      .order('sort_order'),
+    sb.from('cf_actual_items')
+      .select(JOINED_SELECT)
+      .eq('source', 'manual')
+      .order('actual_date', { ascending: false })
+      .limit(200),
+    sb.from('cf_bank_accounts')
+      .select('id,short_code,name,is_active')
+      .eq('is_active', true)
+      .order('sort_order'),
   ]);
 
   const categories = (catsRes.data ?? []) as any[];
   const initialTransactions = (txnsRes.data ?? []) as any[];
-  // Hide "Legacy (pre-v0.5)" buckets from new-entry dropdown — keep them in the DB for old data.
+  // Hide LEGACY from new-entry dropdown — filter by short_code, the real sentinel.
   const bankAccounts = (banksRes.data ?? []).filter(
-    (b: any) => !String(b.name).toLowerCase().startsWith('legacy')
+    (b: any) => b.short_code !== 'LEGACY'
   );
 
   return (

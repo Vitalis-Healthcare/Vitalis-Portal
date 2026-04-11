@@ -6,9 +6,10 @@ import * as T from '../editorial-theme';
 import { groupCategories, renderGroupedOptions } from '../category-groups';
 
 type Category = { id: string; name: string; kind: string; type: 'receipt' | 'expense' };
-type BankAccount = { id: string; name: string; is_active: boolean };
+type BankAccount = { id: string; short_code: string; name: string; is_active: boolean };
 
 type CatJoin = { name: string; kind: string; type: 'receipt' | 'expense' | null };
+type BankJoin = { id: string; short_code: string; name: string };
 
 type Txn = {
   id: string;
@@ -19,6 +20,7 @@ type Txn = {
   description: string | null;
   reference: string | null;
   cf_categories?: CatJoin | CatJoin[] | null;
+  cf_bank_accounts?: BankJoin | BankJoin[] | null;
 };
 
 // Pitfall #7 — joined relation may be object OR array. Always normalize.
@@ -28,6 +30,12 @@ function catOf(t: Txn): CatJoin | null {
   if (Array.isArray(c)) return c[0] ?? null;
   return c;
 }
+function bankOf(t: Txn): BankJoin | null {
+  const b = t.cf_bank_accounts;
+  if (!b) return null;
+  if (Array.isArray(b)) return b[0] ?? null;
+  return b;
+}
 
 export default function TransactionsClient({
   categories, initialTransactions, bankAccounts,
@@ -36,9 +44,8 @@ export default function TransactionsClient({
   const [txns, setTxns] = useState<Txn[]>(initialTransactions);
   const [saving, setSaving] = useState(false);
 
-  // Default bank account: prefer "M&T — Operating", else first available.
   const defaultBank =
-    bankAccounts.find(b => b.name.toLowerCase().includes('operating'))?.id
+    bankAccounts.find(b => b.short_code === 'MT-3394')?.id
     ?? bankAccounts[0]?.id
     ?? '';
 
@@ -114,7 +121,7 @@ export default function TransactionsClient({
             <div>
               <label style={T.label}>Bank account</label>
               <select value={form.bank_account_id} onChange={e => setForm({ ...form, bank_account_id: e.target.value })} style={T.select}>
-                {bankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                {bankAccounts.map(b => <option key={b.id} value={b.id}>{b.short_code}</option>)}
               </select>
             </div>
             <div>
@@ -147,6 +154,7 @@ export default function TransactionsClient({
             <thead>
               <tr style={{ borderBottom: `1px solid ${T.ink}`, borderTop: `1px solid ${T.ink}` }}>
                 <th style={T.tableHead}>Date</th>
+                <th style={T.tableHead}>Bank</th>
                 <th style={T.tableHead}>Category</th>
                 <th style={T.tableHead}>Description</th>
                 <th style={{ ...T.tableHead, textAlign: 'right' }}>Amount</th>
@@ -156,6 +164,7 @@ export default function TransactionsClient({
             <tbody>
               {txns.map((t, idx) => {
                 const cat = catOf(t);
+                const bank = bankOf(t);
                 const isIncome = cat?.type === 'receipt';
                 return (
                   <tr key={t.id} style={{
@@ -163,6 +172,7 @@ export default function TransactionsClient({
                     background: idx % 2 === 0 ? 'transparent' : 'rgba(232,226,213,0.25)',
                   }}>
                     <td style={{ padding: '12px', fontSize: 14 }}>{fmtDate(t.actual_date)}</td>
+                    <td style={{ padding: '12px', fontSize: 13, color: T.muted }}>{bank?.short_code || '—'}</td>
                     <td style={{ padding: '12px', fontSize: 14 }}>{cat?.name || '—'}</td>
                     <td style={{ padding: '12px', fontSize: 14, fontStyle: t.description ? 'normal' : 'italic', color: t.description ? T.ink : T.muted }}>
                       {t.description || '—'}
