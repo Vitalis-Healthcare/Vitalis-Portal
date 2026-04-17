@@ -10,7 +10,9 @@ import {
   Settings, UserCheck, ClipboardList, LogOut, UserCog,
   ShieldCheck, AlertTriangle, Sparkles, Target, Handshake,
   SlidersHorizontal, ChevronDown, ChevronRight, TrendingUp,
-  Building2, BookUser, Map, Activity, Mail, Brain, FileText, Wallet, CheckSquare, Upload } from 'lucide-react'
+  Building2, BookUser, Map, Activity, Mail, Brain, FileText,
+  Wallet, CheckSquare, Upload, Stethoscope, HeartPulse,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -47,6 +49,13 @@ const adminNav: NavSection[] = [
     ],
   },
   {
+    type: 'group', id: 'assessments', label: 'Assessments', emoji: '🩺',
+    items: [
+      { href: '/assessments',         label: 'Overview',  icon: Stethoscope },
+      { href: '/assessments/clients', label: 'Clients',   icon: HeartPulse },
+    ],
+  },
+  {
     type: 'group', id: 'leads', label: 'Leads & Pipeline', emoji: '🎯',
     items: [
       { href: '/leads',                  label: 'Leads & Pipeline',  icon: Target },
@@ -80,16 +89,39 @@ const adminNav: NavSection[] = [
     emoji: '💰',
     label: 'Cashflow',
     items: [
-      { href: '/cashflow',              label: 'Dashboard',     icon: Wallet },
-      { href: '/cashflow/forecast',     label: 'The outlook',   icon: TrendingUp },
-      { href: '/cashflow/transactions', label: 'The daybook',   icon: ClipboardList },
-      { href: '/cashflow/import',       label: 'The arrivals',  icon: Upload },
-      { href: '/cashflow/reconcile',    label: 'The reckoning', icon: CheckSquare },
+      { href: '/cashflow',              label: 'Dashboard',       icon: Wallet },
+      { href: '/cashflow/forecast',     label: 'The outlook',     icon: TrendingUp },
+      { href: '/cashflow/transactions', label: 'The daybook',     icon: ClipboardList },
+      { href: '/cashflow/import',       label: 'The arrivals',    icon: Upload },
+      { href: '/cashflow/reconcile',    label: 'The reckoning',   icon: CheckSquare },
       { href: '/cashflow/rules',        label: 'Standing orders', icon: SlidersHorizontal },
-      { href: '/cashflow/settings',     label: 'Settings',      icon: Settings },
+      { href: '/cashflow/settings',     label: 'Settings',        icon: Settings },
     ],
   },
+]
 
+const nurseNav: NavSection[] = [
+  {
+    type: 'flat', label: 'MAIN',
+    items: [
+      { href: '/dashboard', label: 'Overview',    icon: LayoutDashboard },
+      { href: '/vita',      label: 'Ask Vita ✨', icon: Sparkles },
+    ],
+  },
+  {
+    type: 'group', id: 'assessments', label: 'Assessments', emoji: '🩺',
+    items: [
+      { href: '/assessments',         label: 'My Assessments', icon: Stethoscope },
+      { href: '/assessments/clients', label: 'My Clients',     icon: HeartPulse },
+    ],
+  },
+  {
+    type: 'group', id: 'compliance', label: 'Compliance', emoji: '🛡️',
+    items: [
+      { href: '/lms', label: 'Training Programmes',   icon: GraduationCap },
+      { href: '/pp',  label: 'Policies & Procedures', icon: ShieldCheck },
+    ],
+  },
 ]
 
 const staffNav: NavSection[] = [
@@ -137,7 +169,6 @@ const caregiverNav: NavSection[] = [
 ]
 
 function NavGroupSection({ group, pathname, role, onNavigate }: { group: NavGroup; pathname: string; role?: string; onNavigate?: () => void }) {
-  // Admin already has /users in the ADMIN flat section — filter it from Workforce group to avoid duplicates
   const items = role === 'admin'
     ? group.items.filter(item => item.href !== '/users')
     : group.items
@@ -264,12 +295,15 @@ export default function Sidebar({ role, onNavigate }: { role: string; onNavigate
   }
 
   const nav =
-    role === 'admin' || role === 'supervisor' || role === 'staff' ? adminNav : caregiverNav
+    role === 'admin' || role === 'supervisor' || role === 'staff' ? adminNav :
+    role === 'nurse' ? nurseNav :
+    caregiverNav
 
   const roleLabel =
     role === 'admin'      ? 'Admin' :
     role === 'supervisor' ? 'Supervisor' :
-    role === 'staff'      ? 'Staff' : 'Caregiver'
+    role === 'staff'      ? 'Staff' :
+    role === 'nurse'      ? 'Nurse' : 'Caregiver'
 
   return (
     <aside style={{
@@ -279,7 +313,6 @@ export default function Sidebar({ role, onNavigate }: { role: string; onNavigate
     }}>
       <div style={{ padding: '16px 0', flex: 1 }}>
         {nav.map((section, i) => {
-          // Hide the ADMIN flat section from supervisors/staff — they get Caregiver Management in Workforce instead
           if (section.type === 'flat' && (section as NavFlat).label === 'ADMIN' && role !== 'admin') return null
           return section.type === 'group'
             ? <NavGroupSection key={(section as NavGroup).id} group={section as NavGroup} pathname={pathname} role={role} onNavigate={onNavigate} />
