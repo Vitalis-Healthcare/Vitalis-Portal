@@ -11,7 +11,7 @@ import {
   ShieldCheck, AlertTriangle, Sparkles, Target, Handshake,
   SlidersHorizontal, ChevronDown, ChevronRight, TrendingUp,
   Building2, BookUser, Map, Activity, Mail, Brain, FileText,
-  Wallet, CheckSquare, Upload, Stethoscope, HeartPulse,
+  Wallet, CheckSquare, Upload, Stethoscope, HeartPulse, CalendarDays,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -51,8 +51,9 @@ const adminNav: NavSection[] = [
   {
     type: 'group', id: 'assessments', label: 'Assessments', emoji: '🩺',
     items: [
-      { href: '/assessments',         label: 'Overview',  icon: Stethoscope },
-      { href: '/assessments/clients', label: 'Clients',   icon: HeartPulse },
+      { href: '/assessments',          label: 'Overview',  icon: Stethoscope },
+      { href: '/assessments/clients',  label: 'Clients',   icon: HeartPulse },
+      { href: '/assessments/calendar', label: 'Calendar',  icon: CalendarDays },
     ],
   },
   {
@@ -111,8 +112,9 @@ const nurseNav: NavSection[] = [
   {
     type: 'group', id: 'assessments', label: 'Assessments', emoji: '🩺',
     items: [
-      { href: '/assessments',         label: 'My Assessments', icon: Stethoscope },
-      { href: '/assessments/clients', label: 'My Clients',     icon: HeartPulse },
+      { href: '/assessments',          label: 'My Assessments', icon: Stethoscope },
+      { href: '/assessments/clients',  label: 'My Clients',     icon: HeartPulse },
+      { href: '/assessments/calendar', label: 'Calendar',       icon: CalendarDays },
     ],
   },
   {
