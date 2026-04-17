@@ -155,13 +155,23 @@ export default async function AssessmentClientsPage({
           </p>
         </div>
         {!isNurse && (
-          <Link href="/assessments/clients/new" style={{
-            display: 'inline-block', padding: '10px 20px', background: '#0E7C7B',
-            color: '#fff', textDecoration: 'none', borderRadius: 8,
-            fontSize: 14, fontWeight: 600,
-          }}>
-            + Add Client
-          </Link>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Link href="/assessments/clients/import" style={{
+              display: 'inline-block', padding: '10px 18px',
+              background: '#F8FAFC', border: '1px solid #D1D9E0',
+              color: '#0E7C7B', textDecoration: 'none', borderRadius: 8,
+              fontSize: 14, fontWeight: 600,
+            }}>
+              ⬇ Import from AxisCare
+            </Link>
+            <Link href="/assessments/clients/new" style={{
+              display: 'inline-block', padding: '10px 20px', background: '#0E7C7B',
+              color: '#fff', textDecoration: 'none', borderRadius: 8,
+              fontSize: 14, fontWeight: 600,
+            }}>
+              + Add Client
+            </Link>
+          </div>
         )}
       </div>
 
