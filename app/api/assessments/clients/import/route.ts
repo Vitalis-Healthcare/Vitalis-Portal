@@ -1,11 +1,18 @@
 // app/api/assessments/clients/import/route.ts
 // Imports selected AxisCare clients into assessment_clients.
 // Skips records whose axiscare_id already exists.
-// Sets status = 'active' (unlike caregiver import which sets inactive).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+
+interface AxisCareAddress {
+  streetAddress1?: string | null  // confirmed field name from CareMatch360 import route
+  city?: string | null
+  state?: string | null
+  region?: string | null
+  postalCode?: string | null      // confirmed field name from CareMatch360 import route
+}
 
 interface AxisCareClient {
   id: number
@@ -15,26 +22,13 @@ interface AxisCareClient {
   mobilePhone?: string | null
   homePhone?: string | null
   otherPhone?: string | null
-  residentialAddress?: {
-    address1?: string | null
-    city?: string | null
-    state?: string | null
-    region?: string | null
-    zip?: string | null
-  } | null
-  mailingAddress?: {
-    address1?: string | null
-    city?: string | null
-    state?: string | null
-    region?: string | null
-    zip?: string | null
-  } | null
+  residentialAddress?: AxisCareAddress | null
+  mailingAddress?: AxisCareAddress | null
   medicaidNumber?: string | null
   status?: { active: boolean; label: string } | null
 }
 
 export async function POST(req: NextRequest) {
-  // ── Auth ───────────────────────────────────────────────────────────────────
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -46,7 +40,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // ── Parse body ─────────────────────────────────────────────────────────────
   let clients: AxisCareClient[] = []
   try {
     const body = await req.json()
@@ -58,7 +51,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No clients provided' }, { status: 400 })
   }
 
-  // ── Fetch existing axiscare_ids in one query ───────────────────────────────
+  // Fetch existing axiscare_ids in one query
   const { data: existing } = await svc
     .from('assessment_clients')
     .select('axiscare_id')
@@ -86,10 +79,10 @@ export async function POST(req: NextRequest) {
       const { error } = await svc.from('assessment_clients').insert({
         full_name:   fullName,
         phone:       phone || null,
-        address:     addr.address1 || null,
+        address:     addr.streetAddress1 || null,   // ← correct AxisCare field name
         city:        addr.city || null,
         state:       addr.state || addr.region || 'MD',
-        zip:         (addr as any).zip || null,
+        zip:         addr.postalCode || null,        // ← correct AxisCare field name
         payer_type:  payerType,
         axiscare_id: axisId,
         status:      'active',
