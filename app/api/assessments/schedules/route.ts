@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { client_id, nurse_id, cadence_days, first_due_date, plan_type } = body
+    const { client_id, nurse_id, cadence_days, first_due_date, plan_type, is_initial } = body
 
     if (!client_id || !nurse_id || !cadence_days || !first_due_date) {
       return NextResponse.json(
@@ -48,7 +48,6 @@ export async function POST(request: Request) {
       .eq('plan_type', resolvedPlanType)
       .eq('is_active', true)
 
-    // Create new schedule
     const { data: sched, error: schedErr } = await db
       .from('assessment_schedules')
       .insert({
@@ -63,7 +62,8 @@ export async function POST(request: Request) {
 
     if (schedErr) return NextResponse.json({ error: schedErr.message }, { status: 500 })
 
-    // Seed first assessment
+    // Seed the first assessment. is_initial comes from the UI checkbox —
+    // the admin explicitly marks whether this is the client's initial assessment.
     const { data: assessment, error: assessErr } = await db
       .from('assessments')
       .insert({
@@ -73,6 +73,7 @@ export async function POST(request: Request) {
         assessment_type: 'routine',
         scheduled_date:  first_due_date,
         status:          'scheduled',
+        is_initial:      is_initial === true,
       })
       .select()
       .single()
@@ -84,20 +85,13 @@ export async function POST(request: Request) {
     // Soft-fail: send assignment email
     try {
       const [nurseRes, clientRes] = await Promise.all([
-        db.from('profiles')
-          .select('full_name, email')
-          .eq('id', nurse_id)
-          .single(),
-        db.from('assessment_clients')
-          .select('full_name, phone, address, city, state, zip')
-          .eq('id', client_id)
-          .single(),
+        db.from('profiles').select('full_name, email').eq('id', nurse_id).single(),
+        db.from('assessment_clients').select('full_name, phone, address, city, state, zip').eq('id', client_id).single(),
       ])
       const nurse  = nurseRes.data
       const client = clientRes.data
       if (nurse?.email && client) {
-        const addr = [client.address, client.city, client.state, client.zip]
-          .filter(Boolean).join(', ')
+        const addr = [client.address, client.city, client.state, client.zip].filter(Boolean).join(', ')
         await sendAssignmentEmail({
           nurseEmail:    nurse.email,
           nurseName:     nurse.full_name || nurse.email,
