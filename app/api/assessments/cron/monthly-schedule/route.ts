@@ -5,6 +5,8 @@
 // CRON_SECRET: if the env var is set, the Authorization: Bearer header
 // is enforced. If not set the route allows through (safe to deploy
 // before the secret is configured in Vercel).
+//
+// ASSESSMENT_EMAILS_PAUSED: handled inside lib/assessments/email.ts.
 
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -18,6 +20,7 @@ type NurseShape = {
 }
 type ClientShape = {
   full_name: string
+  phone:     string | null
   address:   string | null
   city:      string | null
   state:     string | null
@@ -63,7 +66,7 @@ export async function POST(request: Request) {
       .select(`
         scheduled_date,
         nurse:profiles!nurse_id ( id, full_name, email ),
-        client:assessment_clients!client_id ( full_name, address, city, state, zip )
+        client:assessment_clients!client_id ( full_name, phone, address, city, state, zip )
       `)
       .in('status', ['scheduled', 'overdue'])
       .gte('scheduled_date', firstDay)
@@ -95,6 +98,7 @@ export async function POST(request: Request) {
         .join(', ')
       byNurse.get(nurse.id)!.items.push({
         clientName:    client.full_name,
+        clientPhone:   client.phone ?? null,
         clientAddress: addr,
         scheduledDate: row.scheduled_date,
       })

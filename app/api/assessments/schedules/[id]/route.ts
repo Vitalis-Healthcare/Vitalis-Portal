@@ -49,7 +49,7 @@ export async function PATCH(
 
       // Soft-fail: send reassignment email — never blocks the response
       try {
-        const schedData = data as Record<string, unknown>
+        const schedData   = data as Record<string, unknown>
         const newNurseId  = String(patch.nurse_id)
         const clientId    = String(schedData.client_id ?? '')
         const cadenceDays = Number(schedData.cadence_days ?? 30)
@@ -60,7 +60,7 @@ export async function PATCH(
             .eq('id', newNurseId)
             .single(),
           db.from('assessment_clients')
-            .select('full_name, address, city, state, zip')
+            .select('full_name, phone, address, city, state, zip')
             .eq('id', clientId)
             .single(),
           db.from('assessments')
@@ -82,6 +82,7 @@ export async function PATCH(
             nurseEmail:     nurse.email,
             nurseName:      nurse.full_name || nurse.email,
             clientName:     client.full_name,
+            clientPhone:    client.phone ?? null,
             clientAddress:  addr,
             cadenceDays,
             nextDueDate:    nextAssRes.data?.scheduled_date ?? null,
