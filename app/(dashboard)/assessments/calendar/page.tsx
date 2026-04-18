@@ -58,10 +58,10 @@ export default async function AssessmentCalendarPage({
   const db = createServiceClient()
   const { data: profile } = await db
     .from('profiles').select('role, full_name').eq('id', user.id).single()
-  if (!profile || !['admin', 'supervisor', 'nurse'].includes(profile.role)) redirect('/dashboard')
+  if (!profile || !['admin', 'supervisor', 'nurse_monitor'].includes(profile.role)) redirect('/dashboard')
 
-  const isNurse = profile.role === 'nurse'
-  const effectiveNurseId = isNurse ? user.id : (nurse_id || null)
+  const isNurseMonitor   = profile.role === 'nurse_monitor'
+  const effectiveNurseId = isNurseMonitor ? user.id : (nurse_id || null)
 
   const today    = new Date()
   const defaultM = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -72,9 +72,10 @@ export default async function AssessmentCalendarPage({
   const lastDay    = new Date(y, m, 0).getDate()
   const monthEnd   = `${ym}-${String(lastDay).padStart(2, '0')}`
 
+  // Nurse filter dropdown: only assignable profiles
   const { data: nursesRaw } = await db
     .from('profiles').select('id, full_name')
-    .in('role', ['nurse', 'admin', 'supervisor'])
+    .eq('can_be_assigned', true)
     .eq('status', 'active').order('full_name')
   const nurses = nursesRaw ?? []
 
@@ -123,7 +124,6 @@ export default async function AssessmentCalendarPage({
   const prevQ = effectiveNurseId ? `?month=${prevMonth(ym)}&nurse_id=${effectiveNurseId}` : `?month=${prevMonth(ym)}`
   const nextQ = effectiveNurseId ? `?month=${nextMonth(ym)}&nurse_id=${effectiveNurseId}` : `?month=${nextMonth(ym)}`
 
-  // Build print rows for CalendarPrintButton
   const printRows: CalendarPrintRow[] = rows.map(a => {
     const c    = normRel(a.client)
     const n    = normRel(a.nurse)
@@ -154,7 +154,7 @@ export default async function AssessmentCalendarPage({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {!isNurse && (
+          {!isNurseMonitor && (
             <form data-no-print="true" method="GET" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <input type="hidden" name="month" value={ym} />
               <select name="nurse_id" defaultValue={nurse_id ?? ''} style={{ padding: '7px 12px', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, color: '#1A2E44', background: '#fff' }}>

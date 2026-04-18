@@ -95,7 +95,6 @@ export default async function AssessmentsPage({
     .from('profiles').select('role, full_name').eq('id', user.id).single()
   if (!profile || !['admin', 'supervisor', 'nurse_monitor'].includes(profile.role)) redirect('/dashboard')
 
-  // nurse_monitor is scoped to their own assignments
   const isNurseMonitor   = profile.role === 'nurse_monitor'
   const effectiveNurseId = isNurseMonitor ? user.id : (nurse_id || null)
 
@@ -143,10 +142,25 @@ export default async function AssessmentsPage({
     .gte('completed_date', rangeStart).lte('completed_date', rangeEnd)
   if (effectiveNurseId) completedQ = completedQ.eq('nurse_id', effectiveNurseId)
 
-  const [{ count: dueCount }, { count: overdueCount }, { count: completedCount }, { count: activeClientCount }] = await Promise.all([
-    dueQ, overdueQ, completedQ,
-    db.from('assessment_clients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+  // 4th stat: agency-wide for admin/supervisor, assigned clients for nurse_monitor
+  const fourthStatPromise = isNurseMonitor
+    ? db.from('assessment_schedules')
+        .select('client_id')
+        .eq('nurse_id', user.id)
+        .eq('is_active', true)
+    : db.from('assessment_clients')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active')
+
+  const [{ count: dueCount }, { count: overdueCount }, { count: completedCount }, fourthStatResult] = await Promise.all([
+    dueQ, overdueQ, completedQ, fourthStatPromise,
   ])
+
+  // For nurse_monitor: deduplicate client_ids (they may have both clinical + EP schedules for same client)
+  const fourthStatValue = isNurseMonitor
+    ? new Set((fourthStatResult as any).data?.map((r: any) => r.client_id) ?? []).size
+    : ((fourthStatResult as any).count ?? 0)
+  const fourthStatLabel = isNurseMonitor ? 'My Clients' : 'Active Clients'
 
   // ── Table query ────────────────────────────────────────────────────────────
   type ClientRel   = { id: string; full_name: string; address: string | null; city: string | null; state: string | null; zip: string | null }
@@ -217,10 +231,10 @@ export default async function AssessmentsPage({
   const nurseLabel = effectiveNurseId ? (nurses.find(n => n.id === effectiveNurseId)?.full_name ?? 'Unknown') : 'All Nurses'
 
   const stats = [
-    { label: `Due — ${rangeLabel}`, value: dueCount ?? 0,         color: '#0E7C7B', bg: '#E6F4F4' },
-    { label: 'Overdue (total)',     value: overdueCount ?? 0,      color: '#B91C1C', bg: '#FEF2F2' },
-    { label: 'Completed in period', value: completedCount ?? 0,    color: '#15803D', bg: '#F0FDF4' },
-    { label: 'Active Clients',      value: activeClientCount ?? 0, color: '#1A2E44', bg: '#F8FAFC' },
+    { label: `Due — ${rangeLabel}`, value: dueCount ?? 0,      color: '#0E7C7B', bg: '#E6F4F4' },
+    { label: 'Overdue (total)',     value: overdueCount ?? 0,   color: '#B91C1C', bg: '#FEF2F2' },
+    { label: 'Completed in period', value: completedCount ?? 0, color: '#15803D', bg: '#F0FDF4' },
+    { label: fourthStatLabel,       value: fourthStatValue,     color: '#1A2E44', bg: '#F8FAFC' },
   ]
 
   const hasFilters = !!(nurse_id || view !== 'upcoming' || typeFilter)
@@ -253,7 +267,6 @@ export default async function AssessmentsPage({
           <PrintDownloadActions rows={reportRows} periodLabel={rangeLabel} nurseLabel={nurseLabel} />
         </div>
 
-        {/* Filter form — hidden for nurse_monitor (their scope is automatic) */}
         {!isNurseMonitor && (
           <form data-no-print="true" method="GET" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20, alignItems: 'flex-end' }}>
             <div>
