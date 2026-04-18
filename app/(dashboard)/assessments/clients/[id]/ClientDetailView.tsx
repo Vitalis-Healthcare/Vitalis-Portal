@@ -59,8 +59,7 @@ function fmt(dateStr: string | null) {
 
 function daysUntil(dateStr: string): number {
   const today = new Date(); today.setHours(0,0,0,0)
-  const due   = new Date(dateStr + 'T00:00:00')
-  return Math.round((due.getTime() - today.getTime()) / 86400000)
+  return Math.round((new Date(dateStr + 'T00:00:00').getTime() - today.getTime()) / 86400000)
 }
 
 function effStatus(dbStatus: string, scheduledDate: string): string {
@@ -124,23 +123,26 @@ export default function ClientDetailView({
   const [busy, setBusy]     = useState(false)
   const [err, setErr]       = useState<string | null>(null)
 
-  // Schedule modal state
-  const [editingPlan, setEditingPlan]             = useState<PlanType | null>(null)
-  const [newNurseId, setNewNurseId]               = useState('')
-  const [newCadence, setNewCadence]               = useState(120)
-  const [newFirstDue, setNewFirstDue]             = useState('')
-  const [isInitialCheck, setIsInitialCheck]       = useState(false)
-  const [nextAssessmentId, setNextAssessmentId]   = useState<string | null>(null)
+  // Schedule modal
+  const [editingPlan, setEditingPlan]               = useState<PlanType | null>(null)
+  const [newNurseId, setNewNurseId]                 = useState('')
+  const [newCadence, setNewCadence]                 = useState(120)
+  const [newFirstDue, setNewFirstDue]               = useState('')
+  // Initial flag — shown in both Assign and Edit (clinical only)
+  const [isInitialCheck, setIsInitialCheck]         = useState(false)
+  const [origIsInitial, setOrigIsInitial]           = useState(false)
+  // Next assessment rescheduling
+  const [nextAssessmentId, setNextAssessmentId]     = useState<string | null>(null)
   const [nextAssessmentDate, setNextAssessmentDate] = useState('')
-  const [origNextDate, setOrigNextDate]           = useState('')
+  const [origNextDate, setOrigNextDate]             = useState('')
 
-  // Other modal state
+  // Other modals
   const [showComplete, setShowComplete]     = useState<string | null>(null)
   const [completeNotes, setCompleteNotes]   = useState('')
   const [showEmergency, setShowEmergency]   = useState(false)
   const [emergencyNotes, setEmergencyNotes] = useState('')
 
-  // Edit client state
+  // Edit client
   const [showEdit, setShowEdit]       = useState(false)
   const [editName, setEditName]       = useState(client.full_name)
   const [editDob, setEditDob]         = useState(client.date_of_birth ?? '')
@@ -177,11 +179,15 @@ export default function ClientDetailView({
     const nextPending = pendingAssessments
       .filter(a => getAssessmentPlan(a) === planType)
       .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))[0] ?? null
+
     setEditingPlan(planType)
     setNewNurseId(target?.nurse_id ?? '')
     setNewCadence(planType === 'ep_annual' ? 365 : (target?.cadence_days ?? 120))
     setNewFirstDue('')
-    setIsInitialCheck(false)
+    // Pre-fill Initial checkbox from the next pending assessment's current value
+    const initialVal = nextPending?.is_initial ?? false
+    setIsInitialCheck(initialVal)
+    setOrigIsInitial(initialVal)
     setNextAssessmentId(nextPending?.id ?? null)
     setNextAssessmentDate(nextPending?.scheduled_date ?? '')
     setOrigNextDate(nextPending?.scheduled_date ?? '')
@@ -239,6 +245,7 @@ export default function ClientDetailView({
     }
     setBusy(true); setErr(null)
     try {
+      // 1. Save the schedule (create or update nurse/cadence)
       const method = targetSchedule ? 'PATCH' : 'POST'
       const url    = targetSchedule ? `/api/assessments/schedules/${targetSchedule.id}` : '/api/assessments/schedules'
       const body   = targetSchedule
@@ -248,14 +255,21 @@ export default function ClientDetailView({
       const data = await res.json()
       if (!res.ok) { setErr(data.error ?? 'Failed to save schedule.'); return }
 
-      // If editing and the next assessment date was changed, reschedule it
-      if (targetSchedule && nextAssessmentId && nextAssessmentDate && nextAssessmentDate !== origNextDate) {
-        const dateRes = await fetch(`/api/assessments/${nextAssessmentId}`, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scheduled_date: nextAssessmentDate }),
-        })
-        const dateData = await dateRes.json()
-        if (!dateRes.ok) { setErr(dateData.error ?? 'Schedule saved but date update failed.'); return }
+      // 2. If editing an existing schedule, PATCH the next assessment if date or is_initial changed
+      if (targetSchedule && nextAssessmentId) {
+        const dateChanged    = nextAssessmentDate && nextAssessmentDate !== origNextDate
+        const initialChanged = isInitialCheck !== origIsInitial
+        if (dateChanged || initialChanged) {
+          const patchBody: Record<string, unknown> = {}
+          if (dateChanged)    patchBody.scheduled_date = nextAssessmentDate
+          if (initialChanged) patchBody.is_initial     = isInitialCheck
+          const assRes  = await fetch(`/api/assessments/${nextAssessmentId}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patchBody),
+          })
+          const assData = await assRes.json()
+          if (!assRes.ok) { setErr(assData.error ?? 'Schedule saved but assessment update failed.'); return }
+        }
       }
 
       setEditingPlan(null); router.refresh()
@@ -345,7 +359,6 @@ export default function ClientDetailView({
       {err && <div style={{ background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 16px', color:'#B91C1C', fontSize:13, marginBottom:20 }}>{err}</div>}
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:24 }}>
-
         {/* Client info */}
         <div style={{ background:'#fff', border:'1px solid #E2E8F0', borderRadius:12, padding:'20px 22px' }}>
           <div style={{ fontSize:12, fontWeight:700, color:'#4A6070', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>Client Information</div>
@@ -552,42 +565,43 @@ export default function ClientDetailView({
               </div>
             )}
 
-            {/* NEW SCHEDULE: first due date + initial checkbox */}
+            {/* NEW SCHEDULE: first assessment due date */}
             {isNewSchedule && (
-              <>
-                <div style={{ marginBottom:14 }}>
-                  <label style={labelStyle}>First Assessment Due Date</label>
-                  <input type="date" style={inputStyle} value={newFirstDue} onChange={e => setNewFirstDue(e.target.value)} />
-                </div>
-
-                {editingPlan === 'clinical' && (
-                  <div style={{ marginBottom:18, display:'flex', alignItems:'flex-start', gap:10, padding:'12px 14px', background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8 }}>
-                    <input
-                      type="checkbox"
-                      id="is-initial-check"
-                      checked={isInitialCheck}
-                      onChange={e => setIsInitialCheck(e.target.checked)}
-                      style={{ width:16, height:16, marginTop:2, accentColor:'#92400E', cursor:'pointer', flexShrink:0 }}
-                    />
-                    <label htmlFor="is-initial-check" style={{ fontSize:13, color:'#92400E', fontWeight:600, cursor:'pointer', margin:0 }}>
-                      This is an Initial Assessment
-                      <div style={{ fontSize:11, color:'#B45309', fontWeight:400, marginTop:2 }}>
-                        Check for new clients whose first visit has not happened yet.
-                      </div>
-                    </label>
-                  </div>
-                )}
-              </>
+              <div style={{ marginBottom:14 }}>
+                <label style={labelStyle}>First Assessment Due Date</label>
+                <input type="date" style={inputStyle} value={newFirstDue} onChange={e => setNewFirstDue(e.target.value)} />
+              </div>
             )}
 
             {/* EXISTING SCHEDULE: reschedule next assessment date */}
             {!isNewSchedule && nextAssessmentId && (
-              <div style={{ marginBottom:18 }}>
+              <div style={{ marginBottom:14 }}>
                 <label style={labelStyle}>Next Assessment Date</label>
                 <input type="date" style={inputStyle} value={nextAssessmentDate} onChange={e => setNextAssessmentDate(e.target.value)} />
-                <div style={{ fontSize:11, color:'#8FA0B0', marginTop:5 }}>
-                  Adjust if the nurse&apos;s schedule requires a different date. Leave unchanged to keep the current date.
+                <div style={{ fontSize:11, color:'#8FA0B0', marginTop:4 }}>
+                  Adjust if the nurse&apos;s schedule requires a different date.
                 </div>
+              </div>
+            )}
+
+            {/* INITIAL CHECKBOX — clinical only, both Assign and Edit modes */}
+            {editingPlan === 'clinical' && (isNewSchedule || nextAssessmentId) && (
+              <div style={{ marginBottom:18, display:'flex', alignItems:'flex-start', gap:10, padding:'12px 14px', background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8 }}>
+                <input
+                  type="checkbox"
+                  id="is-initial-check"
+                  checked={isInitialCheck}
+                  onChange={e => setIsInitialCheck(e.target.checked)}
+                  style={{ width:16, height:16, marginTop:2, accentColor:'#92400E', cursor:'pointer', flexShrink:0 }}
+                />
+                <label htmlFor="is-initial-check" style={{ fontSize:13, color:'#92400E', fontWeight:600, cursor:'pointer', margin:0 }}>
+                  This is an Initial Assessment
+                  <div style={{ fontSize:11, color:'#B45309', fontWeight:400, marginTop:2 }}>
+                    {isNewSchedule
+                      ? "Check for clients whose first assessment has not happened yet."
+                      : "Check or uncheck to correct the initial assessment flag on the next pending visit."}
+                  </div>
+                </label>
               </div>
             )}
 
