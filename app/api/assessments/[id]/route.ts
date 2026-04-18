@@ -1,5 +1,5 @@
 // app/api/assessments/[id]/route.ts
-// PATCH — reschedule a pending assessment's scheduled_date.
+// PATCH — update a pending assessment's scheduled_date and/or is_initial flag.
 // Only applies to assessments in 'scheduled' or 'overdue' status.
 // Admin and supervisor only.
 
@@ -30,12 +30,15 @@ export async function PATCH(
     if ('scheduled_date' in body && body.scheduled_date) {
       patch.scheduled_date = body.scheduled_date
     }
+    if ('is_initial' in body && typeof body.is_initial === 'boolean') {
+      patch.is_initial = body.is_initial
+    }
 
     if (Object.keys(patch).length === 1) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
-    // Safety: only allow rescheduling pending assessments — never completed or cancelled
+    // Safety: only allow updating pending assessments
     const { data, error } = await db
       .from('assessments')
       .update(patch)
