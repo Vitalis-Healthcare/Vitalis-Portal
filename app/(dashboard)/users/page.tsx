@@ -12,7 +12,6 @@ export default async function UsersPage() {
   const role = profile?.role || ''
   if (!['admin', 'supervisor', 'staff'].includes(role)) redirect('/dashboard')
 
-  // Admin sees everyone. Supervisor/staff see only caregivers + pending caregivers.
   const { data: profiles } = await svc
     .from('profiles')
     .select('*')

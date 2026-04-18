@@ -57,7 +57,6 @@ function statusBadge(status: string) {
   )
 }
 
-// Amber "Initial" badge — only rendered when is_initial is true
 function InitialBadge() {
   return (
     <span style={{ display:'inline-block', fontSize:11, fontWeight:700, color:'#92400E', background:'#FEF3C7', border:'1px solid #FDE68A', padding:'2px 8px', borderRadius:8, whiteSpace:'nowrap' }}>
@@ -67,11 +66,11 @@ function InitialBadge() {
 }
 
 const TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '',        label: 'All types'           },
-  { value: 'initial', label: 'Initial assessments' },
-  { value: 'routine', label: 'Routine'             },
-  { value: 'emergency', label: 'Emergency'         },
-  { value: 'ep_annual', label: 'EP Annual'         },
+  { value: '',          label: 'All types'           },
+  { value: 'initial',   label: 'Initial assessments' },
+  { value: 'routine',   label: 'Routine'             },
+  { value: 'emergency', label: 'Emergency'           },
+  { value: 'ep_annual', label: 'EP Annual'           },
 ]
 
 export default async function AssessmentsPage({
@@ -94,10 +93,11 @@ export default async function AssessmentsPage({
   const db = createServiceClient()
   const { data: profile } = await db
     .from('profiles').select('role, full_name').eq('id', user.id).single()
-  if (!profile || !['admin', 'supervisor', 'nurse'].includes(profile.role)) redirect('/dashboard')
+  if (!profile || !['admin', 'supervisor', 'nurse_monitor'].includes(profile.role)) redirect('/dashboard')
 
-  const isNurse = profile.role === 'nurse'
-  const effectiveNurseId = isNurse ? user.id : (nurse_id || null)
+  // nurse_monitor is scoped to their own assignments
+  const isNurseMonitor   = profile.role === 'nurse_monitor'
+  const effectiveNurseId = isNurseMonitor ? user.id : (nurse_id || null)
 
   // ── Date range ─────────────────────────────────────────────────────────────
   const today = new Date(); today.setHours(0,0,0,0)
@@ -121,10 +121,10 @@ export default async function AssessmentsPage({
     rangeLabel = 'Next 14 days'
   }
 
-  // ── Nurse list ─────────────────────────────────────────────────────────────
+  // ── Assignable nurses for filter dropdown ──────────────────────────────────
   const { data: nursesRaw } = await db
     .from('profiles').select('id, full_name')
-    .in('role', ['nurse', 'admin', 'supervisor'])
+    .eq('can_be_assigned', true)
     .eq('status', 'active').order('full_name')
   const nurses = nursesRaw ?? []
 
@@ -148,7 +148,7 @@ export default async function AssessmentsPage({
     db.from('assessment_clients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
   ])
 
-  // ── Table query — includes is_initial ─────────────────────────────────────
+  // ── Table query ────────────────────────────────────────────────────────────
   type ClientRel   = { id: string; full_name: string; address: string | null; city: string | null; state: string | null; zip: string | null }
   type NurseRel    = { id: string; full_name: string }
   type ScheduleRel = { plan_type: string } | null
@@ -184,25 +184,24 @@ export default async function AssessmentsPage({
   const { data: tableRaw } = await tableQ
   let tableRows = (tableRaw ?? []) as unknown as AssessmentRow[]
 
-  // ── JS type filter ─────────────────────────────────────────────────────────
   if (typeFilter) {
     tableRows = tableRows.filter(a => {
-      const sched   = normRel(a.schedule as ScheduleRel | ScheduleRel[])
+      const sched    = normRel(a.schedule as ScheduleRel | ScheduleRel[])
       const planType = sched?.plan_type ?? 'clinical'
       if (typeFilter === 'initial')   return !!a.is_initial
       if (typeFilter === 'ep_annual') return planType === 'ep_annual'
       if (typeFilter === 'emergency') return a.assessment_type === 'emergency' && planType !== 'ep_annual'
-      if (typeFilter === 'routine')   return a.assessment_type === 'routine'   && planType !== 'ep_annual' && !a.is_initial
+      if (typeFilter === 'routine')   return a.assessment_type === 'routine' && planType !== 'ep_annual' && !a.is_initial
       return true
     })
   }
 
   const reportRows = tableRows.map(a => {
-    const c      = normRel(a.client)
-    const n      = normRel(a.nurse)
-    const sched  = normRel(a.schedule as ScheduleRel | ScheduleRel[])
-    const days   = daysUntil(a.scheduled_date)
-    const ti     = getTypeInfo(a.assessment_type, sched?.plan_type)
+    const c     = normRel(a.client)
+    const n     = normRel(a.nurse)
+    const sched = normRel(a.schedule as ScheduleRel | ScheduleRel[])
+    const days  = daysUntil(a.scheduled_date)
+    const ti    = getTypeInfo(a.assessment_type, sched?.plan_type)
     const addrParts = [c?.address, c?.city, [c?.state, c?.zip].filter(Boolean).join(' ')].filter(Boolean)
     return {
       clientName: c?.full_name ?? '—',
@@ -248,13 +247,14 @@ export default async function AssessmentsPage({
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: '#1A2E44', margin: '0 0 4px' }}>🩺 Assessments</h1>
             <p style={{ fontSize: 14, color: '#4A6070', margin: 0 }}>
-              {isNurse ? 'Your assigned clients and upcoming assessments' : 'Agency-wide nursing assessment schedule'}
+              {isNurseMonitor ? 'Your assigned clients and upcoming assessments' : 'Agency-wide nursing assessment schedule'}
             </p>
           </div>
           <PrintDownloadActions rows={reportRows} periodLabel={rangeLabel} nurseLabel={nurseLabel} />
         </div>
 
-        {!isNurse && (
+        {/* Filter form — hidden for nurse_monitor (their scope is automatic) */}
+        {!isNurseMonitor && (
           <form data-no-print="true" method="GET" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20, alignItems: 'flex-end' }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#4A6070', marginBottom: 4 }}>NURSE</div>
@@ -323,7 +323,7 @@ export default async function AssessmentsPage({
 
           {tableRows.length === 0 ? (
             <div style={{ padding: '48px 24px', textAlign: 'center', color: '#8FA0B0', fontSize: 14 }}>
-              No assessments in this period{typeFilter ? ` matching the filter` : ''}.
+              No assessments in this period{typeFilter ? ' matching the filter' : ''}.
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -337,12 +337,12 @@ export default async function AssessmentsPage({
                 </thead>
                 <tbody>
                   {tableRows.map((a, idx) => {
-                    const c      = normRel(a.client)
-                    const n      = normRel(a.nurse)
-                    const sched  = normRel(a.schedule as ScheduleRel | ScheduleRel[])
-                    const days   = daysUntil(a.scheduled_date)
-                    const effSt  = effectiveStatus(a.status, a.scheduled_date)
-                    const ti     = getTypeInfo(a.assessment_type, sched?.plan_type)
+                    const c     = normRel(a.client)
+                    const n     = normRel(a.nurse)
+                    const sched = normRel(a.schedule as ScheduleRel | ScheduleRel[])
+                    const days  = daysUntil(a.scheduled_date)
+                    const effSt = effectiveStatus(a.status, a.scheduled_date)
+                    const ti    = getTypeInfo(a.assessment_type, sched?.plan_type)
                     const addrParts = [c?.address, c?.city, [c?.state, c?.zip].filter(Boolean).join(' ')].filter(Boolean)
                     return (
                       <tr key={a.id} style={{ borderBottom: idx < tableRows.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
@@ -359,9 +359,7 @@ export default async function AssessmentsPage({
                           {a.is_initial ? <InitialBadge /> : <span style={{ color: '#C0CAD4', fontSize: 12 }}>—</span>}
                         </td>
                         <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: ti.color, background: ti.bg, border: `1px solid ${ti.border}`, padding: '2px 8px', borderRadius: 8 }}>
-                            {ti.label}
-                          </span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: ti.color, background: ti.bg, border: `1px solid ${ti.border}`, padding: '2px 8px', borderRadius: 8 }}>{ti.label}</span>
                         </td>
                         <td style={{ padding: '12px 14px' }}>{statusBadge(effSt)}</td>
                         <td style={{ padding: '12px 14px' }} data-no-print="true">

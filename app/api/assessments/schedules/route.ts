@@ -1,4 +1,4 @@
-// app/api/assessments/schedules/route.ts
+// app/api/assessments/schedules/route.ts — admin only
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
@@ -17,8 +17,8 @@ export async function POST(request: Request) {
     const db = createServiceClient()
     const { data: profile } = await db
       .from('profiles').select('role').eq('id', user.id).single()
-    if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!profile || profile.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -32,57 +32,33 @@ export async function POST(request: Request) {
     }
 
     const resolvedPlanType: PlanType = VALID_PLAN_TYPES.includes(plan_type) ? plan_type : 'clinical'
-
     if (!VALID_CADENCES.includes(Number(cadence_days))) {
-      return NextResponse.json(
-        { error: 'cadence_days must be 30, 60, 90, 120, or 365' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'cadence_days must be 30, 60, 90, 120, or 365' }, { status: 400 })
     }
 
-    // Deactivate any existing active schedule for this client + plan type
     await db
       .from('assessment_schedules')
       .update({ is_active: false, updated_at: new Date().toISOString() })
-      .eq('client_id', client_id)
-      .eq('plan_type', resolvedPlanType)
-      .eq('is_active', true)
+      .eq('client_id', client_id).eq('plan_type', resolvedPlanType).eq('is_active', true)
 
     const { data: sched, error: schedErr } = await db
       .from('assessment_schedules')
-      .insert({
-        client_id,
-        nurse_id,
-        cadence_days: Number(cadence_days),
-        plan_type:    resolvedPlanType,
-        created_by:   user.id,
-      })
-      .select()
-      .single()
+      .insert({ client_id, nurse_id, cadence_days: Number(cadence_days), plan_type: resolvedPlanType, created_by: user.id })
+      .select().single()
 
     if (schedErr) return NextResponse.json({ error: schedErr.message }, { status: 500 })
 
-    // Seed the first assessment. is_initial comes from the UI checkbox —
-    // the admin explicitly marks whether this is the client's initial assessment.
     const { data: assessment, error: assessErr } = await db
       .from('assessments')
       .insert({
-        client_id,
-        schedule_id:     sched.id,
-        nurse_id,
-        assessment_type: 'routine',
-        scheduled_date:  first_due_date,
-        status:          'scheduled',
-        is_initial:      is_initial === true,
+        client_id, schedule_id: sched.id, nurse_id,
+        assessment_type: 'routine', scheduled_date: first_due_date,
+        status: 'scheduled', is_initial: is_initial === true,
       })
-      .select()
-      .single()
+      .select().single()
 
-    if (assessErr) {
-      console.error('[schedules POST] assessment seed error:', assessErr.message)
-    }
+    if (assessErr) console.error('[schedules POST] assessment seed error:', assessErr.message)
 
-    // Soft-fail: send assignment email
     try {
       const [nurseRes, clientRes] = await Promise.all([
         db.from('profiles').select('full_name, email').eq('id', nurse_id).single(),
@@ -93,14 +69,10 @@ export async function POST(request: Request) {
       if (nurse?.email && client) {
         const addr = [client.address, client.city, client.state, client.zip].filter(Boolean).join(', ')
         await sendAssignmentEmail({
-          nurseEmail:    nurse.email,
-          nurseName:     nurse.full_name || nurse.email,
-          clientName:    client.full_name,
-          clientPhone:   client.phone ?? null,
-          clientAddress: addr,
-          cadenceDays:   Number(cadence_days),
-          nextDueDate:   first_due_date,
-          planType:      resolvedPlanType,
+          nurseEmail: nurse.email, nurseName: nurse.full_name || nurse.email,
+          clientName: client.full_name, clientPhone: client.phone ?? null,
+          clientAddress: addr, cadenceDays: Number(cadence_days),
+          nextDueDate: first_due_date, planType: resolvedPlanType,
         })
       }
     } catch (emailErr) {

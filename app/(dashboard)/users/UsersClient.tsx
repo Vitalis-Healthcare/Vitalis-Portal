@@ -10,7 +10,7 @@ import {
 interface Profile {
   id: string; email: string; full_name: string; role: string;
   status: string; hire_date?: string; department?: string; phone?: string;
-  created_at: string; axiscare_id?: string;
+  created_at: string; axiscare_id?: string; can_be_assigned?: boolean;
 }
 
 interface AxCG {
@@ -25,7 +25,7 @@ interface AxCG {
   classes: { code: string; label: string }[] | null
 }
 
-const ROLES       = ['admin', 'supervisor', 'staff', 'caregiver']
+const ROLES       = ['admin', 'supervisor', 'nurse_monitor', 'staff', 'caregiver']
 const DEPARTMENTS = ['Home Care', 'Administrative', 'Clinical', 'Operations', 'Management']
 
 const inp: React.CSSProperties = {
@@ -58,7 +58,6 @@ function AxisCareImportPanel({
     imported: string[]; skipped: string[]; failed: string[]
   }>({ imported: [], skipped: [], failed: [] })
 
-  // Fetch caregivers from AxisCare on mount
   useEffect(() => {
     fetch('/api/axiscare/caregivers')
       .then(r => r.json())
@@ -76,7 +75,6 @@ function AxisCareImportPanel({
       .catch(() => { setErrorMsg('Network error — could not reach AxisCare'); setStage('error') })
   }, [])
 
-  // Helpers
   const axisStatusLabel = (cg: AxCG): string => {
     if (!cg.status) return 'Unknown'
     if (typeof cg.status === 'object') return cg.status.label || 'Unknown'
@@ -92,7 +90,6 @@ function AxisCareImportPanel({
   const canImport = (cg: AxCG) =>
     !!cg.personalEmail && !existingEmails.has(cg.personalEmail.toLowerCase())
 
-  // Filtered list
   const filtered = caregivers.filter(cg => {
     const name  = `${cg.firstName} ${cg.lastName}`.toLowerCase()
     const email = (cg.personalEmail || '').toLowerCase()
@@ -100,7 +97,7 @@ function AxisCareImportPanel({
       name.includes(search.toLowerCase()) || email.includes(search.toLowerCase())
     const matchStatus =
       statusFlt === 'all' ||
-      (statusFlt === 'active'   ? axisIsActive(cg)  : !axisIsActive(cg))
+      (statusFlt === 'active' ? axisIsActive(cg) : !axisIsActive(cg))
     return matchSearch && matchStatus
   })
 
@@ -142,7 +139,6 @@ function AxisCareImportPanel({
     }
   }
 
-  // ── Error ──────────────────────────────────────────────────────────────────
   if (stage === 'error') return (
     <div style={{ textAlign: 'center', padding: '24px 0' }}>
       <div style={{ width: 52, height: 52, background: '#FEE2E2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
@@ -154,7 +150,6 @@ function AxisCareImportPanel({
     </div>
   )
 
-  // ── Loading ────────────────────────────────────────────────────────────────
   if (stage === 'loading') return (
     <div style={{ textAlign: 'center', padding: '40px 0' }}>
       <div style={{ width: 48, height: 48, border: '3px solid #E6F4F4', borderTopColor: '#0E7C7B', borderRadius: '50%', margin: '0 auto 20px', animation: 'spin 0.8s linear infinite' }} />
@@ -163,7 +158,6 @@ function AxisCareImportPanel({
     </div>
   )
 
-  // ── Importing ──────────────────────────────────────────────────────────────
   if (stage === 'importing') return (
     <div style={{ textAlign: 'center', padding: '40px 0' }}>
       <div style={{ width: 48, height: 48, border: '3px solid #E6F4F4', borderTopColor: '#0E7C7B', borderRadius: '50%', margin: '0 auto 20px', animation: 'spin 0.8s linear infinite' }} />
@@ -173,15 +167,13 @@ function AxisCareImportPanel({
     </div>
   )
 
-  // ── Done ───────────────────────────────────────────────────────────────────
   if (stage === 'done') return (
     <div>
-      {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Imported',  value: results.imported.length,  color: '#2A9D8F', bg: '#E6F6F4', icon: '✓' },
-          { label: 'Skipped',   value: results.skipped.length,   color: '#F4A261', bg: '#FEF3EA', icon: '↷' },
-          { label: 'Failed',    value: results.failed.length,    color: '#E63946', bg: '#FEE2E2', icon: '✕' },
+          { label: 'Imported', value: results.imported.length, color: '#2A9D8F', bg: '#E6F6F4', icon: '✓' },
+          { label: 'Skipped',  value: results.skipped.length,  color: '#F4A261', bg: '#FEF3EA', icon: '↷' },
+          { label: 'Failed',   value: results.failed.length,   color: '#E63946', bg: '#FEE2E2', icon: '✕' },
         ].map(s => (
           <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '14px 16px', textAlign: 'center' }}>
             <div style={{ fontSize: 26, fontWeight: 800, color: s.color }}>{s.icon} {s.value}</div>
@@ -189,69 +181,48 @@ function AxisCareImportPanel({
           </div>
         ))}
       </div>
-
-      {/* Inactive notice */}
       <div style={{ background: '#FEF3EA', border: '1px solid #F4A26166', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', gap: 10 }}>
         <span style={{ fontSize: 16, flexShrink: 0 }}>🔒</span>
         <div style={{ fontSize: 13, color: '#92400E', lineHeight: 1.6 }}>
           <strong>All imported caregivers are set to Inactive.</strong> Complete their credentials on the portal, brief them about the app, then activate their account in User Management to enable Vita notifications.
         </div>
       </div>
-
-      {/* Detail lists */}
       {results.imported.length > 0 && (
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#2A9D8F', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
-            ✓ Imported ({results.imported.length})
-          </div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#2A9D8F', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>✓ Imported ({results.imported.length})</div>
           <div style={{ background: '#F8FAFB', borderRadius: 8, padding: '8px 12px', maxHeight: 120, overflowY: 'auto' }}>
-            {results.imported.map((n, i) => (
-              <div key={i} style={{ fontSize: 12, color: '#1A2E44', padding: '2px 0', borderBottom: i < results.imported.length - 1 ? '1px solid #EFF2F5' : 'none' }}>{n}</div>
-            ))}
+            {results.imported.map((n, i) => <div key={i} style={{ fontSize: 12, color: '#1A2E44', padding: '2px 0', borderBottom: i < results.imported.length - 1 ? '1px solid #EFF2F5' : 'none' }}>{n}</div>)}
           </div>
         </div>
       )}
       {results.skipped.length > 0 && (
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#F4A261', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
-            ↷ Already in Portal ({results.skipped.length})
-          </div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#F4A261', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>↷ Already in Portal ({results.skipped.length})</div>
           <div style={{ background: '#F8FAFB', borderRadius: 8, padding: '8px 12px', maxHeight: 80, overflowY: 'auto' }}>
-            {results.skipped.map((n, i) => (
-              <div key={i} style={{ fontSize: 12, color: '#8FA0B0', padding: '2px 0' }}>{n}</div>
-            ))}
+            {results.skipped.map((n, i) => <div key={i} style={{ fontSize: 12, color: '#8FA0B0', padding: '2px 0' }}>{n}</div>)}
           </div>
         </div>
       )}
       {results.failed.length > 0 && (
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#E63946', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
-            ✕ Failed ({results.failed.length})
-          </div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#E63946', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>✕ Failed ({results.failed.length})</div>
           <div style={{ background: '#FEF2F2', borderRadius: 8, padding: '8px 12px', maxHeight: 80, overflowY: 'auto' }}>
-            {results.failed.map((n, i) => (
-              <div key={i} style={{ fontSize: 12, color: '#B91C1C', padding: '2px 0' }}>{n}</div>
-            ))}
+            {results.failed.map((n, i) => <div key={i} style={{ fontSize: 12, color: '#B91C1C', padding: '2px 0' }}>{n}</div>)}
           </div>
         </div>
       )}
-
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-        <button onClick={onClose} style={{ padding: '10px 24px', background: '#0E7C7B', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#fff' }}>
-          Done
-        </button>
+        <button onClick={onClose} style={{ padding: '10px 24px', background: '#0E7C7B', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#fff' }}>Done</button>
       </div>
     </div>
   )
 
-  // ── Selecting ──────────────────────────────────────────────────────────────
   const importable    = caregivers.filter(canImport).length
   const alreadyInPort = caregivers.filter(alreadyImported).length
   const noEmail       = caregivers.filter(cg => !cg.personalEmail).length
 
   return (
     <div>
-      {/* Stats bar */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
         {[
           { label: 'Available to import', value: importable,    color: '#2A9D8F', bg: '#E6F6F4' },
@@ -264,19 +235,12 @@ function AxisCareImportPanel({
           </div>
         ))}
       </div>
-
-      {/* Inactive notice */}
       <div style={{ background: '#E6F4F4', border: '1px solid #0E7C7B22', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: '#0A5C5B', lineHeight: 1.6 }}>
         🔒 <strong>Imported caregivers will be set to Inactive.</strong> No login email is sent. You'll activate each aide manually after completing their onboarding on the portal.
       </div>
-
-      {/* Filters */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <input
-          value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="🔍  Search by name or email…"
-          style={{ flex: 1, minWidth: 180, padding: '8px 12px', borderRadius: 8, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none' }}
-        />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  Search by name or email…"
+          style={{ flex: 1, minWidth: 180, padding: '8px 12px', borderRadius: 8, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none' }} />
         <select value={statusFlt} onChange={e => setStatusFlt(e.target.value as any)}
           style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none', cursor: 'pointer' }}>
           <option value="active">Active in AxisCare</option>
@@ -284,15 +248,12 @@ function AxisCareImportPanel({
           <option value="all">All statuses</option>
         </select>
       </div>
-
-      {/* Table */}
       <div style={{ border: '1px solid #EFF2F5', borderRadius: 10, overflow: 'hidden', marginBottom: 14, maxHeight: 380, overflowY: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ background: '#F8FAFB', position: 'sticky', top: 0, zIndex: 1 }}>
               <th style={{ padding: '9px 12px', textAlign: 'left', width: 32 }}>
-                <input type="checkbox" checked={allSelected} onChange={toggleAll}
-                  disabled={selectableFiltered.length === 0}
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} disabled={selectableFiltered.length === 0}
                   style={{ cursor: selectableFiltered.length > 0 ? 'pointer' : 'not-allowed' }} />
               </th>
               {['Name', 'Email', 'Phone', 'Hire Date', 'AxisCare Status', 'Portal'].map(h => (
@@ -302,69 +263,37 @@ function AxisCareImportPanel({
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: '#8FA0B0', fontSize: 13 }}>
-                  No caregivers match your filters
-                </td>
-              </tr>
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: '#8FA0B0', fontSize: 13 }}>No caregivers match your filters</td></tr>
             ) : filtered.map(cg => {
-              const importable    = canImport(cg)
+              const isImportable  = canImport(cg)
               const alreadyHere   = alreadyImported(cg)
               const noEmailFlag   = !cg.personalEmail
               const isSelected    = selected.has(cg.id)
-              const rowOpacity    = (!importable) ? 0.6 : 1
-
               return (
-                <tr
-                  key={cg.id}
-                  onClick={() => importable && toggleSelect(cg.id, cg)}
-                  style={{
-                    borderBottom: '1px solid #EFF2F5',
-                    background: isSelected ? '#E6F6F4' : 'transparent',
-                    cursor: importable ? 'pointer' : 'default',
-                    opacity: rowOpacity,
-                    transition: 'background 0.15s',
-                  }}
-                >
+                <tr key={cg.id} onClick={() => isImportable && toggleSelect(cg.id, cg)}
+                  style={{ borderBottom: '1px solid #EFF2F5', background: isSelected ? '#E6F6F4' : 'transparent', cursor: isImportable ? 'pointer' : 'default', opacity: !isImportable ? 0.6 : 1, transition: 'background 0.15s' }}>
                   <td style={{ padding: '10px 12px' }}>
-                    <input type="checkbox" checked={isSelected} disabled={!importable}
+                    <input type="checkbox" checked={isSelected} disabled={!isImportable}
                       onChange={() => toggleSelect(cg.id, cg)}
-                      style={{ cursor: importable ? 'pointer' : 'not-allowed' }}
-                      onClick={e => e.stopPropagation()}
-                    />
+                      style={{ cursor: isImportable ? 'pointer' : 'not-allowed' }}
+                      onClick={e => e.stopPropagation()} />
                   </td>
-                  <td style={{ padding: '10px 12px', fontWeight: 600, color: '#1A2E44', whiteSpace: 'nowrap' }}>
-                    {cg.firstName} {cg.lastName}
-                  </td>
+                  <td style={{ padding: '10px 12px', fontWeight: 600, color: '#1A2E44', whiteSpace: 'nowrap' }}>{cg.firstName} {cg.lastName}</td>
                   <td style={{ padding: '10px 12px', color: '#4A6070', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {cg.personalEmail || <span style={{ color: '#CBD5E0', fontStyle: 'italic' }}>none</span>}
                   </td>
-                  <td style={{ padding: '10px 12px', color: '#8FA0B0', whiteSpace: 'nowrap' }}>
-                    {cg.mobilePhone || cg.homePhone || '—'}
-                  </td>
+                  <td style={{ padding: '10px 12px', color: '#8FA0B0', whiteSpace: 'nowrap' }}>{cg.mobilePhone || cg.homePhone || '—'}</td>
                   <td style={{ padding: '10px 12px', color: '#8FA0B0', whiteSpace: 'nowrap' }}>
                     {cg.hireDate ? new Date(cg.hireDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}
                   </td>
                   <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                    <span style={{
-                      display: 'inline-block', padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700,
-                      background: axisIsActive(cg) ? '#E6F6F4' : '#F8FAFB',
-                      color: axisIsActive(cg) ? '#2A9D8F' : '#8FA0B0',
-                    }}>
+                    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: axisIsActive(cg) ? '#E6F6F4' : '#F8FAFB', color: axisIsActive(cg) ? '#2A9D8F' : '#8FA0B0' }}>
                       {axisStatusLabel(cg)}
                     </span>
                   </td>
                   <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                    {alreadyHere && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: '#FEF3EA', color: '#B45309' }}>
-                        <CheckCircle size={10} /> In Portal
-                      </span>
-                    )}
-                    {noEmailFlag && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: '#FEE2E2', color: '#B91C1C' }}>
-                        <XCircle size={10} /> No Email
-                      </span>
-                    )}
+                    {alreadyHere && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: '#FEF3EA', color: '#B45309' }}><CheckCircle size={10} /> In Portal</span>}
+                    {noEmailFlag && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: '#FEE2E2', color: '#B91C1C' }}><XCircle size={10} /> No Email</span>}
                   </td>
                 </tr>
               )
@@ -372,8 +301,6 @@ function AxisCareImportPanel({
           </tbody>
         </table>
       </div>
-
-      {/* Footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <div style={{ fontSize: 13, color: '#8FA0B0' }}>
           {selected.size > 0
@@ -381,13 +308,8 @@ function AxisCareImportPanel({
             : `${filtered.length} shown · tick rows to select`}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onClose}
-            style={{ padding: '9px 18px', background: '#EFF2F5', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#4A6070' }}>
-            Cancel
-          </button>
-          <button
-            onClick={handleImport}
-            disabled={selected.size === 0}
+          <button onClick={onClose} style={{ padding: '9px 18px', background: '#EFF2F5', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
+          <button onClick={handleImport} disabled={selected.size === 0}
             style={{ padding: '9px 20px', background: selected.size > 0 ? '#0E7C7B' : '#CBD5E0', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: selected.size > 0 ? 'pointer' : 'not-allowed', color: '#fff', display: 'flex', alignItems: 'center', gap: 7 }}>
             <Download size={14} />
             Import {selected.size > 0 ? `${selected.size} ` : ''}Caregiver{selected.size !== 1 ? 's' : ''}
@@ -412,8 +334,7 @@ function InvitePanel({ onClose, onSuccess, caregiverOnly = false }: {
     setSending(true)
     try {
       const res = await fetch('/api/staff/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ full_name: form.full_name, email: form.email, role: form.role, department: form.department }),
       })
       const data = await res.json()
@@ -451,24 +372,20 @@ function InvitePanel({ onClose, onSuccess, caregiverOnly = false }: {
     <div>
       <div style={{ marginBottom: 14 }}>
         <label style={lbl}>Full Name *</label>
-        <input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
-          placeholder="e.g. Amara Nwosu" style={inp} />
+        <input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} placeholder="e.g. Amara Nwosu" style={inp} />
       </div>
       <div style={{ marginBottom: 14 }}>
         <label style={lbl}>Email Address *</label>
-        <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-          placeholder="caregiver@email.com" style={inp} />
+        <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="caregiver@email.com" style={inp} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
         <div>
           <label style={lbl}>Role</label>
           {caregiverOnly ? (
-            <div style={{ ...inp, background: '#F8FAFB', color: '#2A9D8F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-              👤 Caregiver
-            </div>
+            <div style={{ ...inp, background: '#F8FAFB', color: '#2A9D8F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>👤 Caregiver</div>
           ) : (
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} style={inp}>
-              {ROLES.map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+              {ROLES.map(r => <option key={r} value={r}>{r === 'nurse_monitor' ? 'Nurse Monitor' : r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
             </select>
           )}
         </div>
@@ -501,25 +418,25 @@ function EditPanel({ profile, onClose, onSuccess }: {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
-    full_name:  profile.full_name,
-    role:       profile.role,
-    department: profile.department || '',
-    phone:      profile.phone || '',
-    hire_date:  profile.hire_date || '',
-    status:     profile.status,
+    full_name:       profile.full_name,
+    role:            profile.role,
+    department:      profile.department || '',
+    phone:           profile.phone || '',
+    hire_date:       profile.hire_date || '',
+    status:          profile.status,
+    can_be_assigned: profile.can_be_assigned ?? false,
   })
-  const [newPassword,      setNewPassword]      = useState('')
-  const [confirmPassword,  setConfirmPassword]  = useState('')
-  const [pwSaving,         setPwSaving]         = useState(false)
-  const [pwMsg,            setPwMsg]            = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [newPassword,     setNewPassword]     = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwSaving,        setPwSaving]        = useState(false)
+  const [pwMsg,           setPwMsg]           = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const handleSetPassword = async () => {
     if (newPassword.length < 8) { setPwMsg({ type: 'err', text: 'Password must be at least 8 characters.' }); return }
     if (newPassword !== confirmPassword) { setPwMsg({ type: 'err', text: 'Passwords do not match.' }); return }
     setPwSaving(true); setPwMsg(null)
     const res = await fetch('/api/admin/set-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: profile.id, password: newPassword }),
     })
     const json = await res.json()
@@ -531,31 +448,30 @@ function EditPanel({ profile, onClose, onSuccess }: {
   const handleSave = async () => {
     setSaving(true)
     const res = await fetch('/api/admin/update-profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId: profile.id,
         updates: {
-          full_name:  form.full_name,
-          role:       form.role,
-          department: form.department || null,
-          phone:      form.phone || null,
-          hire_date:  form.hire_date || null,
-          status:     form.status,
+          full_name:       form.full_name,
+          role:            form.role,
+          department:      form.department || null,
+          phone:           form.phone || null,
+          hire_date:       form.hire_date || null,
+          status:          form.status,
+          can_be_assigned: form.can_be_assigned,
         },
       }),
     })
     const data = await res.json()
     if (!res.ok) { alert(data.error || 'Error updating profile.'); setSaving(false); return }
-    onSuccess()
-    onClose()
-    router.refresh()
-    setSaving(false)
+    onSuccess(); onClose(); router.refresh(); setSaving(false)
   }
+
+  // Only show can_be_assigned toggle for supervisor or nurse_monitor
+  const showAssignToggle = form.role === 'supervisor' || form.role === 'nurse_monitor'
 
   return (
     <div>
-      {/* AxisCare badge */}
       {profile.axiscare_id && (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#E6F4F4', border: '1px solid #0E7C7B33', borderRadius: 20, padding: '4px 12px', fontSize: 11, fontWeight: 700, color: '#0A5C5B', marginBottom: 16 }}>
           <RefreshCw size={11} /> Imported from AxisCare (ID: {profile.axiscare_id})
@@ -573,7 +489,7 @@ function EditPanel({ profile, onClose, onSuccess }: {
         <div>
           <label style={lbl}>Role</label>
           <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} style={inp}>
-            {ROLES.map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+            {ROLES.map(r => <option key={r} value={r}>{r === 'nurse_monitor' ? 'Nurse Monitor' : r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
           </select>
         </div>
         <div>
@@ -584,6 +500,27 @@ function EditPanel({ profile, onClose, onSuccess }: {
           </select>
         </div>
       </div>
+
+      {/* can_be_assigned toggle — only for supervisor / nurse_monitor */}
+      {showAssignToggle && (
+        <div style={{ marginBottom: 14, padding: '12px 14px', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 9 }}>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.can_be_assigned}
+              onChange={e => setForm(f => ({ ...f, can_be_assigned: e.target.checked }))}
+              style={{ width: 16, height: 16, marginTop: 2, accentColor: '#7C3AED', cursor: 'pointer', flexShrink: 0 }}
+            />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#4C1D95' }}>Can be assigned to assessment clients</div>
+              <div style={{ fontSize: 11, color: '#6D28D9', marginTop: 3, lineHeight: 1.5 }}>
+                When enabled, this person appears in the nurse assignment dropdown on assessment client records.
+              </div>
+            </div>
+          </label>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 14 }}>
         <div>
           <label style={lbl}>Department</label>
@@ -645,16 +582,14 @@ export default function UsersClient({
 }: {
   profiles: Profile[]; currentUserId: string; currentUserRole?: string
 }) {
-  const [search,     setSearch]     = useState('')
-  const [roleFilter, setRoleFilter] = useState('all')
-  const [panel,      setPanel]      = useState<PanelState>(null)
-  const [toast,      setToast]      = useState('')
+  const [search,      setSearch]      = useState('')
+  const [roleFilter,  setRoleFilter]  = useState('all')
+  const [panel,       setPanel]       = useState<PanelState>(null)
+  const [toast,       setToast]       = useState('')
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const router = useRouter()
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
-
-  // Set of emails already in the portal — passed to AxisCareImportPanel
   const existingEmails = new Set(profiles.map(p => (p.email || '').toLowerCase()).filter(Boolean))
 
   const handleDeleteUser = async (profileId: string, profileName: string) => {
@@ -696,57 +631,58 @@ export default function UsersClient({
     return matchSearch && matchRole
   })
 
-  const active     = profiles.filter(p => p.status === 'active').length
-  const roleColor  = (r: string) => r === 'admin' ? '#1A2E44' : r === 'supervisor' ? '#0E7C7B' : r === 'staff' ? '#1D4ED8' : '#2A9D8F'
-  const roleBg     = (r: string) => r === 'admin' ? '#EFF2F5' : r === 'supervisor' ? '#E6F4F4' : r === 'staff' ? '#EFF6FF' : '#E6F6F4'
+  const active = profiles.filter(p => p.status === 'active').length
 
-  // Panel width — wider for AxisCare import
-  const panelMaxWidth = panel === 'axiscare' ? 820 : 460
+  const roleColor = (r: string) =>
+    r === 'admin'         ? '#1A2E44' :
+    r === 'supervisor'    ? '#0E7C7B' :
+    r === 'staff'         ? '#1D4ED8' :
+    r === 'nurse_monitor' ? '#7C3AED' :
+    '#2A9D8F'
+
+  const roleBg = (r: string) =>
+    r === 'admin'         ? '#EFF2F5' :
+    r === 'supervisor'    ? '#E6F4F4' :
+    r === 'staff'         ? '#EFF6FF' :
+    r === 'nurse_monitor' ? '#F5F3FF' :
+    '#E6F6F4'
+
+  const roleDisplayLabel = (r: string) =>
+    r === 'nurse_monitor' ? 'Nurse Monitor' :
+    r.charAt(0).toUpperCase() + r.slice(1)
+
+  const panelMaxWidth = panel === 'axiscare' ? 820 : 480
 
   return (
     <div>
-      {/* Toast */}
       {toast && (
         <div style={{ position: 'fixed', top: 20, right: 20, background: '#1A2E44', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, zIndex: 2000, boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
           ✓ {toast}
         </div>
       )}
 
-      {/* Slide-in panel overlay */}
       {panel && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: panelMaxWidth, boxShadow: '0 24px 64px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
               <h2 style={{ fontSize: 17, fontWeight: 800, color: '#1A2E44', margin: 0 }}>
-                {panel === 'invite'    ? '✉️ Invite Staff Member' :
-                 panel === 'axiscare'  ? '⬇️ Import from AxisCare' :
+                {panel === 'invite'   ? '✉️ Invite Staff Member' :
+                 panel === 'axiscare' ? '⬇️ Import from AxisCare' :
                  `✏️ Edit — ${(panel as any).profile.full_name}`}
               </h2>
               <button onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0', padding: 4 }}>
                 <X size={18} />
               </button>
             </div>
-
             {panel === 'invite' && (
-              <InvitePanel
-                onClose={() => setPanel(null)}
-                onSuccess={() => { showToast('Invite sent!'); router.refresh() }}
-                caregiverOnly={currentUserRole !== 'admin'}
-              />
+              <InvitePanel onClose={() => setPanel(null)} onSuccess={() => { showToast('Invite sent!'); router.refresh() }} caregiverOnly={currentUserRole !== 'admin'} />
             )}
             {panel === 'axiscare' && (
-              <AxisCareImportPanel
-                existingEmails={existingEmails}
-                onClose={() => setPanel(null)}
-                onSuccess={(count) => { showToast(`${count} caregiver${count !== 1 ? 's' : ''} imported — status: Inactive`); router.refresh() }}
-              />
+              <AxisCareImportPanel existingEmails={existingEmails} onClose={() => setPanel(null)}
+                onSuccess={(count) => { showToast(`${count} caregiver${count !== 1 ? 's' : ''} imported — status: Inactive`); router.refresh() }} />
             )}
             {panel !== 'invite' && panel !== 'axiscare' && (
-              <EditPanel
-                profile={(panel as any).profile}
-                onClose={() => setPanel(null)}
-                onSuccess={() => showToast('Profile updated')}
-              />
+              <EditPanel profile={(panel as any).profile} onClose={() => setPanel(null)} onSuccess={() => showToast('Profile updated')} />
             )}
           </div>
         </div>
@@ -764,16 +700,12 @@ export default function UsersClient({
               : `${profiles.filter(p => p.status === 'active').length} active caregivers · invite and manage caregiver accounts`}
           </p>
         </div>
-        {/* Action buttons */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {/* AxisCare import — admin, supervisor and staff */}
-          <button
-            onClick={() => setPanel('axiscare')}
+          <button onClick={() => setPanel('axiscare')}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#1A2E44', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
             <Download size={15} /> Import from AxisCare
           </button>
-          <button
-            onClick={() => setPanel('invite')}
+          <button onClick={() => setPanel('invite')}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#0E7C7B', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
             <UserPlus size={15} /> {currentUserRole === 'admin' ? 'Invite Staff' : 'Add Caregiver'}
           </button>
@@ -824,11 +756,12 @@ export default function UsersClient({
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Total Staff',  value: profiles.length,                                                         color: '#1A2E44' },
-          { label: 'Active',       value: active,                                                                   color: '#2A9D8F' },
-          { label: 'Admins',       value: profiles.filter(p => p.role === 'admin').length,                         color: '#0E7C7B' },
-          { label: 'Staff',        value: profiles.filter(p => p.role === 'staff' || p.role === 'supervisor').length, color: '#1D4ED8' },
-          { label: 'Caregivers',   value: profiles.filter(p => p.role === 'caregiver').length,                     color: '#F4A261' },
+          { label: 'Total Staff',    value: profiles.length,                                                              color: '#1A2E44' },
+          { label: 'Active',         value: active,                                                                       color: '#2A9D8F' },
+          { label: 'Admins',         value: profiles.filter(p => p.role === 'admin').length,                             color: '#0E7C7B' },
+          { label: 'Supervisors',    value: profiles.filter(p => p.role === 'staff' || p.role === 'supervisor').length,  color: '#1D4ED8' },
+          { label: 'Nurse Monitors', value: profiles.filter(p => p.role === 'nurse_monitor').length,                     color: '#7C3AED' },
+          { label: 'Caregivers',     value: profiles.filter(p => p.role === 'caregiver').length,                         color: '#F4A261' },
         ].map((s, i) => (
           <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', borderLeft: `4px solid ${s.color}`, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1A2E44', lineHeight: 1 }}>{s.value}</div>
@@ -852,13 +785,12 @@ export default function UsersClient({
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="🔍  Search by name or email…"
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  Search by name or email…"
           style={{ flex: 1, padding: '9px 14px', borderRadius: 8, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none', background: '#fff' }} />
         <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
           style={{ padding: '9px 14px', borderRadius: 8, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none', background: '#fff', cursor: 'pointer' }}>
           <option value="all">All Roles</option>
-          {ROLES.map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+          {ROLES.map(r => <option key={r} value={r}>{roleDisplayLabel(r)}</option>)}
         </select>
       </div>
 
@@ -891,10 +823,9 @@ export default function UsersClient({
                         <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                           {p.full_name}
                           {p.id === currentUserId && <span style={{ fontSize: 10, color: '#0E7C7B', fontWeight: 700 }}>(you)</span>}
-                          {p.axiscare_id && (
-                            <span style={{ fontSize: 9, background: '#E6F4F4', color: '#0A5C5B', fontWeight: 700, padding: '1px 6px', borderRadius: 8, letterSpacing: '0.5px' }}>
-                              AC
-                            </span>
+                          {p.axiscare_id && <span style={{ fontSize: 9, background: '#E6F4F4', color: '#0A5C5B', fontWeight: 700, padding: '1px 6px', borderRadius: 8, letterSpacing: '0.5px' }}>AC</span>}
+                          {p.can_be_assigned && (p.role === 'supervisor' || p.role === 'nurse_monitor') && (
+                            <span style={{ fontSize: 9, background: '#F5F3FF', color: '#7C3AED', fontWeight: 700, padding: '1px 6px', borderRadius: 8, letterSpacing: '0.5px' }}>ASSIGNABLE</span>
                           )}
                         </div>
                         <div style={{ fontSize: 11, color: '#8FA0B0' }}>{p.email}</div>
@@ -902,8 +833,8 @@ export default function UsersClient({
                     </div>
                   </td>
                   <td style={{ padding: '13px 16px' }}>
-                    <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: roleBg(p.role), color: roleColor(p.role), textTransform: 'capitalize' }}>
-                      {p.role}
+                    <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: roleBg(p.role), color: roleColor(p.role) }}>
+                      {roleDisplayLabel(p.role)}
                     </span>
                   </td>
                   <td style={{ padding: '13px 16px', color: '#8FA0B0' }}>{p.department || '—'}</td>
@@ -929,8 +860,7 @@ export default function UsersClient({
                           onClick={async () => {
                             const newStatus = p.status === 'active' ? 'inactive' : 'active'
                             const res = await fetch('/api/admin/update-profile', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
+                              method: 'POST', headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ userId: p.id, updates: { status: newStatus } }),
                             })
                             if (res.ok) { showToast(`${p.full_name} set to ${newStatus}`); router.refresh() }

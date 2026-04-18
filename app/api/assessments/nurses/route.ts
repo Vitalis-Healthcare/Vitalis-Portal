@@ -1,4 +1,5 @@
 // app/api/assessments/nurses/route.ts
+// Returns profiles with can_be_assigned = true — sole criterion for the nurse dropdown.
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
@@ -13,7 +14,7 @@ export async function GET() {
     const { data, error } = await db
       .from('profiles')
       .select('id, full_name, role')
-      .in('role', ['nurse', 'admin', 'supervisor'])
+      .eq('can_be_assigned', true)
       .eq('status', 'active')
       .order('full_name')
 
