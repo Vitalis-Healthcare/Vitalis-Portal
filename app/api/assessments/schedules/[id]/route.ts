@@ -4,6 +4,8 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
 import { sendAssignmentEmail } from '@/lib/assessments/email'
 
+const VALID_CADENCES = [30, 60, 90, 120, 365]
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -23,10 +25,13 @@ export async function PATCH(
 
     const body = await request.json()
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    if ('nurse_id' in body && body.nurse_id)      patch.nurse_id     = body.nurse_id
+    if ('nurse_id' in body && body.nurse_id)       patch.nurse_id     = body.nurse_id
     if ('cadence_days' in body && body.cadence_days) {
-      if (![30, 60, 90, 120].includes(Number(body.cadence_days))) {
-        return NextResponse.json({ error: 'cadence_days must be 30, 60, 90, or 120' }, { status: 400 })
+      if (!VALID_CADENCES.includes(Number(body.cadence_days))) {
+        return NextResponse.json(
+          { error: 'cadence_days must be 30, 60, 90, 120, or 365' },
+          { status: 400 }
+        )
       }
       patch.cadence_days = Number(body.cadence_days)
     }
@@ -47,12 +52,13 @@ export async function PATCH(
         .eq('schedule_id', id)
         .in('status', ['scheduled', 'overdue'])
 
-      // Soft-fail: send reassignment email — never blocks the response
+      // Soft-fail: send reassignment email
       try {
         const schedData   = data as Record<string, unknown>
         const newNurseId  = String(patch.nurse_id)
         const clientId    = String(schedData.client_id ?? '')
         const cadenceDays = Number(schedData.cadence_days ?? 30)
+        const planType    = (schedData.plan_type as 'clinical' | 'ep_annual') ?? 'clinical'
 
         const [nurseRes, clientRes, nextAssRes] = await Promise.all([
           db.from('profiles')
@@ -76,8 +82,7 @@ export async function PATCH(
         const client = clientRes.data
         if (nurse?.email && client) {
           const addr = [client.address, client.city, client.state, client.zip]
-            .filter(Boolean)
-            .join(', ')
+            .filter(Boolean).join(', ')
           await sendAssignmentEmail({
             nurseEmail:     nurse.email,
             nurseName:      nurse.full_name || nurse.email,
@@ -87,6 +92,7 @@ export async function PATCH(
             cadenceDays,
             nextDueDate:    nextAssRes.data?.scheduled_date ?? null,
             isReassignment: true,
+            planType,
           })
         }
       } catch (emailErr) {
@@ -117,7 +123,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Soft-deactivate, don't hard-delete (preserve history)
     const { data, error } = await db
       .from('assessment_schedules')
       .update({ is_active: false, updated_at: new Date().toISOString() })

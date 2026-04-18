@@ -69,6 +69,7 @@ export default async function AssessmentClientsPage({
     cadence_days: number
     nurse_id: string
     is_active: boolean
+    plan_type: string
     nurse: { id: string; full_name: string } | { id: string; full_name: string }[] | null
   } | null
 
@@ -90,12 +91,12 @@ export default async function AssessmentClientsPage({
     next_assessment: NextAssessmentRel | NextAssessmentRel[]
   }
 
-  // Fetch clients with active schedule + next upcoming assessment
+  // plan_type is now included so we can distinguish clinical vs EP
   let query = db.from('assessment_clients')
     .select(`
       id, full_name, payer_type, phone, city, status, created_at,
       schedule:assessment_schedules!left(
-        id, cadence_days, nurse_id, is_active,
+        id, cadence_days, nurse_id, is_active, plan_type,
         nurse:profiles!nurse_id(id, full_name)
       ),
       next_assessment:assessments!left(
@@ -111,27 +112,40 @@ export default async function AssessmentClientsPage({
   const { data: rawClients } = await query
   let clients = (rawClients ?? []) as unknown as ClientRow[]
 
-  // Nurse scope: only show clients assigned to them
+  // Nurse scope: show only clients where nurse is assigned to ANY active schedule
   if (isNurse) {
     clients = clients.filter(c => {
-      const sched = normRel(c.schedule as any)
-      return sched?.nurse_id === user.id && sched?.is_active
+      const schedArr = Array.isArray(c.schedule)
+        ? c.schedule
+        : (c.schedule ? [c.schedule] : [])
+      return schedArr.some(s => s?.is_active && s?.nurse_id === user.id)
     })
   }
 
-  // Search filter
   const qLower = q.toLowerCase()
   if (qLower) {
     clients = clients.filter(c => c.full_name.toLowerCase().includes(qLower))
   }
 
-  // For each client, get the NEXT upcoming/overdue assessment (first by date)
-  // We use the joined data but pick the soonest
+  // From the joined schedules array, pull the active clinical schedule
+  const getClinicalSchedule = (c: ClientRow): NonNullable<ScheduleRel> | null => {
+    const arr = Array.isArray(c.schedule) ? c.schedule : (c.schedule ? [c.schedule] : [])
+    return arr.find(s => s?.is_active && s?.plan_type === 'clinical') ?? null
+  }
+
+  const hasEPSchedule = (c: ClientRow): boolean => {
+    const arr = Array.isArray(c.schedule) ? c.schedule : (c.schedule ? [c.schedule] : [])
+    return arr.some(s => s?.is_active && s?.plan_type === 'ep_annual')
+  }
+
   const getNextAssessment = (c: ClientRow) => {
     const raw = c.next_assessment
     if (!raw) return null
     const arr = Array.isArray(raw) ? raw : [raw]
-    const pending = arr.filter((a): a is { id: string; scheduled_date: string; status: string } => a !== null && ['scheduled', 'overdue'].includes(a.status ?? ''))
+    const pending = arr.filter(
+      (a): a is { id: string; scheduled_date: string; status: string } =>
+        a !== null && ['scheduled', 'overdue'].includes(a.status ?? '')
+    )
     if (pending.length === 0) return null
     return pending.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))[0]
   }
@@ -178,23 +192,16 @@ export default async function AssessmentClientsPage({
       {/* Filters */}
       <form method="GET" style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
         <input
-          name="q"
-          defaultValue={q}
-          placeholder="Search by name…"
+          name="q" defaultValue={q} placeholder="Search by name…"
           style={{
             padding: '8px 14px', border: '1px solid #D1D9E0', borderRadius: 7,
-            fontSize: 13, color: '#1A2E44', background: '#fff', width: 240,
-            outline: 'none',
+            fontSize: 13, color: '#1A2E44', background: '#fff', width: 240, outline: 'none',
           }}
         />
-        <select
-          name="status"
-          defaultValue={statusFilter}
-          style={{
-            padding: '8px 12px', border: '1px solid #D1D9E0', borderRadius: 7,
-            fontSize: 13, color: '#1A2E44', background: '#fff',
-          }}
-        >
+        <select name="status" defaultValue={statusFilter} style={{
+          padding: '8px 12px', border: '1px solid #D1D9E0', borderRadius: 7,
+          fontSize: 13, color: '#1A2E44', background: '#fff',
+        }}>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
           <option value="discharged">Discharged</option>
@@ -237,15 +244,24 @@ export default async function AssessmentClientsPage({
               </thead>
               <tbody>
                 {clients.map((c, idx) => {
-                  const sched = normRel(c.schedule as any)
-                  const activeSchedule = sched?.is_active ? sched : null
-                  const nurse = activeSchedule ? normRel(activeSchedule.nurse) : null
-                  const next  = getNextAssessment(c)
+                  const clinicalSched = getClinicalSchedule(c)
+                  const nurse         = clinicalSched ? normRel(clinicalSched.nurse) : null
+                  const hasEP         = hasEPSchedule(c)
+                  const next          = getNextAssessment(c)
 
                   return (
                     <tr key={c.id} style={{ borderBottom: idx < clients.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
                       <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontWeight: 600, color: '#1A2E44' }}>{c.full_name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontWeight: 600, color: '#1A2E44' }}>{c.full_name}</span>
+                          {hasEP && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, color: '#0E7C7B',
+                              background: '#E6F4F4', padding: '1px 6px',
+                              borderRadius: 8, border: '1px solid #B2E0DF',
+                            }}>EP</span>
+                          )}
+                        </div>
                         {c.city && <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 2 }}>{c.city}</div>}
                       </td>
                       <td style={{ padding: '14px 16px', color: '#4A6070' }}>
@@ -255,8 +271,8 @@ export default async function AssessmentClientsPage({
                         {nurse?.full_name ?? <span style={{ color: '#D97706', fontSize: 12 }}>⚠ Unassigned</span>}
                       </td>
                       <td style={{ padding: '14px 16px', color: '#4A6070' }}>
-                        {activeSchedule
-                          ? <span style={{ fontWeight: 600 }}>{activeSchedule.cadence_days}-day</span>
+                        {clinicalSched
+                          ? <span style={{ fontWeight: 600 }}>{clinicalSched.cadence_days}-day</span>
                           : <span style={{ color: '#8FA0B0' }}>—</span>}
                       </td>
                       <td style={{ padding: '14px 16px' }}>
