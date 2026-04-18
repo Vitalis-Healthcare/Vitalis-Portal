@@ -108,6 +108,8 @@ export default function ClientDetailView({
   const [showEmergency, setShowEmergency]       = useState(false)
   const [emergencyNotes, setEmergencyNotes]     = useState('')
   const [showAssignSchedule, setShowAssignSchedule] = useState(false)
+  const [showDelete, setShowDelete]     = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
   const [newNurseId, setNewNurseId]             = useState(schedule?.nurse_id ?? '')
   const [newCadence, setNewCadence]             = useState(schedule?.cadence_days ?? 120)
   const [newFirstDue, setNewFirstDue]           = useState('')
@@ -220,6 +222,17 @@ export default function ClientDetailView({
     } catch { setErr('Unexpected error.') } finally { setBusy(false) }
   }
 
+  const deleteClient = async () => {
+    if (deleteConfirm.toLowerCase() !== 'delete') { setErr('Type DELETE to confirm.'); return }
+    setBusy(true); setErr(null)
+    try {
+      const res = await fetch(`/api/assessments/clients/${client.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) { setErr(data.error ?? 'Failed to delete.'); return }
+      router.push('/assessments/clients')
+    } catch { setErr('Unexpected error.') } finally { setBusy(false) }
+  }
+
   const pendingAssessments = assessments.filter(a => ['scheduled', 'overdue'].includes(a.status))
   const pastAssessments    = assessments.filter(a => !['scheduled', 'overdue'].includes(a.status))
 
@@ -243,12 +256,23 @@ export default function ClientDetailView({
             {canEdit && (
               <button
                 onClick={() => { setShowEdit(true); setErr(null) }}
-                style={{
+    style={{
                   padding: '8px 16px', background: '#F8FAFC', border: '1px solid #D1D9E0',
                   color: '#1A2E44', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer',
                 }}
               >
                 ✎ Edit Client
+              </button>
+            )}
+            {canEdit && currentUserRole === 'admin' && (
+              <button
+                onClick={() => { setShowDelete(true); setDeleteConfirm(''); setErr(null) }}
+                style={{
+                  padding: '8px 16px', background: '#FEF2F2', border: '1px solid #FECACA',
+                  color: '#B91C1C', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                🗑 Delete
               </button>
             )}
             {canEdit && pendingAssessments.length > 0 && (
@@ -586,6 +610,39 @@ export default function ClientDetailView({
           </div>
         </div>
       )}
+
+      {/* ── Delete Client Modal ─────────────────────────────────────────── */}
+      {showDelete && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,46,68,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, maxWidth: '90vw' }}>
+            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#B91C1C', margin: '0 0 8px' }}>Delete Client</h2>
+            <p style={{ fontSize: 13, color: '#4A6070', margin: '0 0 6px' }}>
+              This will permanently delete <strong>{client.full_name}</strong> and all their assessment history. This cannot be undone.
+            </p>
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#B91C1C', marginBottom: 18 }}>
+              ⚠ All associated assessments and schedules will also be deleted.
+            </div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#4A6070', marginBottom: 5 }}>
+              Type <strong>DELETE</strong> to confirm
+            </label>
+            <input
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid #FECACA', borderRadius: 7, fontSize: 13, color: '#1A2E44', background: '#fff', boxSizing: 'border-box', marginBottom: 20 }}
+              value={deleteConfirm}
+              onChange={e => setDeleteConfirm(e.target.value)}
+              placeholder="DELETE"
+              autoFocus
+            />
+            {err && <div style={{ color: '#B91C1C', fontSize: 12, marginBottom: 12 }}>{err}</div>}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowDelete(false); setDeleteConfirm(''); setErr(null) }} disabled={busy} style={{ padding: '8px 16px', background: '#F8FAFC', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={deleteClient} disabled={busy || deleteConfirm.toLowerCase() !== 'delete'} style={{ padding: '8px 20px', background: busy || deleteConfirm.toLowerCase() !== 'delete' ? '#E5A5A5' : '#B91C1C', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: busy || deleteConfirm.toLowerCase() !== 'delete' ? 'not-allowed' : 'pointer' }}>
+                {busy ? 'Deleting…' : 'Delete Permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

@@ -27,7 +27,7 @@ export async function GET(_req: NextRequest) {
     const svc = createServiceClient()
     const { data: profile } = await svc
       .from('profiles').select('role').eq('id', user.id).single()
-    if (!['admin', 'supervisor'].includes(profile?.role || '')) {
+    if (!['admin'].includes(profile?.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   } catch {
