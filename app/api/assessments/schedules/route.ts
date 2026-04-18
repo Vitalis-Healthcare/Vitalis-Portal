@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
+import { sendAssignmentEmail } from '@/lib/assessments/email'
 
 export async function POST(request: Request) {
   try {
@@ -67,6 +68,37 @@ export async function POST(request: Request) {
 
     if (assessErr) {
       console.error('[schedules POST] assessment seed error:', assessErr.message)
+    }
+
+    // Soft-fail: send assignment email — never blocks the response
+    try {
+      const [nurseRes, clientRes] = await Promise.all([
+        db.from('profiles')
+          .select('full_name, email')
+          .eq('id', nurse_id)
+          .single(),
+        db.from('assessment_clients')
+          .select('full_name, address, city, state, zip')
+          .eq('id', client_id)
+          .single(),
+      ])
+      const nurse  = nurseRes.data
+      const client = clientRes.data
+      if (nurse?.email && client) {
+        const addr = [client.address, client.city, client.state, client.zip]
+          .filter(Boolean)
+          .join(', ')
+        await sendAssignmentEmail({
+          nurseEmail:    nurse.email,
+          nurseName:     nurse.full_name || nurse.email,
+          clientName:    client.full_name,
+          clientAddress: addr,
+          cadenceDays:   Number(cadence_days),
+          nextDueDate:   first_due_date,
+        })
+      }
+    } catch (emailErr) {
+      console.error('[schedules POST] assignment email failed (non-fatal):', emailErr)
     }
 
     return NextResponse.json({ data: { schedule: sched, assessment: assessment ?? null } })

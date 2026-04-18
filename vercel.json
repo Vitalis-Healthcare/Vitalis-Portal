@@ -1,8 +1,10 @@
 {
   "crons": [
-    { "path": "/api/ep-reminders",              "schedule": "0 8 * * *" },
-    { "path": "/api/credential-alerts",         "schedule": "0 9 * * *" },
-    { "path": "/api/missing-credential-alerts", "schedule": "0 10 * * *" },
-    { "path": "/api/reference-reminders",       "schedule": "0 11 * * *" }
+    { "path": "/api/ep-reminders",                       "schedule": "0 8 * * *"  },
+    { "path": "/api/credential-alerts",                  "schedule": "0 9 * * *"  },
+    { "path": "/api/missing-credential-alerts",          "schedule": "0 10 * * *" },
+    { "path": "/api/reference-reminders",                "schedule": "0 11 * * *" },
+    { "path": "/api/assessments/cron/weekly-digest",     "schedule": "0 13 * * 1" },
+    { "path": "/api/assessments/cron/monthly-schedule",  "schedule": "0 13 1 * *" }
   ]
 }
