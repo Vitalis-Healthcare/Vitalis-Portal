@@ -17,11 +17,7 @@ function statusBadge(status: string) {
   }
   const s = map[status] ?? map.active
   return (
-    <span style={{
-      display: 'inline-block', padding: '2px 10px', borderRadius: 12,
-      fontSize: 11, fontWeight: 600, background: s.bg, color: s.color,
-      textTransform: 'capitalize',
-    }}>
+    <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: s.bg, color: s.color, textTransform: 'capitalize' }}>
       {status}
     </span>
   )
@@ -47,9 +43,9 @@ function nextDueBadge(dateStr: string | null) {
 export default async function AssessmentClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>
+  searchParams: Promise<{ q?: string; status?: string; nurse?: string }>
 }) {
-  const { q = '', status: statusFilter = 'active' } = await searchParams
+  const { q = '', status: statusFilter = 'active', nurse: nurseFilter = '' } = await searchParams
 
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
@@ -64,34 +60,27 @@ export default async function AssessmentClientsPage({
 
   const isNurse = profile.role === 'nurse'
 
+  // Fetch nurses for filter dropdown
+  const { data: nursesRaw } = await db
+    .from('profiles').select('id, full_name')
+    .in('role', ['nurse', 'admin', 'supervisor'])
+    .eq('status', 'active').order('full_name')
+  const nurses = nursesRaw ?? []
+
   type ScheduleRel = {
-    id: string
-    cadence_days: number
-    nurse_id: string
-    is_active: boolean
-    plan_type: string
+    id: string; cadence_days: number; nurse_id: string; is_active: boolean; plan_type: string
     nurse: { id: string; full_name: string } | { id: string; full_name: string }[] | null
   } | null
 
-  type NextAssessmentRel = {
-    id: string
-    scheduled_date: string
-    status: string
-  } | null
+  type NextAssessmentRel = { id: string; scheduled_date: string; status: string } | null
 
   type ClientRow = {
-    id: string
-    full_name: string
-    payer_type: string | null
-    phone: string | null
-    city: string | null
-    status: string
-    created_at: string
+    id: string; full_name: string; payer_type: string | null; phone: string | null
+    city: string | null; status: string; created_at: string
     schedule: ScheduleRel | ScheduleRel[]
     next_assessment: NextAssessmentRel | NextAssessmentRel[]
   }
 
-  // plan_type is now included so we can distinguish clinical vs EP
   let query = db.from('assessment_clients')
     .select(`
       id, full_name, payer_type, phone, city, status, created_at,
@@ -112,22 +101,14 @@ export default async function AssessmentClientsPage({
   const { data: rawClients } = await query
   let clients = (rawClients ?? []) as unknown as ClientRow[]
 
-  // Nurse scope: show only clients where nurse is assigned to ANY active schedule
+  // Nurse scope: show only clients assigned to them
   if (isNurse) {
     clients = clients.filter(c => {
-      const schedArr = Array.isArray(c.schedule)
-        ? c.schedule
-        : (c.schedule ? [c.schedule] : [])
+      const schedArr = Array.isArray(c.schedule) ? c.schedule : (c.schedule ? [c.schedule] : [])
       return schedArr.some(s => s?.is_active && s?.nurse_id === user.id)
     })
   }
 
-  const qLower = q.toLowerCase()
-  if (qLower) {
-    clients = clients.filter(c => c.full_name.toLowerCase().includes(qLower))
-  }
-
-  // From the joined schedules array, pull the active clinical schedule
   const getClinicalSchedule = (c: ClientRow): NonNullable<ScheduleRel> | null => {
     const arr = Array.isArray(c.schedule) ? c.schedule : (c.schedule ? [c.schedule] : [])
     return arr.find(s => s?.is_active && s?.plan_type === 'clinical') ?? null
@@ -136,6 +117,23 @@ export default async function AssessmentClientsPage({
   const hasEPSchedule = (c: ClientRow): boolean => {
     const arr = Array.isArray(c.schedule) ? c.schedule : (c.schedule ? [c.schedule] : [])
     return arr.some(s => s?.is_active && s?.plan_type === 'ep_annual')
+  }
+
+  // Nurse filter (admin/supervisor only)
+  if (!isNurse && nurseFilter) {
+    if (nurseFilter === 'unassigned') {
+      clients = clients.filter(c => !getClinicalSchedule(c))
+    } else {
+      clients = clients.filter(c => {
+        const sched = getClinicalSchedule(c)
+        return sched?.nurse_id === nurseFilter
+      })
+    }
+  }
+
+  const qLower = q.toLowerCase()
+  if (qLower) {
+    clients = clients.filter(c => c.full_name.toLowerCase().includes(qLower))
   }
 
   const getNextAssessment = (c: ClientRow) => {
@@ -153,13 +151,10 @@ export default async function AssessmentClientsPage({
   return (
     <div style={{ padding: '32px 32px 64px', maxWidth: 1100, margin: '0 auto' }}>
 
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <Link href="/assessments" style={{ color: '#0E7C7B', textDecoration: 'none', fontSize: 13 }}>
-              ← Assessments
-            </Link>
+          <div style={{ marginBottom: 4 }}>
+            <Link href="/assessments" style={{ color: '#0E7C7B', textDecoration: 'none', fontSize: 13 }}>← Assessments</Link>
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>
             {isNurse ? 'My Clients' : 'Assessment Clients'}
@@ -170,19 +165,10 @@ export default async function AssessmentClientsPage({
         </div>
         {!isNurse && (
           <div style={{ display: 'flex', gap: 10 }}>
-            <Link href="/assessments/clients/import" style={{
-              display: 'inline-block', padding: '10px 18px',
-              background: '#F8FAFC', border: '1px solid #D1D9E0',
-              color: '#0E7C7B', textDecoration: 'none', borderRadius: 8,
-              fontSize: 14, fontWeight: 600,
-            }}>
+            <Link href="/assessments/clients/import" style={{ display: 'inline-block', padding: '10px 18px', background: '#F8FAFC', border: '1px solid #D1D9E0', color: '#0E7C7B', textDecoration: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600 }}>
               ⬇ Import from AxisCare
             </Link>
-            <Link href="/assessments/clients/new" style={{
-              display: 'inline-block', padding: '10px 20px', background: '#0E7C7B',
-              color: '#fff', textDecoration: 'none', borderRadius: 8,
-              fontSize: 14, fontWeight: 600,
-            }}>
+            <Link href="/assessments/clients/new" style={{ display: 'inline-block', padding: '10px 20px', background: '#0E7C7B', color: '#fff', textDecoration: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600 }}>
               + Add Client
             </Link>
           </div>
@@ -190,27 +176,22 @@ export default async function AssessmentClientsPage({
       </div>
 
       {/* Filters */}
-      <form method="GET" style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        <input
-          name="q" defaultValue={q} placeholder="Search by name…"
-          style={{
-            padding: '8px 14px', border: '1px solid #D1D9E0', borderRadius: 7,
-            fontSize: 13, color: '#1A2E44', background: '#fff', width: 240, outline: 'none',
-          }}
-        />
-        <select name="status" defaultValue={statusFilter} style={{
-          padding: '8px 12px', border: '1px solid #D1D9E0', borderRadius: 7,
-          fontSize: 13, color: '#1A2E44', background: '#fff',
-        }}>
+      <form method="GET" style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <input name="q" defaultValue={q} placeholder="Search by name…" style={{ padding: '8px 14px', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, color: '#1A2E44', background: '#fff', width: 220, outline: 'none' }} />
+        <select name="status" defaultValue={statusFilter} style={{ padding: '8px 12px', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, color: '#1A2E44', background: '#fff' }}>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
           <option value="discharged">Discharged</option>
           <option value="all">All statuses</option>
         </select>
-        <button type="submit" style={{
-          padding: '8px 16px', background: '#0E7C7B', color: '#fff',
-          border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-        }}>
+        {!isNurse && (
+          <select name="nurse" defaultValue={nurseFilter} style={{ padding: '8px 12px', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, color: '#1A2E44', background: '#fff' }}>
+            <option value="">All nurses</option>
+            <option value="unassigned">⚠ Unassigned</option>
+            {nurses.map(n => <option key={n.id} value={n.id}>{n.full_name}</option>)}
+          </select>
+        )}
+        <button type="submit" style={{ padding: '8px 16px', background: '#0E7C7B', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
           Search
         </button>
       </form>
@@ -219,12 +200,10 @@ export default async function AssessmentClientsPage({
       <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
         {clients.length === 0 ? (
           <div style={{ padding: '48px 24px', textAlign: 'center', color: '#8FA0B0', fontSize: 14 }}>
-            {q ? `No clients matching "${q}".` : 'No clients found.'}
+            {q ? `No clients matching "${q}".` : nurseFilter === 'unassigned' ? 'No unassigned clients.' : 'No clients found.'}
             {!isNurse && !q && (
               <div style={{ marginTop: 12 }}>
-                <Link href="/assessments/clients/new" style={{ color: '#0E7C7B', textDecoration: 'none', fontWeight: 600 }}>
-                  Add your first client →
-                </Link>
+                <Link href="/assessments/clients/new" style={{ color: '#0E7C7B', textDecoration: 'none', fontWeight: 600 }}>Add your first client →</Link>
               </div>
             )}
           </div>
@@ -234,11 +213,7 @@ export default async function AssessmentClientsPage({
               <thead>
                 <tr style={{ background: '#F8FAFC' }}>
                   {['Client', 'Payer Type', 'Assigned Nurse', 'Cadence', 'Next Due', 'Status', ''].map(h => (
-                    <th key={h} style={{
-                      padding: '10px 16px', textAlign: 'left', fontSize: 11,
-                      fontWeight: 700, color: '#4A6070', textTransform: 'uppercase',
-                      letterSpacing: '0.6px', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap',
-                    }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.6px', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -248,45 +223,26 @@ export default async function AssessmentClientsPage({
                   const nurse         = clinicalSched ? normRel(clinicalSched.nurse) : null
                   const hasEP         = hasEPSchedule(c)
                   const next          = getNextAssessment(c)
-
                   return (
                     <tr key={c.id} style={{ borderBottom: idx < clients.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
                       <td style={{ padding: '14px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontWeight: 600, color: '#1A2E44' }}>{c.full_name}</span>
-                          {hasEP && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 700, color: '#0E7C7B',
-                              background: '#E6F4F4', padding: '1px 6px',
-                              borderRadius: 8, border: '1px solid #B2E0DF',
-                            }}>EP</span>
-                          )}
+                          {hasEP && <span style={{ fontSize: 10, fontWeight: 700, color: '#0E7C7B', background: '#E6F4F4', padding: '1px 6px', borderRadius: 8, border: '1px solid #B2E0DF' }}>EP</span>}
                         </div>
                         {c.city && <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 2 }}>{c.city}</div>}
                       </td>
-                      <td style={{ padding: '14px 16px', color: '#4A6070' }}>
-                        {c.payer_type ?? <span style={{ color: '#8FA0B0' }}>—</span>}
-                      </td>
+                      <td style={{ padding: '14px 16px', color: '#4A6070' }}>{c.payer_type ?? <span style={{ color: '#8FA0B0' }}>—</span>}</td>
                       <td style={{ padding: '14px 16px', color: '#1A2E44' }}>
                         {nurse?.full_name ?? <span style={{ color: '#D97706', fontSize: 12 }}>⚠ Unassigned</span>}
                       </td>
                       <td style={{ padding: '14px 16px', color: '#4A6070' }}>
-                        {clinicalSched
-                          ? <span style={{ fontWeight: 600 }}>{clinicalSched.cadence_days}-day</span>
-                          : <span style={{ color: '#8FA0B0' }}>—</span>}
+                        {clinicalSched ? <span style={{ fontWeight: 600 }}>{clinicalSched.cadence_days}-day</span> : <span style={{ color: '#8FA0B0' }}>—</span>}
                       </td>
+                      <td style={{ padding: '14px 16px' }}>{nextDueBadge(next?.scheduled_date ?? null)}</td>
+                      <td style={{ padding: '14px 16px' }}>{statusBadge(c.status)}</td>
                       <td style={{ padding: '14px 16px' }}>
-                        {nextDueBadge(next?.scheduled_date ?? null)}
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        {statusBadge(c.status)}
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <Link href={`/assessments/clients/${c.id}`} style={{
-                          color: '#0E7C7B', textDecoration: 'none', fontSize: 12, fontWeight: 600,
-                        }}>
-                          View →
-                        </Link>
+                        <Link href={`/assessments/clients/${c.id}`} style={{ color: '#0E7C7B', textDecoration: 'none', fontSize: 12, fontWeight: 600 }}>View →</Link>
                       </td>
                     </tr>
                   )
