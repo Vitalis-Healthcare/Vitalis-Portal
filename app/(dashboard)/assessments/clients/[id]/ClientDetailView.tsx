@@ -204,7 +204,12 @@ export default function ClientDetailView({
 
   // ── Assign/Edit Schedule ──────────────────────────────────────────────────
   const assignSchedule = async () => {
-    if (!newNurseId || !newFirstDue) { setErr('Nurse and first due date are required.'); return }
+    // first_due_date is only required when creating a new schedule (POST).
+    // When editing an existing schedule (PATCH) the date field is not shown.
+    if (!newNurseId || (!schedule && !newFirstDue)) {
+      setErr('Nurse and first due date are required.')
+      return
+    }
     setBusy(true); setErr(null)
     try {
       const method = schedule ? 'PATCH' : 'POST'

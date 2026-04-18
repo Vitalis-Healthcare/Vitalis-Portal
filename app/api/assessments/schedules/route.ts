@@ -78,7 +78,7 @@ export async function POST(request: Request) {
           .eq('id', nurse_id)
           .single(),
         db.from('assessment_clients')
-          .select('full_name, address, city, state, zip')
+          .select('full_name, phone, address, city, state, zip')
           .eq('id', client_id)
           .single(),
       ])
@@ -92,6 +92,7 @@ export async function POST(request: Request) {
           nurseEmail:    nurse.email,
           nurseName:     nurse.full_name || nurse.email,
           clientName:    client.full_name,
+          clientPhone:   client.phone ?? null,
           clientAddress: addr,
           cadenceDays:   Number(cadence_days),
           nextDueDate:   first_due_date,

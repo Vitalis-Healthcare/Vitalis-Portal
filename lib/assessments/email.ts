@@ -2,6 +2,10 @@
 // Shared email helpers for the Assessment Planning & Scheduling module.
 // All exported send functions are SOFT-FAIL — callers must wrap in
 // try/catch and log; never let an email failure propagate to DB work.
+//
+// ASSESSMENT_EMAILS_PAUSED=true  — set in Vercel env vars to suppress all
+// outbound emails from this module without a redeploy. Flip back to false
+// (or delete the var) to re-enable. Takes effect on the next invocation.
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const FROM_EMAIL =
@@ -32,6 +36,11 @@ function cadenceLabel(days: number): string {
 }
 
 async function resendSend(to: string, subject: string, html: string): Promise<void> {
+  // Pause all outbound assessment emails without a redeploy.
+  if (process.env.ASSESSMENT_EMAILS_PAUSED === 'true') {
+    console.log(`[assessments/email] ASSESSMENT_EMAILS_PAUSED=true — suppressed: "${subject}" → ${to}`)
+    return
+  }
   if (!RESEND_API_KEY) {
     console.warn('[assessments/email] RESEND_API_KEY not set — email skipped')
     return
@@ -83,6 +92,7 @@ export interface AssignmentEmailParams {
   nurseEmail:      string
   nurseName:       string
   clientName:      string
+  clientPhone:     string | null
   clientAddress:   string
   cadenceDays:     number
   nextDueDate:     string | null  // YYYY-MM-DD, or null when unknown
@@ -98,6 +108,7 @@ export async function sendAssignmentEmail(p: AssignmentEmailParams): Promise<voi
 
   const rows: Array<[string, string]> = [
     ['Client',               p.clientName],
+    ['Phone',                p.clientPhone || '\u2014'],
     ['Address',              p.clientAddress || 'See portal'],
     ['Cadence',              cadenceLabel(p.cadenceDays)],
     ['Next Assessment Due',  p.nextDueDate ? fmtDate(p.nextDueDate) : 'See portal'],
@@ -136,6 +147,7 @@ export async function sendAssignmentEmail(p: AssignmentEmailParams): Promise<voi
 
 export interface DigestItem {
   clientName:    string
+  clientPhone:   string | null
   clientAddress: string
   scheduledDate: string  // YYYY-MM-DD
 }
@@ -151,10 +163,14 @@ export async function sendWeeklyDigestEmail(p: WeeklyDigestParams): Promise<void
   const firstName = p.nurseName.split(' ')[0] || 'Nurse'
   const subject   = `Your assessments this week \u2014 ${p.weekLabel}`
 
+  // Phone shown as a second line under the client name to keep 3 columns.
   const tableRows = p.items.map(item => `
     <tr>
       <td style="padding:10px 12px;font-size:13px;color:#1A2E44;border-bottom:1px solid #F1F5F9;font-weight:600;white-space:nowrap;">${fmtDate(item.scheduledDate)}</td>
-      <td style="padding:10px 12px;font-size:13px;color:#1A2E44;border-bottom:1px solid #F1F5F9;">${item.clientName}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #F1F5F9;">
+        <div style="font-size:13px;color:#1A2E44;font-weight:600;">${item.clientName}</div>
+        ${item.clientPhone ? `<div style="font-size:11px;color:#4A6070;margin-top:2px;">${item.clientPhone}</div>` : ''}
+      </td>
       <td style="padding:10px 12px;font-size:12px;color:#4A6070;border-bottom:1px solid #F1F5F9;">${item.clientAddress || '&mdash;'}</td>
     </tr>`).join('')
 
@@ -207,7 +223,10 @@ export async function sendMonthlyScheduleEmail(p: MonthlyScheduleParams): Promis
   const tableRows = p.items.map(item => `
     <tr>
       <td style="padding:10px 12px;font-size:13px;color:#1A2E44;border-bottom:1px solid #F1F5F9;font-weight:600;white-space:nowrap;">${fmtDate(item.scheduledDate)}</td>
-      <td style="padding:10px 12px;font-size:13px;color:#1A2E44;border-bottom:1px solid #F1F5F9;">${item.clientName}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #F1F5F9;">
+        <div style="font-size:13px;color:#1A2E44;font-weight:600;">${item.clientName}</div>
+        ${item.clientPhone ? `<div style="font-size:11px;color:#4A6070;margin-top:2px;">${item.clientPhone}</div>` : ''}
+      </td>
       <td style="padding:10px 12px;font-size:12px;color:#4A6070;border-bottom:1px solid #F1F5F9;">${item.clientAddress || '&mdash;'}</td>
     </tr>`).join('')
 
