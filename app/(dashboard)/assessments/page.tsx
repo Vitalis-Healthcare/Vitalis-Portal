@@ -21,15 +21,21 @@ function daysUntil(dateStr: string): number {
   return Math.round((new Date(dateStr + 'T00:00:00').getTime() - today.getTime()) / 86400000)
 }
 
-// Derives a human-readable type label from assessment_type + schedule plan_type.
-function getTypeLabel(assessmentType: string, planType: string | null | undefined): string {
+type TypeInfo = { label: string; color: string; bg: string; border: string }
+
+function getTypeInfo(assessmentType: string, planType: string | null | undefined): TypeInfo {
   const isEP = planType === 'ep_annual'
-  if (isEP) return assessmentType === 'emergency' ? 'EP Emergency' : 'EP Annual'
-  return assessmentType === 'emergency' ? 'Emergency' : 'Routine'
+  if (isEP) {
+    return assessmentType === 'emergency'
+      ? { label: 'EP Emergency', color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA' }
+      : { label: 'EP Annual',    color: '#0E7C7B', bg: '#E6F4F4', border: '#B2E0DF' }
+  }
+  if (assessmentType === 'emergency') {
+    return { label: 'Emergency', color: '#B91C1C', bg: '#FEF2F2', border: '#FECACA' }
+  }
+  return { label: 'Routine', color: '#4A6070', bg: '#F8FAFC', border: '#E2E8F0' }
 }
 
-// Returns 'overdue' for any row whose scheduled_date is in the past, regardless
-// of whether the weekly cron has flipped the DB status column yet.
 function effectiveStatus(dbStatus: string, scheduledDate: string): string {
   if (dbStatus === 'completed' || dbStatus === 'cancelled') return dbStatus
   if (daysUntil(scheduledDate) < 0) return 'overdue'
@@ -45,21 +51,27 @@ function statusBadge(status: string) {
   }
   const s = m[status] ?? m.scheduled
   return (
-    <span style={{
-      display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 11,
-      fontWeight: 600, background: s.bg, color: s.color, border: `1px solid ${s.border}`,
-      textTransform: 'capitalize',
-    }}>
+    <span style={{ display:'inline-block', padding:'2px 10px', borderRadius:12, fontSize:11, fontWeight:600, background:s.bg, color:s.color, border:`1px solid ${s.border}`, textTransform:'capitalize' }}>
       {status}
     </span>
   )
 }
 
+// Amber "Initial" badge — only rendered when is_initial is true
+function InitialBadge() {
+  return (
+    <span style={{ display:'inline-block', fontSize:11, fontWeight:700, color:'#92400E', background:'#FEF3C7', border:'1px solid #FDE68A', padding:'2px 8px', borderRadius:8, whiteSpace:'nowrap' }}>
+      Initial
+    </span>
+  )
+}
+
 const TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '',          label: 'All types'  },
-  { value: 'routine',   label: 'Routine'    },
-  { value: 'emergency', label: 'Emergency'  },
-  { value: 'ep_annual', label: 'EP Annual'  },
+  { value: '',        label: 'All types'           },
+  { value: 'initial', label: 'Initial assessments' },
+  { value: 'routine', label: 'Routine'             },
+  { value: 'emergency', label: 'Emergency'         },
+  { value: 'ep_annual', label: 'EP Annual'         },
 ]
 
 export default async function AssessmentsPage({
@@ -69,10 +81,10 @@ export default async function AssessmentsPage({
 }) {
   const {
     nurse_id,
-    view      = 'upcoming',
+    view       = 'upcoming',
     from: fromParam,
     to: toParam,
-    type:     typeFilter = '',
+    type: typeFilter = '',
   } = await searchParams
 
   const authClient = await createClient()
@@ -90,10 +102,7 @@ export default async function AssessmentsPage({
   // ── Date range ─────────────────────────────────────────────────────────────
   const today = new Date(); today.setHours(0,0,0,0)
   const todayStr = today.toISOString().split('T')[0]
-
-  let rangeStart: string
-  let rangeEnd:   string
-  let rangeLabel: string
+  let rangeStart: string, rangeEnd: string, rangeLabel: string
 
   if (view === 'thismonth') {
     rangeStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
@@ -102,11 +111,9 @@ export default async function AssessmentsPage({
   } else if (view === 'nextmonth') {
     rangeStart = new Date(today.getFullYear(), today.getMonth() + 1, 1).toISOString().split('T')[0]
     rangeEnd   = new Date(today.getFullYear(), today.getMonth() + 2, 0).toISOString().split('T')[0]
-    rangeLabel = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-      .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    rangeLabel = new Date(today.getFullYear(), today.getMonth() + 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   } else if (view === 'custom' && fromParam && toParam) {
-    rangeStart = fromParam
-    rangeEnd   = toParam
+    rangeStart = fromParam; rangeEnd = toParam
     rangeLabel = `${fmt(fromParam)} – ${fmt(toParam)}`
   } else {
     rangeStart = todayStr
@@ -114,12 +121,11 @@ export default async function AssessmentsPage({
     rangeLabel = 'Next 14 days'
   }
 
-  // ── Nurse list for filter dropdown ─────────────────────────────────────────
+  // ── Nurse list ─────────────────────────────────────────────────────────────
   const { data: nursesRaw } = await db
     .from('profiles').select('id, full_name')
     .in('role', ['nurse', 'admin', 'supervisor'])
-    .eq('status', 'active')
-    .order('full_name')
+    .eq('status', 'active').order('full_name')
   const nurses = nursesRaw ?? []
 
   // ── Stat queries ───────────────────────────────────────────────────────────
@@ -128,8 +134,6 @@ export default async function AssessmentsPage({
     .gte('scheduled_date', rangeStart).lte('scheduled_date', rangeEnd)
   if (effectiveNurseId) dueQ = dueQ.eq('nurse_id', effectiveNurseId)
 
-  // Overdue = DB status 'overdue' OR still 'scheduled' but date is past.
-  // This ensures the count is accurate before the Monday cron flips the status column.
   let overdueQ = db.from('assessments').select('id', { count: 'exact', head: true })
     .or(`status.eq.overdue,and(status.eq.scheduled,scheduled_date.lt.${todayStr})`)
   if (effectiveNurseId) overdueQ = overdueQ.eq('nurse_id', effectiveNurseId)
@@ -139,26 +143,17 @@ export default async function AssessmentsPage({
     .gte('completed_date', rangeStart).lte('completed_date', rangeEnd)
   if (effectiveNurseId) completedQ = completedQ.eq('nurse_id', effectiveNurseId)
 
-  const [
-    { count: dueCount },
-    { count: overdueCount },
-    { count: completedCount },
-    { count: activeClientCount },
-  ] = await Promise.all([
+  const [{ count: dueCount }, { count: overdueCount }, { count: completedCount }, { count: activeClientCount }] = await Promise.all([
     dueQ, overdueQ, completedQ,
     db.from('assessment_clients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
   ])
 
-  // ── Table query ────────────────────────────────────────────────────────────
-  // schedule join provides plan_type so we can derive the display type label.
+  // ── Table query — includes is_initial ─────────────────────────────────────
   type ClientRel   = { id: string; full_name: string; address: string | null; city: string | null; state: string | null; zip: string | null }
   type NurseRel    = { id: string; full_name: string }
   type ScheduleRel = { plan_type: string } | null
   type AssessmentRow = {
-    id: string
-    scheduled_date: string
-    status: string
-    assessment_type: string
+    id: string; scheduled_date: string; status: string; assessment_type: string; is_initial: boolean
     schedule: ScheduleRel | ScheduleRel[]
     client: ClientRel | ClientRel[] | null
     nurse:  NurseRel  | NurseRel[]  | null
@@ -166,7 +161,7 @@ export default async function AssessmentsPage({
 
   let tableQ = db.from('assessments')
     .select(`
-      id, scheduled_date, status, assessment_type,
+      id, scheduled_date, status, assessment_type, is_initial,
       schedule:assessment_schedules!schedule_id( plan_type ),
       client:assessment_clients!client_id( id, full_name, address, city, state, zip ),
       nurse:profiles!nurse_id( id, full_name )
@@ -175,7 +170,6 @@ export default async function AssessmentsPage({
     .limit(200)
 
   if (view === 'upcoming') {
-    // Include: anything overdue (by status) + anything scheduled but past-due + anything scheduled in range
     tableQ = tableQ.or(
       `status.eq.overdue,` +
       `and(status.eq.scheduled,scheduled_date.lt.${todayStr}),` +
@@ -190,24 +184,25 @@ export default async function AssessmentsPage({
   const { data: tableRaw } = await tableQ
   let tableRows = (tableRaw ?? []) as unknown as AssessmentRow[]
 
-  // ── JS type filter (applied after fetch, does not affect stat cards) ───────
+  // ── JS type filter ─────────────────────────────────────────────────────────
   if (typeFilter) {
     tableRows = tableRows.filter(a => {
       const sched   = normRel(a.schedule as ScheduleRel | ScheduleRel[])
       const planType = sched?.plan_type ?? 'clinical'
-      if (typeFilter === 'ep_annual')  return planType === 'ep_annual'
-      if (typeFilter === 'emergency')  return a.assessment_type === 'emergency' && planType !== 'ep_annual'
-      if (typeFilter === 'routine')    return a.assessment_type === 'routine'   && planType !== 'ep_annual'
+      if (typeFilter === 'initial')   return !!a.is_initial
+      if (typeFilter === 'ep_annual') return planType === 'ep_annual'
+      if (typeFilter === 'emergency') return a.assessment_type === 'emergency' && planType !== 'ep_annual'
+      if (typeFilter === 'routine')   return a.assessment_type === 'routine'   && planType !== 'ep_annual' && !a.is_initial
       return true
     })
   }
 
-  // ── Build report rows for PrintDownloadActions ─────────────────────────────
   const reportRows = tableRows.map(a => {
-    const c        = normRel(a.client)
-    const n        = normRel(a.nurse)
-    const sched    = normRel(a.schedule as ScheduleRel | ScheduleRel[])
-    const days     = daysUntil(a.scheduled_date)
+    const c      = normRel(a.client)
+    const n      = normRel(a.nurse)
+    const sched  = normRel(a.schedule as ScheduleRel | ScheduleRel[])
+    const days   = daysUntil(a.scheduled_date)
+    const ti     = getTypeInfo(a.assessment_type, sched?.plan_type)
     const addrParts = [c?.address, c?.city, [c?.state, c?.zip].filter(Boolean).join(' ')].filter(Boolean)
     return {
       clientName: c?.full_name ?? '—',
@@ -215,14 +210,12 @@ export default async function AssessmentsPage({
       nurse:      n?.full_name ?? '—',
       dueDate:    fmt(a.scheduled_date),
       daysLabel:  days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Today' : `${days}d`,
-      type:       getTypeLabel(a.assessment_type, sched?.plan_type),
+      type:       a.is_initial ? 'Initial' : ti.label,
       status:     effectiveStatus(a.status, a.scheduled_date),
     }
   })
 
-  const nurseLabel = effectiveNurseId
-    ? (nurses.find(n => n.id === effectiveNurseId)?.full_name ?? 'Unknown')
-    : 'All Nurses'
+  const nurseLabel = effectiveNurseId ? (nurses.find(n => n.id === effectiveNurseId)?.full_name ?? 'Unknown') : 'All Nurses'
 
   const stats = [
     { label: `Due — ${rangeLabel}`, value: dueCount ?? 0,         color: '#0E7C7B', bg: '#E6F4F4' },
@@ -246,15 +239,11 @@ export default async function AssessmentsPage({
 
       <div style={{ padding: '32px 32px 64px', maxWidth: 1200, margin: '0 auto' }}>
 
-        {/* Print-only header */}
         <div className="print-header" style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0A5C5B' }}>🩺 Vitalis Healthcare — Assessment Schedule</div>
-          <div style={{ fontSize: 12, color: '#4A6070', marginTop: 4 }}>
-            Period: <strong>{rangeLabel}</strong> &nbsp;|&nbsp; Nurse: <strong>{nurseLabel}</strong>
-          </div>
+          <div style={{ fontSize: 12, color: '#4A6070', marginTop: 4 }}>Period: <strong>{rangeLabel}</strong> &nbsp;|&nbsp; Nurse: <strong>{nurseLabel}</strong></div>
         </div>
 
-        {/* Screen header */}
         <div data-no-print="true" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: '#1A2E44', margin: '0 0 4px' }}>🩺 Assessments</h1>
@@ -265,7 +254,6 @@ export default async function AssessmentsPage({
           <PrintDownloadActions rows={reportRows} periodLabel={rangeLabel} nurseLabel={nurseLabel} />
         </div>
 
-        {/* Filter form */}
         {!isNurse && (
           <form data-no-print="true" method="GET" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20, alignItems: 'flex-end' }}>
             <div>
@@ -302,18 +290,13 @@ export default async function AssessmentsPage({
                 {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
-            <button type="submit" style={{ padding: '8px 18px', background: '#0E7C7B', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              Apply
-            </button>
+            <button type="submit" style={{ padding: '8px 18px', background: '#0E7C7B', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Apply</button>
             {hasFilters && (
-              <Link href="/assessments" style={{ padding: '8px 14px', background: '#F8FAFC', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 12, color: '#4A6070', textDecoration: 'none' }}>
-                Clear
-              </Link>
+              <Link href="/assessments" style={{ padding: '8px 14px', background: '#F8FAFC', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 12, color: '#4A6070', textDecoration: 'none' }}>Clear</Link>
             )}
           </form>
         )}
 
-        {/* Stat cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 28 }}>
           {stats.map(s => (
             <div key={s.label} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '20px 22px' }}>
@@ -323,42 +306,31 @@ export default async function AssessmentsPage({
           ))}
         </div>
 
-        {/* Table */}
         <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2E44' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#1A2E44', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {view === 'upcoming' ? 'Upcoming & Overdue' : rangeLabel}
-                {typeFilter && (
-                  <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: '#0E7C7B', background: '#E6F4F4', padding: '2px 8px', borderRadius: 10, border: '1px solid #B2E0DF' }}>
-                    {TYPE_OPTIONS.find(o => o.value === typeFilter)?.label}
-                  </span>
-                )}
+                {typeFilter && <span style={{ fontSize: 12, fontWeight: 600, color: '#0E7C7B', background: '#E6F4F4', padding: '2px 8px', borderRadius: 10, border: '1px solid #B2E0DF' }}>{TYPE_OPTIONS.find(o => o.value === typeFilter)?.label}</span>}
               </div>
-              <div style={{ fontSize: 12, color: '#4A6070', marginTop: 2 }}>
-                {tableRows.length} assessment{tableRows.length !== 1 ? 's' : ''} · {nurseLabel}
-              </div>
+              <div style={{ fontSize: 12, color: '#4A6070', marginTop: 2 }}>{tableRows.length} assessment{tableRows.length !== 1 ? 's' : ''} · {nurseLabel}</div>
             </div>
             <div data-no-print="true" style={{ display: 'flex', gap: 8 }}>
-              <Link href="/assessments/calendar" style={{ padding: '7px 14px', background: '#F8FAFC', border: '1px solid #D1D9E0', color: '#0E7C7B', textDecoration: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600 }}>
-                📅 Calendar
-              </Link>
-              <Link href="/assessments/clients" style={{ padding: '7px 16px', background: '#0E7C7B', color: '#fff', textDecoration: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600 }}>
-                All Clients →
-              </Link>
+              <Link href="/assessments/calendar" style={{ padding: '7px 14px', background: '#F8FAFC', border: '1px solid #D1D9E0', color: '#0E7C7B', textDecoration: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600 }}>📅 Calendar</Link>
+              <Link href="/assessments/clients" style={{ padding: '7px 16px', background: '#0E7C7B', color: '#fff', textDecoration: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600 }}>All Clients →</Link>
             </div>
           </div>
 
           {tableRows.length === 0 ? (
             <div style={{ padding: '48px 24px', textAlign: 'center', color: '#8FA0B0', fontSize: 14 }}>
-              No assessments in this period{typeFilter ? ` for type "${TYPE_OPTIONS.find(o => o.value === typeFilter)?.label}"` : ''}.
+              No assessments in this period{typeFilter ? ` matching the filter` : ''}.
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC' }}>
-                    {['Client', 'Address', 'Nurse', 'Due Date', 'Days', 'Type', 'Status', ''].map(h => (
+                    {['Client', 'Address', 'Nurse', 'Due Date', 'Days', 'Initial', 'Type', 'Status', ''].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -370,7 +342,7 @@ export default async function AssessmentsPage({
                     const sched  = normRel(a.schedule as ScheduleRel | ScheduleRel[])
                     const days   = daysUntil(a.scheduled_date)
                     const effSt  = effectiveStatus(a.status, a.scheduled_date)
-                    const typeLabel = getTypeLabel(a.assessment_type, sched?.plan_type)
+                    const ti     = getTypeInfo(a.assessment_type, sched?.plan_type)
                     const addrParts = [c?.address, c?.city, [c?.state, c?.zip].filter(Boolean).join(' ')].filter(Boolean)
                     return (
                       <tr key={a.id} style={{ borderBottom: idx < tableRows.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
@@ -383,12 +355,12 @@ export default async function AssessmentsPage({
                             {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Today' : `${days}d`}
                           </span>
                         </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          {a.is_initial ? <InitialBadge /> : <span style={{ color: '#C0CAD4', fontSize: 12 }}>—</span>}
+                        </td>
                         <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                          <span style={{
-                            fontSize: 12, fontWeight: 600,
-                            color: sched?.plan_type === 'ep_annual' ? '#0E7C7B' : '#4A6070',
-                          }}>
-                            {typeLabel}
+                          <span style={{ fontSize: 11, fontWeight: 700, color: ti.color, background: ti.bg, border: `1px solid ${ti.border}`, padding: '2px 8px', borderRadius: 8 }}>
+                            {ti.label}
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px' }}>{statusBadge(effSt)}</td>
