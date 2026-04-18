@@ -1,7 +1,5 @@
 'use client'
 // components/layout/Sidebar.tsx
-// Collapsible module groups. Each group remembers open/closed state in localStorage.
-
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -85,10 +83,7 @@ const adminNav: NavSection[] = [
     ],
   },
   {
-    type: 'group',
-    id: 'cashflow',
-    emoji: '💰',
-    label: 'Cashflow',
+    type: 'group', id: 'cashflow', emoji: '💰', label: 'Cashflow',
     items: [
       { href: '/cashflow',              label: 'Dashboard',       icon: Wallet },
       { href: '/cashflow/forecast',     label: 'The outlook',     icon: TrendingUp },
@@ -101,12 +96,17 @@ const adminNav: NavSection[] = [
   },
 ]
 
-const nurseNav: NavSection[] = [
+// Nurse Monitor: caregiver items + Assessments group
+const nurseMonitorNav: NavSection[] = [
   {
-    type: 'flat', label: 'MAIN',
+    type: 'flat', label: 'MY PORTAL',
     items: [
-      { href: '/dashboard', label: 'Overview',    icon: LayoutDashboard },
-      { href: '/vita',      label: 'Ask Vita ✨', icon: Sparkles },
+      { href: '/dashboard',   label: 'Overview',       icon: LayoutDashboard },
+      { href: '/vita',        label: 'Ask Vita ✨',    icon: Sparkles },
+      { href: '/lms',         label: 'My Training',    icon: GraduationCap },
+      { href: '/pp',          label: 'Policies',       icon: ShieldCheck },
+      { href: '/credentials', label: 'My Credentials', icon: BadgeCheck },
+      { href: '/references',  label: 'My References',  icon: UserCheck },
     ],
   },
   {
@@ -115,43 +115,6 @@ const nurseNav: NavSection[] = [
       { href: '/assessments',          label: 'My Assessments', icon: Stethoscope },
       { href: '/assessments/clients',  label: 'My Clients',     icon: HeartPulse },
       { href: '/assessments/calendar', label: 'Calendar',       icon: CalendarDays },
-    ],
-  },
-  {
-    type: 'group', id: 'compliance', label: 'Compliance', emoji: '🛡️',
-    items: [
-      { href: '/lms', label: 'Training Programmes',   icon: GraduationCap },
-      { href: '/pp',  label: 'Policies & Procedures', icon: ShieldCheck },
-    ],
-  },
-]
-
-const staffNav: NavSection[] = [
-  {
-    type: 'flat', label: 'MAIN',
-    items: [
-      { href: '/dashboard', label: 'Overview',    icon: LayoutDashboard },
-      { href: '/vita',      label: 'Ask Vita ✨', icon: Sparkles },
-    ],
-  },
-  {
-    type: 'group', id: 'compliance', label: 'Compliance', emoji: '🛡️',
-    items: [
-      { href: '/lms',         label: 'Training Programmes',    icon: GraduationCap },
-      { href: '/pp',          label: 'Policies & Procedures',  icon: ShieldCheck },
-      { href: '/ep',          label: 'Emergency Preparedness', icon: AlertTriangle },
-      { href: '/credentials', label: 'Credentials',            icon: BadgeCheck },
-    ],
-  },
-  {
-    type: 'group', id: 'workforce', label: 'Workforce', emoji: '👥',
-    items: [
-      { href: '/staff',       label: 'Caregiver Directory',  icon: Users },
-      { href: '/credentials', label: 'Credentials',          icon: BadgeCheck },
-      { href: '/appraisals',  label: 'Appraisals',           icon: ClipboardList },
-      { href: '/references',  label: 'References',           icon: UserCheck },
-      { href: '/users',       label: 'Caregiver Management', icon: UserCog },
-      { href: '/reports',     label: 'Reports',              icon: BarChart3 },
     ],
   },
 ]
@@ -185,9 +148,7 @@ function NavGroupSection({ group, pathname, role, onNavigate }: { group: NavGrou
     try {
       const stored = localStorage.getItem(storageKey)
       setOpen(stored !== null ? JSON.parse(stored) : hasActive)
-    } catch {
-      setOpen(hasActive)
-    }
+    } catch { setOpen(hasActive) }
     setHydrated(true)
   }, [])
 
@@ -216,13 +177,10 @@ function NavGroupSection({ group, pathname, role, onNavigate }: { group: NavGrou
           <span style={{
             fontSize: 11, fontWeight: 700, letterSpacing: '0.8px',
             textTransform: 'uppercase', color: open ? '#0A5C5B' : '#8FA0B0',
-          }}>
-            {group.label}
-          </span>
+          }}>{group.label}</span>
         </div>
         {open ? <ChevronDown size={12} color="#8FA0B0" /> : <ChevronRight size={12} color="#B0BEC5" />}
       </button>
-
       {open && (
         <div style={{ paddingBottom: 2 }}>
           {items.map(item => {
@@ -258,9 +216,7 @@ function FlatSection({ section, pathname, onNavigate }: { section: NavFlat; path
       <div style={{
         padding: '10px 20px 5px', fontSize: 10, fontWeight: 700,
         color: '#8FA0B0', letterSpacing: '1.4px', textTransform: 'uppercase',
-      }}>
-        {section.label}
-      </div>
+      }}>{section.label}</div>
       {section.items.map(item => {
         const active = pathname === item.href ||
           (item.href !== '/dashboard' && pathname.startsWith(item.href))
@@ -298,14 +254,15 @@ export default function Sidebar({ role, onNavigate }: { role: string; onNavigate
 
   const nav =
     role === 'admin' || role === 'supervisor' || role === 'staff' ? adminNav :
-    role === 'nurse' ? nurseNav :
+    role === 'nurse_monitor' ? nurseMonitorNav :
     caregiverNav
 
   const roleLabel =
-    role === 'admin'      ? 'Admin' :
-    role === 'supervisor' ? 'Supervisor' :
-    role === 'staff'      ? 'Staff' :
-    role === 'nurse'      ? 'Nurse' : 'Caregiver'
+    role === 'admin'         ? 'Admin' :
+    role === 'supervisor'    ? 'Supervisor' :
+    role === 'staff'         ? 'Staff' :
+    role === 'nurse_monitor' ? 'Nurse Monitor' :
+    'Caregiver'
 
   return (
     <aside style={{
@@ -326,9 +283,7 @@ export default function Sidebar({ role, onNavigate }: { role: string; onNavigate
           margin: '0 4px 8px', padding: '5px 10px', borderRadius: 6,
           background: '#F8FAFB', fontSize: 11, color: '#8FA0B0',
           fontWeight: 600, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.8px',
-        }}>
-          {roleLabel}
-        </div>
+        }}>{roleLabel}</div>
         <button onClick={handleSignOut} style={{
           width: '100%', padding: '10px 12px', borderRadius: 8,
           display: 'flex', alignItems: 'center', gap: 10,

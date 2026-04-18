@@ -1,6 +1,6 @@
 // app/(dashboard)/layout.tsx
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import LayoutShell from '@/components/layout/LayoutShell'
 import { Profile } from '@/types'
@@ -10,11 +10,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-  const { data: profile } = await service
+  const db = createServiceClient()
+  const { data: profile } = await db
     .from('profiles')
     .select('*')
     .eq('id', user.id)

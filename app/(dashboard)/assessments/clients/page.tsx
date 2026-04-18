@@ -54,16 +54,17 @@ export default async function AssessmentClientsPage({
   const db = createServiceClient()
   const { data: profile } = await db
     .from('profiles').select('role').eq('id', user.id).single()
-  if (!profile || !['admin', 'supervisor', 'nurse'].includes(profile.role)) {
+  if (!profile || !['admin', 'supervisor', 'nurse_monitor'].includes(profile.role)) {
     redirect('/dashboard')
   }
 
-  const isNurse = profile.role === 'nurse'
+  const isAdmin        = profile.role === 'admin'
+  const isNurseMonitor = profile.role === 'nurse_monitor'
 
-  // Fetch nurses for filter dropdown
+  // Assignable nurses for filter dropdown (can_be_assigned = true)
   const { data: nursesRaw } = await db
     .from('profiles').select('id, full_name')
-    .in('role', ['nurse', 'admin', 'supervisor'])
+    .eq('can_be_assigned', true)
     .eq('status', 'active').order('full_name')
   const nurses = nursesRaw ?? []
 
@@ -101,14 +102,6 @@ export default async function AssessmentClientsPage({
   const { data: rawClients } = await query
   let clients = (rawClients ?? []) as unknown as ClientRow[]
 
-  // Nurse scope: show only clients assigned to them
-  if (isNurse) {
-    clients = clients.filter(c => {
-      const schedArr = Array.isArray(c.schedule) ? c.schedule : (c.schedule ? [c.schedule] : [])
-      return schedArr.some(s => s?.is_active && s?.nurse_id === user.id)
-    })
-  }
-
   const getClinicalSchedule = (c: ClientRow): NonNullable<ScheduleRel> | null => {
     const arr = Array.isArray(c.schedule) ? c.schedule : (c.schedule ? [c.schedule] : [])
     return arr.find(s => s?.is_active && s?.plan_type === 'clinical') ?? null
@@ -119,8 +112,16 @@ export default async function AssessmentClientsPage({
     return arr.some(s => s?.is_active && s?.plan_type === 'ep_annual')
   }
 
+  // Nurse Monitor scope: only show clients they're assigned to
+  if (isNurseMonitor) {
+    clients = clients.filter(c => {
+      const schedArr = Array.isArray(c.schedule) ? c.schedule : (c.schedule ? [c.schedule] : [])
+      return schedArr.some(s => s?.is_active && s?.nurse_id === user.id)
+    })
+  }
+
   // Nurse filter (admin/supervisor only)
-  if (!isNurse && nurseFilter) {
+  if (!isNurseMonitor && nurseFilter) {
     if (nurseFilter === 'unassigned') {
       clients = clients.filter(c => !getClinicalSchedule(c))
     } else {
@@ -157,13 +158,13 @@ export default async function AssessmentClientsPage({
             <Link href="/assessments" style={{ color: '#0E7C7B', textDecoration: 'none', fontSize: 13 }}>← Assessments</Link>
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1A2E44', margin: 0 }}>
-            {isNurse ? 'My Clients' : 'Assessment Clients'}
+            {isNurseMonitor ? 'My Clients' : 'Assessment Clients'}
           </h1>
           <p style={{ fontSize: 14, color: '#4A6070', margin: '4px 0 0' }}>
             {clients.length} client{clients.length !== 1 ? 's' : ''} shown
           </p>
         </div>
-        {!isNurse && (
+        {isAdmin && (
           <div style={{ display: 'flex', gap: 10 }}>
             <Link href="/assessments/clients/import" style={{ display: 'inline-block', padding: '10px 18px', background: '#F8FAFC', border: '1px solid #D1D9E0', color: '#0E7C7B', textDecoration: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600 }}>
               ⬇ Import from AxisCare
@@ -175,7 +176,6 @@ export default async function AssessmentClientsPage({
         )}
       </div>
 
-      {/* Filters */}
       <form method="GET" style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
         <input name="q" defaultValue={q} placeholder="Search by name…" style={{ padding: '8px 14px', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, color: '#1A2E44', background: '#fff', width: 220, outline: 'none' }} />
         <select name="status" defaultValue={statusFilter} style={{ padding: '8px 12px', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, color: '#1A2E44', background: '#fff' }}>
@@ -184,7 +184,7 @@ export default async function AssessmentClientsPage({
           <option value="discharged">Discharged</option>
           <option value="all">All statuses</option>
         </select>
-        {!isNurse && (
+        {!isNurseMonitor && (
           <select name="nurse" defaultValue={nurseFilter} style={{ padding: '8px 12px', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, color: '#1A2E44', background: '#fff' }}>
             <option value="">All nurses</option>
             <option value="unassigned">⚠ Unassigned</option>
@@ -196,12 +196,11 @@ export default async function AssessmentClientsPage({
         </button>
       </form>
 
-      {/* Table */}
       <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
         {clients.length === 0 ? (
           <div style={{ padding: '48px 24px', textAlign: 'center', color: '#8FA0B0', fontSize: 14 }}>
             {q ? `No clients matching "${q}".` : nurseFilter === 'unassigned' ? 'No unassigned clients.' : 'No clients found.'}
-            {!isNurse && !q && (
+            {isAdmin && !q && (
               <div style={{ marginTop: 12 }}>
                 <Link href="/assessments/clients/new" style={{ color: '#0E7C7B', textDecoration: 'none', fontWeight: 600 }}>Add your first client →</Link>
               </div>
