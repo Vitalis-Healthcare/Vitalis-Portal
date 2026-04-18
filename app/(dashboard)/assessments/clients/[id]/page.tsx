@@ -82,7 +82,7 @@ export default async function ClientDetailPage({
     .from('assessments')
     .select(`
       id, scheduled_date, completed_date, status, assessment_type,
-      triggers_reset, notes, created_at, schedule_id,
+      triggers_reset, notes, created_at, schedule_id, is_initial,
       nurse:profiles!nurse_id(id, full_name),
       completer:profiles!completed_by(id, full_name)
     `)
