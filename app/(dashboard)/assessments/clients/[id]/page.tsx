@@ -37,41 +37,52 @@ export default async function ClientDetailPage({
 
   if (!client) notFound()
 
-  // Nurse can only view their own clients
+  // Nurse scope: allow if assigned to ANY active schedule for this client
   if (profile.role === 'nurse') {
-    const { data: sched } = await db
+    const { data: nurseScheds } = await db
       .from('assessment_schedules')
       .select('nurse_id')
       .eq('client_id', id)
       .eq('is_active', true)
-      .single()
-    if (!sched || sched.nurse_id !== user.id) redirect('/assessments/clients')
+    const isAssigned = (nurseScheds ?? []).some(s => s.nurse_id === user.id)
+    if (!isAssigned) redirect('/assessments/clients')
   }
 
-  // Fetch active schedule + nurse info
-  const { data: scheduleRaw } = await db
-    .from('assessment_schedules')
-    .select(`
-      id, cadence_days, is_active, nurse_id, created_at,
-      nurse:profiles!nurse_id(id, full_name, email)
-    `)
-    .eq('client_id', id)
-    .eq('is_active', true)
-    .maybeSingle()
+  const scheduleSelect = `
+    id, cadence_days, is_active, nurse_id, plan_type, created_at,
+    nurse:profiles!nurse_id(id, full_name, email)
+  `
 
-  const schedule = scheduleRaw
-    ? {
-        ...scheduleRaw,
-        nurse: normRel(scheduleRaw.nurse as any),
-      }
+  // Fetch clinical and EP schedules separately
+  const [{ data: clinicalRaw }, { data: epRaw }] = await Promise.all([
+    db.from('assessment_schedules')
+      .select(scheduleSelect)
+      .eq('client_id', id)
+      .eq('is_active', true)
+      .eq('plan_type', 'clinical')
+      .maybeSingle(),
+    db.from('assessment_schedules')
+      .select(scheduleSelect)
+      .eq('client_id', id)
+      .eq('is_active', true)
+      .eq('plan_type', 'ep_annual')
+      .maybeSingle(),
+  ])
+
+  const clinicalSchedule = clinicalRaw
+    ? { ...clinicalRaw, nurse: normRel(clinicalRaw.nurse as any) }
     : null
 
-  // Fetch all assessments for this client, newest first
+  const epSchedule = epRaw
+    ? { ...epRaw, nurse: normRel(epRaw.nurse as any) }
+    : null
+
+  // Fetch all assessments — schedule_id included so view can derive plan type
   const { data: assessments } = await db
     .from('assessments')
     .select(`
       id, scheduled_date, completed_date, status, assessment_type,
-      triggers_reset, notes, created_at,
+      triggers_reset, notes, created_at, schedule_id,
       nurse:profiles!nurse_id(id, full_name),
       completer:profiles!completed_by(id, full_name)
     `)
@@ -84,7 +95,7 @@ export default async function ClientDetailPage({
     completer: normRel((a as any).completer),
   }))
 
-  // Fetch all nurses for reassignment dropdown
+  // Fetch all nurses for assignment dropdown
   const { data: nursesRaw } = await db
     .from('profiles')
     .select('id, full_name, role')
@@ -92,14 +103,13 @@ export default async function ClientDetailPage({
     .eq('status', 'active')
     .order('full_name')
 
-  const nurses = nursesRaw ?? []
-
   return (
     <ClientDetailView
       client={client}
-      schedule={schedule}
+      clinicalSchedule={clinicalSchedule}
+      epSchedule={epSchedule}
       assessments={normalizedAssessments}
-      nurses={nurses}
+      nurses={nursesRaw ?? []}
       currentUserId={user.id}
       currentUserRole={profile.role}
     />

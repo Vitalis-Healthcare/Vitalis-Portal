@@ -11,10 +11,12 @@ type Schedule = {
   cadence_days: number
   is_active: boolean
   nurse_id: string
+  plan_type: string
   nurse: { id: string; full_name: string; email: string } | null
 } | null
 type Assessment = {
   id: string
+  schedule_id: string | null
   scheduled_date: string
   completed_date: string | null
   status: string
@@ -39,6 +41,8 @@ type Client = {
   notes: string | null
   created_at: string
 }
+
+type PlanType = 'clinical' | 'ep_annual'
 
 const CADENCE_OPTIONS = [120, 90, 60, 30]
 const PAYER_TYPES = [
@@ -80,59 +84,108 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function PlanBadge({ planType }: { planType: 'clinical' | 'ep_annual' | 'unknown' }) {
+  if (planType === 'ep_annual') {
+    return (
+      <span style={{
+        fontSize: 10, fontWeight: 700, color: '#0E7C7B',
+        background: '#E6F4F4', padding: '2px 6px', borderRadius: 6,
+        border: '1px solid #B2E0DF', whiteSpace: 'nowrap',
+      }}>EP</span>
+    )
+  }
+  return null
+}
+
 export default function ClientDetailView({
   client: initialClient,
-  schedule: initialSchedule,
+  clinicalSchedule,
+  epSchedule,
   assessments: initialAssessments,
   nurses,
   currentUserId,
   currentUserRole,
 }: {
   client: Client
-  schedule: Schedule
+  clinicalSchedule: Schedule
+  epSchedule: Schedule
   assessments: Assessment[]
   nurses: NurseOption[]
   currentUserId: string
   currentUserRole: string
 }) {
   const router = useRouter()
-  const [client, setClient]           = useState(initialClient)
-  const [schedule]                    = useState(initialSchedule)
-  const [assessments]                 = useState(initialAssessments)
-  const [busy, setBusy]               = useState(false)
-  const [err, setErr]                 = useState<string | null>(null)
+  const [client, setClient]     = useState(initialClient)
+  const [assessments]           = useState(initialAssessments)
+  const [busy, setBusy]         = useState(false)
+  const [err, setErr]           = useState<string | null>(null)
 
-  // ── Modal states ──────────────────────────────────────────────────────────
-  const [showComplete, setShowComplete]         = useState<string | null>(null)
-  const [completeNotes, setCompleteNotes]       = useState('')
-  const [showEmergency, setShowEmergency]       = useState(false)
-  const [emergencyNotes, setEmergencyNotes]     = useState('')
-  const [showAssignSchedule, setShowAssignSchedule] = useState(false)
-  const [newNurseId, setNewNurseId]             = useState(schedule?.nurse_id ?? '')
-  const [newCadence, setNewCadence]             = useState(schedule?.cadence_days ?? 120)
-  const [newFirstDue, setNewFirstDue]           = useState('')
+  // Which plan type's schedule modal is open; null = closed
+  const [editingPlan, setEditingPlan] = useState<PlanType | null>(null)
 
-  // ── Edit Client modal state ───────────────────────────────────────────────
-  const [showEdit, setShowEdit] = useState(false)
-  const [editName, setEditName]         = useState(client.full_name)
-  const [editDob, setEditDob]           = useState(client.date_of_birth ?? '')
-  const [editPhone, setEditPhone]       = useState(client.phone ?? '')
-  const [editAddress, setEditAddress]   = useState(client.address ?? '')
-  const [editCity, setEditCity]         = useState(client.city ?? '')
-  const [editState, setEditState]       = useState(client.state ?? 'MD')
-  const [editZip, setEditZip]           = useState(client.zip ?? '')
-  const [editPayer, setEditPayer]       = useState(client.payer_type ?? '')
-  const [editAxisId, setEditAxisId]     = useState(client.axiscare_id ?? '')
-  const [editNotes, setEditNotes]       = useState(client.notes ?? '')
-  const [editStatus, setEditStatus]     = useState(client.status)
+  // Modal field state — reset via openScheduleModal()
+  const [newNurseId, setNewNurseId]   = useState('')
+  const [newCadence, setNewCadence]   = useState(120)
+  const [newFirstDue, setNewFirstDue] = useState('')
+
+  // Mark complete
+  const [showComplete, setShowComplete]   = useState<string | null>(null)
+  const [completeNotes, setCompleteNotes] = useState('')
+
+  // Emergency
+  const [showEmergency, setShowEmergency]   = useState(false)
+  const [emergencyNotes, setEmergencyNotes] = useState('')
+
+  // Edit client
+  const [showEdit, setShowEdit]       = useState(false)
+  const [editName, setEditName]       = useState(client.full_name)
+  const [editDob, setEditDob]         = useState(client.date_of_birth ?? '')
+  const [editPhone, setEditPhone]     = useState(client.phone ?? '')
+  const [editAddress, setEditAddress] = useState(client.address ?? '')
+  const [editCity, setEditCity]       = useState(client.city ?? '')
+  const [editState, setEditState]     = useState(client.state ?? 'MD')
+  const [editZip, setEditZip]         = useState(client.zip ?? '')
+  const [editPayer, setEditPayer]     = useState(client.payer_type ?? '')
+  const [editAxisId, setEditAxisId]   = useState(client.axiscare_id ?? '')
+  const [editNotes, setEditNotes]     = useState(client.notes ?? '')
+  const [editStatus, setEditStatus]   = useState(client.status)
 
   const canEdit = ['admin', 'supervisor'].includes(currentUserRole)
+
+  // The schedule currently being edited/assigned
+  const targetSchedule = editingPlan === 'clinical' ? clinicalSchedule : epSchedule
+  const isNewSchedule  = !targetSchedule
 
   const inputStyle = {
     width: '100%', padding: '8px 12px', border: '1px solid #D1D9E0', borderRadius: 7,
     fontSize: 13, color: '#1A2E44', background: '#fff', boxSizing: 'border-box' as const,
   }
-  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600 as const, color: '#4A6070', marginBottom: 4 }
+  const labelStyle = {
+    display: 'block', fontSize: 12, fontWeight: 600 as const, color: '#4A6070', marginBottom: 4,
+  }
+  const editBtnStyle = {
+    padding: '3px 10px', background: 'transparent', border: '1px solid #D1D9E0',
+    color: '#0E7C7B', borderRadius: 6, fontSize: 11, fontWeight: 600 as const,
+    cursor: 'pointer',
+  }
+
+  // Open the schedule modal for a given plan type
+  const openScheduleModal = (planType: PlanType) => {
+    const target = planType === 'clinical' ? clinicalSchedule : epSchedule
+    setEditingPlan(planType)
+    setNewNurseId(target?.nurse_id ?? '')
+    // EP is always annual; clinical defaults to existing cadence or 120
+    setNewCadence(planType === 'ep_annual' ? 365 : (target?.cadence_days ?? 120))
+    setNewFirstDue('')
+    setErr(null)
+  }
+
+  // Derive plan type for an assessment row
+  const getAssessmentPlan = (a: Assessment): 'clinical' | 'ep_annual' | 'unknown' => {
+    if (a.schedule_id === clinicalSchedule?.id) return 'clinical'
+    if (a.schedule_id === epSchedule?.id)       return 'ep_annual'
+    return 'unknown'
+  }
 
   // ── Save client edits ─────────────────────────────────────────────────────
   const saveEdit = async () => {
@@ -182,7 +235,7 @@ export default function ClientDetailView({
 
   // ── Emergency Assessment ──────────────────────────────────────────────────
   const scheduleEmergency = async () => {
-    if (!schedule) { setErr('No active schedule — assign a nurse first.'); return }
+    if (!clinicalSchedule) { setErr('No active clinical schedule — assign a nurse first.'); return }
     setBusy(true); setErr(null)
     try {
       const res = await fetch('/api/assessments/emergency', {
@@ -190,8 +243,8 @@ export default function ClientDetailView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           client_id:   client.id,
-          schedule_id: schedule.id,
-          nurse_id:    schedule.nurse_id,
+          schedule_id: clinicalSchedule.id,
+          nurse_id:    clinicalSchedule.nurse_id,
           notes:       emergencyNotes || null,
         }),
       })
@@ -202,31 +255,113 @@ export default function ClientDetailView({
     } catch { setErr('Unexpected error.') } finally { setBusy(false) }
   }
 
-  // ── Assign/Edit Schedule ──────────────────────────────────────────────────
+  // ── Assign / Edit Schedule ────────────────────────────────────────────────
   const assignSchedule = async () => {
-    // first_due_date is only required when creating a new schedule (POST).
-    // When editing an existing schedule (PATCH) the date field is not shown.
-    if (!newNurseId || (!schedule && !newFirstDue)) {
+    if (!newNurseId || (isNewSchedule && !newFirstDue)) {
       setErr('Nurse and first due date are required.')
       return
     }
     setBusy(true); setErr(null)
     try {
-      const method = schedule ? 'PATCH' : 'POST'
-      const url    = schedule ? `/api/assessments/schedules/${schedule.id}` : '/api/assessments/schedules'
-      const body   = schedule
+      const method = targetSchedule ? 'PATCH' : 'POST'
+      const url    = targetSchedule
+        ? `/api/assessments/schedules/${targetSchedule.id}`
+        : '/api/assessments/schedules'
+      const body   = targetSchedule
         ? { nurse_id: newNurseId, cadence_days: newCadence }
-        : { client_id: client.id, nurse_id: newNurseId, cadence_days: newCadence, first_due_date: newFirstDue }
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        : {
+            client_id:      client.id,
+            nurse_id:       newNurseId,
+            cadence_days:   newCadence,
+            first_due_date: newFirstDue,
+            plan_type:      editingPlan,
+          }
+      const res  = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json()
       if (!res.ok) { setErr(data.error ?? 'Failed to save schedule.'); return }
-      setShowAssignSchedule(false)
+      setEditingPlan(null)
       router.refresh()
     } catch { setErr('Unexpected error.') } finally { setBusy(false) }
   }
 
   const pendingAssessments = assessments.filter(a => ['scheduled', 'overdue'].includes(a.status))
   const pastAssessments    = assessments.filter(a => !['scheduled', 'overdue'].includes(a.status))
+
+  // ── Schedule sub-card renderer ────────────────────────────────────────────
+  const ScheduleSection = ({
+    label, planType, sched,
+  }: {
+    label: string
+    planType: PlanType
+    sched: Schedule
+  }) => {
+    const isEP = planType === 'ep_annual'
+    const pendingForPlan = pendingAssessments.filter(a => getAssessmentPlan(a) === planType)
+    const next = pendingForPlan.sort((a, b) =>
+      a.scheduled_date.localeCompare(b.scheduled_date)
+    )[0] ?? null
+
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const,
+            letterSpacing: '0.5px', color: isEP ? '#4A6070' : '#0E7C7B',
+          }}>
+            {label}
+          </div>
+          {canEdit && (
+            <button onClick={() => openScheduleModal(planType)} style={editBtnStyle}>
+              {sched ? 'Edit' : 'Assign'}
+            </button>
+          )}
+        </div>
+
+        {sched ? (
+          <>
+            {([
+              ['Assigned Nurse', sched.nurse?.full_name ?? '—'],
+              ['Cadence', isEP ? 'Annual (365 days)' : `${sched.cadence_days}-day`],
+            ] as [string, string][]).map(([lbl, val]) => (
+              <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: '#8FA0B0' }}>{lbl}</span>
+                <span style={{ fontSize: 13, color: '#1A2E44', fontWeight: 500 }}>{val}</span>
+              </div>
+            ))}
+            {next && (
+              <div style={{
+                marginTop: 10, padding: '8px 12px',
+                background: isEP ? '#F8FAFC' : '#EFF6FF',
+                borderRadius: 7, border: `1px solid ${isEP ? '#E2E8F0' : '#BFDBFE'}`,
+              }}>
+                <div style={{ fontSize: 11, color: isEP ? '#4A6070' : '#1D4ED8', fontWeight: 600, marginBottom: 3 }}>
+                  NEXT {isEP ? 'EP ' : ''}ASSESSMENT
+                </div>
+                <div style={{ fontSize: 13, color: '#1A2E44', fontWeight: 700 }}>{fmt(next.scheduled_date)}</div>
+                <div style={{ fontSize: 11, color: '#4A6070', marginTop: 2 }}>
+                  {(() => {
+                    const d = daysUntil(next.scheduled_date)
+                    if (d < 0) return <span style={{ color: '#B91C1C', fontWeight: 600 }}>{Math.abs(d)} days overdue</span>
+                    if (d === 0) return <span style={{ color: '#D97706', fontWeight: 600 }}>Due today</span>
+                    return `in ${d} day${d !== 1 ? 's' : ''}`
+                  })()}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ color: '#D97706', fontSize: 13, padding: '4px 0' }}>
+            ⚠ No {isEP ? 'EP plan' : 'clinical schedule'}.
+            {canEdit ? ' Click "Assign" to set up.' : ' Contact your supervisor.'}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const modalTitle = editingPlan
+    ? `${targetSchedule ? 'Edit' : 'Assign'} ${editingPlan === 'ep_annual' ? 'EP Annual Plan' : 'Clinical Schedule'}`
+    : ''
 
   return (
     <div style={{ padding: '32px 32px 64px', maxWidth: 960, margin: '0 auto' }}>
@@ -246,24 +381,18 @@ export default function ClientDetailView({
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             {canEdit && (
-              <button
-                onClick={() => { setShowEdit(true); setErr(null) }}
-                style={{
-                  padding: '8px 16px', background: '#F8FAFC', border: '1px solid #D1D9E0',
-                  color: '#1A2E44', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                }}
-              >
+              <button onClick={() => { setShowEdit(true); setErr(null) }} style={{
+                padding: '8px 16px', background: '#F8FAFC', border: '1px solid #D1D9E0',
+                color: '#1A2E44', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>
                 ✎ Edit Client
               </button>
             )}
             {canEdit && pendingAssessments.length > 0 && (
-              <button
-                onClick={() => { setShowEmergency(true); setErr(null) }}
-                style={{
-                  padding: '8px 16px', background: '#FEF2F2', border: '1px solid #FECACA',
-                  color: '#B91C1C', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                }}
-              >
+              <button onClick={() => { setShowEmergency(true); setErr(null) }} style={{
+                padding: '8px 16px', background: '#FEF2F2', border: '1px solid #FECACA',
+                color: '#B91C1C', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>
                 + Emergency Assessment
               </button>
             )}
@@ -306,55 +435,14 @@ export default function ClientDetailView({
           )}
         </div>
 
-        {/* Schedule card */}
+        {/* Schedules card — two sections */}
         <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '20px 22px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-              Assessment Schedule
-            </div>
-            {canEdit && (
-              <button
-                onClick={() => { setShowAssignSchedule(true); setErr(null) }}
-                style={{
-                  padding: '4px 10px', background: 'transparent', border: '1px solid #D1D9E0',
-                  color: '#0E7C7B', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                {schedule ? 'Edit' : 'Assign'}
-              </button>
-            )}
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
+            Assessment Schedules
           </div>
-          {schedule ? (
-            <>
-              {([
-                ['Assigned Nurse', schedule.nurse?.full_name ?? '—'],
-                ['Cadence', `${schedule.cadence_days}-day`],
-              ] as [string, string][]).map(([label, value]) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, color: '#8FA0B0' }}>{label}</span>
-                  <span style={{ fontSize: 13, color: '#1A2E44', fontWeight: 500 }}>{value}</span>
-                </div>
-              ))}
-              {pendingAssessments[0] && (
-                <div style={{ marginTop: 12, padding: '10px 12px', background: '#EFF6FF', borderRadius: 7 }}>
-                  <div style={{ fontSize: 11, color: '#1D4ED8', fontWeight: 600, marginBottom: 3 }}>NEXT ASSESSMENT</div>
-                  <div style={{ fontSize: 13, color: '#1A2E44', fontWeight: 700 }}>{fmt(pendingAssessments[0].scheduled_date)}</div>
-                  <div style={{ fontSize: 11, color: '#4A6070', marginTop: 2 }}>
-                    {(() => {
-                      const d = daysUntil(pendingAssessments[0].scheduled_date)
-                      if (d < 0) return <span style={{ color: '#B91C1C', fontWeight: 600 }}>{Math.abs(d)} days overdue</span>
-                      if (d === 0) return <span style={{ color: '#D97706', fontWeight: 600 }}>Due today</span>
-                      return `in ${d} day${d !== 1 ? 's' : ''}`
-                    })()}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={{ color: '#D97706', fontSize: 13, padding: '8px 0' }}>
-              ⚠ No active schedule. {canEdit ? 'Click "Assign" to set up.' : 'Contact your supervisor.'}
-            </div>
-          )}
+          <ScheduleSection label="Clinical" planType="clinical" sched={clinicalSchedule} />
+          <div style={{ borderTop: '1px solid #F1F5F9', margin: '16px 0' }} />
+          <ScheduleSection label="EP Annual Plan" planType="ep_annual" sched={epSchedule} />
         </div>
       </div>
 
@@ -367,7 +455,7 @@ export default function ClientDetailView({
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#F8FAFC' }}>
-                {['Due Date', 'Type', 'Nurse', 'Status', ''].map(h => (
+                {['Due Date', 'Plan', 'Type', 'Nurse', 'Status', ''].map(h => (
                   <th key={h} style={{ padding: '9px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #E2E8F0' }}>{h}</th>
                 ))}
               </tr>
@@ -376,6 +464,7 @@ export default function ClientDetailView({
               {pendingAssessments.map((a, idx) => (
                 <tr key={a.id} style={{ borderBottom: idx < pendingAssessments.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
                   <td style={{ padding: '12px 16px', fontWeight: 600, color: '#1A2E44' }}>{fmt(a.scheduled_date)}</td>
+                  <td style={{ padding: '12px 16px' }}><PlanBadge planType={getAssessmentPlan(a)} /></td>
                   <td style={{ padding: '12px 16px', color: '#4A6070', textTransform: 'capitalize' }}>{a.assessment_type}</td>
                   <td style={{ padding: '12px 16px', color: '#4A6070' }}>{a.nurse?.full_name ?? '—'}</td>
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={a.status} /></td>
@@ -406,7 +495,7 @@ export default function ClientDetailView({
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#F8FAFC' }}>
-                {['Scheduled', 'Completed', 'Type', 'Nurse', 'Completed By', 'Status'].map(h => (
+                {['Scheduled', 'Plan', 'Completed', 'Type', 'Nurse', 'Completed By', 'Status'].map(h => (
                   <th key={h} style={{ padding: '9px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #E2E8F0' }}>{h}</th>
                 ))}
               </tr>
@@ -415,6 +504,7 @@ export default function ClientDetailView({
               {pastAssessments.map((a, idx) => (
                 <tr key={a.id} style={{ borderBottom: idx < pastAssessments.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
                   <td style={{ padding: '12px 16px', color: '#4A6070' }}>{fmt(a.scheduled_date)}</td>
+                  <td style={{ padding: '12px 16px' }}><PlanBadge planType={getAssessmentPlan(a)} /></td>
                   <td style={{ padding: '12px 16px', color: '#1A2E44', fontWeight: 500 }}>{fmt(a.completed_date)}</td>
                   <td style={{ padding: '12px 16px', color: '#4A6070', textTransform: 'capitalize' }}>
                     {a.assessment_type}
@@ -435,12 +525,10 @@ export default function ClientDetailView({
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,46,68,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 600, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A2E44', margin: '0 0 20px' }}>Edit Client</h2>
-
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Full Name <span style={{ color: '#B91C1C' }}>*</span></label>
               <input style={inputStyle} value={editName} onChange={e => setEditName(e.target.value)} />
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
               <div>
                 <label style={labelStyle}>Date of Birth</label>
@@ -451,27 +539,15 @@ export default function ClientDetailView({
                 <input style={inputStyle} value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="(301) 555-0100" />
               </div>
             </div>
-
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Street Address</label>
-              <input style={inputStyle} value={editAddress} onChange={e => setEditAddress(e.target.value)} placeholder="123 Main Street" />
+              <input style={inputStyle} value={editAddress} onChange={e => setEditAddress(e.target.value)} />
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
-              <div>
-                <label style={labelStyle}>City</label>
-                <input style={inputStyle} value={editCity} onChange={e => setEditCity(e.target.value)} />
-              </div>
-              <div>
-                <label style={labelStyle}>State</label>
-                <input style={inputStyle} value={editState} onChange={e => setEditState(e.target.value)} />
-              </div>
-              <div>
-                <label style={labelStyle}>ZIP</label>
-                <input style={inputStyle} value={editZip} onChange={e => setEditZip(e.target.value)} />
-              </div>
+              <div><label style={labelStyle}>City</label><input style={inputStyle} value={editCity} onChange={e => setEditCity(e.target.value)} /></div>
+              <div><label style={labelStyle}>State</label><input style={inputStyle} value={editState} onChange={e => setEditState(e.target.value)} /></div>
+              <div><label style={labelStyle}>ZIP</label><input style={inputStyle} value={editZip} onChange={e => setEditZip(e.target.value)} /></div>
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
               <div>
                 <label style={labelStyle}>Payer Type</label>
@@ -489,27 +565,17 @@ export default function ClientDetailView({
                 </select>
               </div>
             </div>
-
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>AxisCare ID</label>
               <input style={inputStyle} value={editAxisId} onChange={e => setEditAxisId(e.target.value)} placeholder="Optional" />
             </div>
-
             <div style={{ marginBottom: 20 }}>
               <label style={labelStyle}>Notes</label>
-              <textarea
-                style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }}
-                value={editNotes} onChange={e => setEditNotes(e.target.value)}
-                placeholder="Clinical or administrative notes…"
-              />
+              <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Clinical or administrative notes…" />
             </div>
-
             {err && <div style={{ color: '#B91C1C', fontSize: 12, marginBottom: 14 }}>{err}</div>}
-
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => { setShowEdit(false); setErr(null) }} disabled={busy} style={{ padding: '8px 18px', background: '#F8FAFC', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, cursor: 'pointer' }}>
-                Cancel
-              </button>
+              <button onClick={() => { setShowEdit(false); setErr(null) }} disabled={busy} style={{ padding: '8px 18px', background: '#F8FAFC', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
               <button onClick={saveEdit} disabled={busy} style={{ padding: '8px 22px', background: busy ? '#5BA8A8' : '#0E7C7B', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}>
                 {busy ? 'Saving…' : 'Save Changes'}
               </button>
@@ -546,7 +612,7 @@ export default function ClientDetailView({
             <h2 style={{ fontSize: 17, fontWeight: 700, color: '#B91C1C', margin: '0 0 8px' }}>Schedule Emergency Assessment</h2>
             <p style={{ fontSize: 13, color: '#4A6070', margin: '0 0 6px' }}>For hospitalizations or sudden health declines. Scheduled for today.</p>
             <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#B91C1C', marginBottom: 18 }}>
-              ⚠ When completed, this resets the next due date to today + {schedule?.cadence_days ?? '—'} days.
+              ⚠ When completed, this resets the next due date to today + {clinicalSchedule?.cadence_days ?? '—'} days.
             </div>
             <label style={labelStyle}>Reason / Notes</label>
             <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical', marginBottom: 20 }} value={emergencyNotes} onChange={e => setEmergencyNotes(e.target.value)} placeholder="Reason for emergency assessment…" />
@@ -562,28 +628,44 @@ export default function ClientDetailView({
       )}
 
       {/* ── Assign / Edit Schedule Modal ─────────────────────────────────── */}
-      {showAssignSchedule && (
+      {editingPlan && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,46,68,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 440, maxWidth: '90vw' }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A2E44', margin: '0 0 18px' }}>{schedule ? 'Edit Schedule' : 'Assign Schedule'}</h2>
+            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A2E44', margin: '0 0 18px' }}>{modalTitle}</h2>
+
             <label style={labelStyle}>Assigned Nurse</label>
             <select style={{ ...inputStyle, marginBottom: 14 }} value={newNurseId} onChange={e => setNewNurseId(e.target.value)}>
               <option value="">— Select nurse —</option>
               {nurses.map(n => <option key={n.id} value={n.id}>{n.full_name} ({n.role})</option>)}
             </select>
-            <label style={labelStyle}>Cadence</label>
-            <select style={{ ...inputStyle, marginBottom: 14 }} value={newCadence} onChange={e => setNewCadence(Number(e.target.value))}>
-              {CADENCE_OPTIONS.map(d => <option key={d} value={d}>{d}-day</option>)}
-            </select>
-            {!schedule && (
+
+            {/* Cadence: fixed Annual for EP; dropdown for Clinical */}
+            {editingPlan === 'ep_annual' ? (
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Cadence</label>
+                <div style={{ padding: '8px 12px', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, color: '#4A6070', background: '#F8FAFC' }}>
+                  Annual (365 days) — fixed for EP plans
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Cadence</label>
+                <select style={inputStyle} value={newCadence} onChange={e => setNewCadence(Number(e.target.value))}>
+                  {CADENCE_OPTIONS.map(d => <option key={d} value={d}>{d}-day</option>)}
+                </select>
+              </div>
+            )}
+
+            {isNewSchedule && (
               <>
                 <label style={labelStyle}>First Assessment Due Date</label>
                 <input type="date" style={{ ...inputStyle, marginBottom: 18 }} value={newFirstDue} onChange={e => setNewFirstDue(e.target.value)} />
               </>
             )}
+
             {err && <div style={{ color: '#B91C1C', fontSize: 12, marginBottom: 12 }}>{err}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowAssignSchedule(false)} disabled={busy} style={{ padding: '8px 16px', background: '#F8FAFC', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => { setEditingPlan(null); setErr(null) }} disabled={busy} style={{ padding: '8px 16px', background: '#F8FAFC', border: '1px solid #D1D9E0', borderRadius: 7, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
               <button onClick={assignSchedule} disabled={busy} style={{ padding: '8px 20px', background: '#0E7C7B', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}>
                 {busy ? 'Saving…' : 'Save Schedule'}
               </button>

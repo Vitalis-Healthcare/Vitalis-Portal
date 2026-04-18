@@ -4,6 +4,10 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
 import { sendAssignmentEmail } from '@/lib/assessments/email'
 
+const VALID_CADENCES   = [30, 60, 90, 120, 365]
+const VALID_PLAN_TYPES = ['clinical', 'ep_annual'] as const
+type PlanType = typeof VALID_PLAN_TYPES[number]
+
 export async function POST(request: Request) {
   try {
     const auth = await createClient()
@@ -18,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { client_id, nurse_id, cadence_days, first_due_date } = body
+    const { client_id, nurse_id, cadence_days, first_due_date, plan_type } = body
 
     if (!client_id || !nurse_id || !cadence_days || !first_due_date) {
       return NextResponse.json(
@@ -27,15 +31,21 @@ export async function POST(request: Request) {
       )
     }
 
-    if (![30, 60, 90, 120].includes(Number(cadence_days))) {
-      return NextResponse.json({ error: 'cadence_days must be 30, 60, 90, or 120' }, { status: 400 })
+    const resolvedPlanType: PlanType = VALID_PLAN_TYPES.includes(plan_type) ? plan_type : 'clinical'
+
+    if (!VALID_CADENCES.includes(Number(cadence_days))) {
+      return NextResponse.json(
+        { error: 'cadence_days must be 30, 60, 90, 120, or 365' },
+        { status: 400 }
+      )
     }
 
-    // Deactivate any existing active schedule for this client
+    // Deactivate any existing active schedule for this client + plan type
     await db
       .from('assessment_schedules')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('client_id', client_id)
+      .eq('plan_type', resolvedPlanType)
       .eq('is_active', true)
 
     // Create new schedule
@@ -45,7 +55,8 @@ export async function POST(request: Request) {
         client_id,
         nurse_id,
         cadence_days: Number(cadence_days),
-        created_by: user.id,
+        plan_type:    resolvedPlanType,
+        created_by:   user.id,
       })
       .select()
       .single()
@@ -70,7 +81,7 @@ export async function POST(request: Request) {
       console.error('[schedules POST] assessment seed error:', assessErr.message)
     }
 
-    // Soft-fail: send assignment email — never blocks the response
+    // Soft-fail: send assignment email
     try {
       const [nurseRes, clientRes] = await Promise.all([
         db.from('profiles')
@@ -86,8 +97,7 @@ export async function POST(request: Request) {
       const client = clientRes.data
       if (nurse?.email && client) {
         const addr = [client.address, client.city, client.state, client.zip]
-          .filter(Boolean)
-          .join(', ')
+          .filter(Boolean).join(', ')
         await sendAssignmentEmail({
           nurseEmail:    nurse.email,
           nurseName:     nurse.full_name || nurse.email,
@@ -96,6 +106,7 @@ export async function POST(request: Request) {
           clientAddress: addr,
           cadenceDays:   Number(cadence_days),
           nextDueDate:   first_due_date,
+          planType:      resolvedPlanType,
         })
       }
     } catch (emailErr) {
