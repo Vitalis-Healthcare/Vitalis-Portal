@@ -222,7 +222,10 @@ export default async function AssessmentCalendarPage({
                     {dayAssessments.slice(0, 3).map(a => {
                       const c   = normRel(a.client)
                       const n   = normRel(a.nurse)
-                      const key = a.assessment_type === 'emergency' ? 'emergency' : a.status
+                      const effSt = (a.status === 'completed' || a.status === 'cancelled')
+                        ? a.status
+                        : (a.scheduled_date < todayStr ? 'overdue' : a.status)
+                      const key = a.assessment_type === 'emergency' ? 'emergency' : effSt
                       return (
                         <Link key={a.id} href={`/assessments/clients/${c?.id ?? ''}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 3 }}>
                           <div style={{
