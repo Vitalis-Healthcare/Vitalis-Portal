@@ -34,6 +34,10 @@ const PAYER_TYPES = [
   'CareFirst','Wellpoint','United Healthcare','Aetna','BCHD','Other',
 ]
 
+function todayStr() {
+  const d = new Date(); d.setHours(0,0,0,0)
+  return d.toISOString().split('T')[0]
+}
 function fmt(d: string | null) {
   if (!d) return '—'
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -106,9 +110,12 @@ export default function ClientDetailView({
   const [nextAssessmentDate, setNextAssessmentDate] = useState('')
   const [origNextDate, setOrigNextDate]             = useState('')
 
+  // Mark Complete modal state
+  const [showComplete, setShowComplete]   = useState<string | null>(null)
+  const [completeNotes, setCompleteNotes] = useState('')
+  const [completeDate, setCompleteDate]   = useState(todayStr())
+
   // Other modals
-  const [showComplete, setShowComplete]       = useState<string | null>(null)
-  const [completeNotes, setCompleteNotes]     = useState('')
   const [showEmergency, setShowEmergency]     = useState(false)
   const [emergencyNotes, setEmergencyNotes]   = useState('')
   const [showArchive, setShowArchive]         = useState(false)
@@ -162,6 +169,13 @@ export default function ClientDetailView({
     setErr(null)
   }
 
+  const openCompleteModal = (assessmentId: string) => {
+    setShowComplete(assessmentId)
+    setCompleteNotes('')
+    setCompleteDate(todayStr())
+    setErr(null)
+  }
+
   const saveEdit = async () => {
     if (!editName.trim()) { setErr('Client name is required.'); return }
     setBusy(true); setErr(null)
@@ -177,15 +191,16 @@ export default function ClientDetailView({
   }
 
   const markComplete = async (id: string) => {
+    if (!completeDate) { setErr('Completion date is required.'); return }
     setBusy(true); setErr(null)
     try {
       const res = await fetch(`/api/assessments/${id}/complete`, {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ notes: completeNotes || null }),
+        body: JSON.stringify({ notes: completeNotes || null, completed_date: completeDate }),
       })
       const data = await res.json()
       if (!res.ok) { setErr(data.error ?? 'Failed.'); return }
-      setShowComplete(null); setCompleteNotes(''); router.refresh()
+      setShowComplete(null); router.refresh()
     } catch { setErr('Unexpected error.') } finally { setBusy(false) }
   }
 
@@ -372,7 +387,6 @@ export default function ClientDetailView({
             </thead>
             <tbody>
               {pendingAssessments.map((a, idx) => {
-                // Admin can complete any; assignable users only their own
                 const thisCanComplete = canComplete && (
                   currentUserRole === 'admin' || a.nurse?.id === currentUserId
                 )
@@ -395,7 +409,7 @@ export default function ClientDetailView({
                       <td style={{ padding:'12px 16px' }}>
                         {thisCanComplete ? (
                           <button
-                            onClick={() => { setShowComplete(a.id); setCompleteNotes(''); setErr(null) }}
+                            onClick={() => openCompleteModal(a.id)}
                             style={{ padding:'5px 12px', background:'#F0FDF4', border:'1px solid #86EFAC', color:'#15803D', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer' }}
                           >
                             Mark Complete
@@ -507,13 +521,37 @@ export default function ClientDetailView({
         <div style={{ position:'fixed', inset:0, background:'rgba(26,46,68,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
           <div style={{ background:'#fff', borderRadius:14, padding:28, width:440, maxWidth:'90vw' }}>
             <h2 style={{ fontSize:17, fontWeight:700, color:'#1A2E44', margin:'0 0 8px' }}>Mark Assessment Complete</h2>
-            <p style={{ fontSize:13, color:'#4A6070', margin:'0 0 18px' }}>Records today as the completion date and schedules the next assessment automatically.</p>
+            <p style={{ fontSize:13, color:'#4A6070', margin:'0 0 18px', lineHeight:1.6 }}>
+              The next assessment will be scheduled based on the completion date you enter.
+            </p>
+
+            <label style={lbl}>Date Completed <span style={{ color:'#B91C1C' }}>*</span></label>
+            <input
+              type="date"
+              value={completeDate}
+              max={todayStr()}
+              onChange={e => setCompleteDate(e.target.value)}
+              style={{ ...inp, marginBottom:6 }}
+            />
+            <div style={{ fontSize:11, color:'#8FA0B0', marginBottom:18 }}>
+              Defaults to today. Set an earlier date if the visit already happened.
+            </div>
+
             <label style={lbl}>Notes (optional)</label>
-            <textarea style={{ ...inp, minHeight:80, resize:'vertical', marginBottom:20 }} value={completeNotes} onChange={e => setCompleteNotes(e.target.value)} placeholder="Clinical notes, observations…" />
+            <textarea
+              style={{ ...inp, minHeight:80, resize:'vertical', marginBottom:20 }}
+              value={completeNotes}
+              onChange={e => setCompleteNotes(e.target.value)}
+              placeholder="Clinical notes, observations…"
+            />
+
             {err && <div style={{ color:'#B91C1C', fontSize:12, marginBottom:12 }}>{err}</div>}
             <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
               <button onClick={() => setShowComplete(null)} disabled={busy} style={{ padding:'8px 16px', background:'#F8FAFC', border:'1px solid #D1D9E0', borderRadius:7, fontSize:13, cursor:'pointer' }}>Cancel</button>
-              <button onClick={() => markComplete(showComplete)} disabled={busy} style={{ padding:'8px 20px', background:'#0E7C7B', color:'#fff', border:'none', borderRadius:7, fontSize:13, fontWeight:600, cursor: busy ? 'not-allowed' : 'pointer' }}>{busy ? 'Saving…' : 'Confirm Complete'}</button>
+              <button onClick={() => markComplete(showComplete)} disabled={busy || !completeDate}
+                style={{ padding:'8px 20px', background: (!completeDate || busy) ? '#5BA8A8' : '#0E7C7B', color:'#fff', border:'none', borderRadius:7, fontSize:13, fontWeight:600, cursor: (busy || !completeDate) ? 'not-allowed' : 'pointer' }}>
+                {busy ? 'Saving…' : 'Confirm Complete'}
+              </button>
             </div>
           </div>
         </div>
