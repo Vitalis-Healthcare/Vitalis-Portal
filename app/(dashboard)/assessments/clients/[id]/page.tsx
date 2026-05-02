@@ -22,8 +22,9 @@ export default async function ClientDetailPage({
 
   const db = createServiceClient()
 
+  // Fetch role AND can_be_assigned — both needed for access + completion permission
   const { data: profile } = await db
-    .from('profiles').select('role, full_name').eq('id', user.id).single()
+    .from('profiles').select('role, full_name, can_be_assigned').eq('id', user.id).single()
   if (!profile || !['admin', 'supervisor', 'nurse_monitor'].includes(profile.role)) {
     redirect('/dashboard')
   }
@@ -36,7 +37,7 @@ export default async function ClientDetailPage({
 
   if (!client) notFound()
 
-  // Nurse monitor scope: must be assigned to at least one active schedule
+  // Nurse monitor scope: must be assigned to at least one active schedule for this client
   if (profile.role === 'nurse_monitor') {
     const { data: nurseScheds } = await db
       .from('assessment_schedules')
@@ -105,6 +106,7 @@ export default async function ClientDetailPage({
       nurses={nursesRaw ?? []}
       currentUserId={user.id}
       currentUserRole={profile.role}
+      currentUserCanBeAssigned={profile.can_be_assigned ?? false}
     />
   )
 }

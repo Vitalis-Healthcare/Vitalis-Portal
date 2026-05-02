@@ -76,19 +76,24 @@ function PlanBadge({ planType }: { planType: 'clinical'|'ep_annual'|'unknown' })
 
 export default function ClientDetailView({
   client: initialClient, clinicalSchedule, epSchedule,
-  assessments: initialAssessments, nurses, currentUserId, currentUserRole,
+  assessments: initialAssessments, nurses,
+  currentUserId, currentUserRole, currentUserCanBeAssigned,
 }: {
   client: Client; clinicalSchedule: Schedule; epSchedule: Schedule
   assessments: Assessment[]; nurses: NurseOption[]
   currentUserId: string; currentUserRole: string
+  currentUserCanBeAssigned: boolean
 }) {
   const router = useRouter()
   const [client, setClient] = useState(initialClient)
   const [busy, setBusy]     = useState(false)
   const [err, setErr]       = useState<string | null>(null)
 
-  // Only admin can make any changes
+  // Admin-only: assign schedules, edit client, emergency assessment, archive, delete
   const canEdit = currentUserRole === 'admin'
+
+  // Admin OR any profile with can_be_assigned = true: mark own assessments complete
+  const canComplete = currentUserRole === 'admin' || currentUserCanBeAssigned
 
   // Schedule modal state
   const [editingPlan, setEditingPlan]               = useState<PlanType | null>(null)
@@ -360,39 +365,49 @@ export default function ClientDetailView({
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
             <thead>
               <tr style={{ background:'#F8FAFC' }}>
-                {['Due Date','Plan','Type','Nurse','Status', ...(canEdit ? [''] : [])].map(h => (
+                {['Due Date','Plan','Type','Nurse','Status', ...(canComplete ? [''] : [])].map(h => (
                   <th key={h} style={{ padding:'9px 16px', textAlign:'left', fontSize:11, fontWeight:700, color:'#4A6070', textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:'1px solid #E2E8F0' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {pendingAssessments.map((a, idx) => (
-                <tr key={a.id} style={{ borderBottom: idx < pendingAssessments.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
-                  <td style={{ padding:'12px 16px', fontWeight:600, color:'#1A2E44' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      {fmt(a.scheduled_date)}
-                      {a.is_initial && <InitialBadge />}
-                    </div>
-                    {daysUntil(a.scheduled_date) < 0 && (
-                      <div style={{ fontSize:11, color:'#B91C1C', fontWeight:600, marginTop:2 }}>{Math.abs(daysUntil(a.scheduled_date))}d overdue</div>
-                    )}
-                  </td>
-                  <td style={{ padding:'12px 16px' }}><PlanBadge planType={getPlan(a)} /></td>
-                  <td style={{ padding:'12px 16px', color:'#4A6070', textTransform:'capitalize' }}>{a.assessment_type}</td>
-                  <td style={{ padding:'12px 16px', color:'#4A6070' }}>{a.nurse?.full_name ?? '—'}</td>
-                  <td style={{ padding:'12px 16px' }}><StatusBadge status={effStatus(a.status, a.scheduled_date)} /></td>
-                  {canEdit && (
-                    <td style={{ padding:'12px 16px' }}>
-                      <button
-                        onClick={() => { setShowComplete(a.id); setCompleteNotes(''); setErr(null) }}
-                        style={{ padding:'5px 12px', background:'#F0FDF4', border:'1px solid #86EFAC', color:'#15803D', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer' }}
-                      >
-                        Mark Complete
-                      </button>
+              {pendingAssessments.map((a, idx) => {
+                // Admin can complete any; assignable users only their own
+                const thisCanComplete = canComplete && (
+                  currentUserRole === 'admin' || a.nurse?.id === currentUserId
+                )
+                return (
+                  <tr key={a.id} style={{ borderBottom: idx < pendingAssessments.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                    <td style={{ padding:'12px 16px', fontWeight:600, color:'#1A2E44' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        {fmt(a.scheduled_date)}
+                        {a.is_initial && <InitialBadge />}
+                      </div>
+                      {daysUntil(a.scheduled_date) < 0 && (
+                        <div style={{ fontSize:11, color:'#B91C1C', fontWeight:600, marginTop:2 }}>{Math.abs(daysUntil(a.scheduled_date))}d overdue</div>
+                      )}
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td style={{ padding:'12px 16px' }}><PlanBadge planType={getPlan(a)} /></td>
+                    <td style={{ padding:'12px 16px', color:'#4A6070', textTransform:'capitalize' }}>{a.assessment_type}</td>
+                    <td style={{ padding:'12px 16px', color:'#4A6070' }}>{a.nurse?.full_name ?? '—'}</td>
+                    <td style={{ padding:'12px 16px' }}><StatusBadge status={effStatus(a.status, a.scheduled_date)} /></td>
+                    {canComplete && (
+                      <td style={{ padding:'12px 16px' }}>
+                        {thisCanComplete ? (
+                          <button
+                            onClick={() => { setShowComplete(a.id); setCompleteNotes(''); setErr(null) }}
+                            style={{ padding:'5px 12px', background:'#F0FDF4', border:'1px solid #86EFAC', color:'#15803D', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer' }}
+                          >
+                            Mark Complete
+                          </button>
+                        ) : (
+                          <span style={{ fontSize:11, color:'#C0CAD4' }}>—</span>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -554,7 +569,7 @@ export default function ClientDetailView({
               <div style={{ marginBottom:14 }}>
                 <label style={lbl}>Next Assessment Date</label>
                 <input type="date" style={inp} value={nextAssessmentDate} onChange={e => setNextAssessmentDate(e.target.value)} />
-                <div style={{ fontSize:11, color:'#8FA0B0', marginTop:4 }}>Adjust if the nurse monitor&apos;s schedule requires a different date.</div>
+                <div style={{ fontSize:11, color:'#8FA0B0', marginTop:4 }}>Adjust if the schedule requires a different date.</div>
               </div>
             )}
             {editingPlan === 'clinical' && (isNewSchedule || nextAssessmentId) && (
