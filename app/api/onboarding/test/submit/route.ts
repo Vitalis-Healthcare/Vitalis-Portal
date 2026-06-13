@@ -1,11 +1,14 @@
 // app/api/onboarding/test/submit/route.ts
 // Grades the candidate's first attempt server-side (answer key never leaves the
 // server until this point). Records the canonical onb_attempts row. Pass = 90%.
+// On pass, issues the certificate and emails it.
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
+import { issueCertificateIfNeeded, sendCertificateEmail, formatCertNo } from '@/lib/onboarding/certificate'
 
 const PASS_FRACTION = 0.9
+const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://vitalis-portal.vercel.app'
 
 function hashToken(raw: string) {
   return crypto.createHash('sha256').update(raw).digest('hex')
@@ -20,7 +23,7 @@ export async function POST(req: NextRequest) {
   const svc = createServiceClient()
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, token_expires_at')
+    .select('id, first_name, last_name, email, token_expires_at')
     .eq('access_token', hashToken(token))
     .single()
   if (!cand) return NextResponse.json({ error: 'invalid_token' }, { status: 404 })
@@ -79,6 +82,19 @@ export async function POST(req: NextRequest) {
     .eq('id', cand.id)
 
   if (passed) {
+    const cert = await issueCertificateIfNeeded(svc, {
+      candidateId: cand.id,
+      name: `${cand.first_name} ${cand.last_name}`.trim(),
+      score, total,
+    })
+    if (cert) {
+      await sendCertificateEmail({
+        to: cand.email,
+        firstName: cand.first_name,
+        certNo: formatCertNo(cert.certificate_number),
+        certUrl: `${PORTAL_URL}/onboarding/certificate?token=${token}`,
+      })
+    }
     return NextResponse.json({ passed: true, score, total })
   }
 

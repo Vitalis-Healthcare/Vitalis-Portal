@@ -2,12 +2,42 @@
 // One mastery round. Grades the candidate's submitted answers against the
 // server-held "still to master" set (onb_attempts.answers.mastery_remaining),
 // removes the ones now correct, and completes the test when none remain.
+// On completion, issues the certificate and emails it.
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
+import { issueCertificateIfNeeded, sendCertificateEmail, formatCertNo } from '@/lib/onboarding/certificate'
+
+const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://vitalis-portal.vercel.app'
 
 function hashToken(raw: string) {
   return crypto.createHash('sha256').update(raw).digest('hex')
+}
+
+async function finish(
+  svc: ReturnType<typeof createServiceClient>,
+  cand: { id: string; first_name: string; last_name: string; email: string },
+  attemptId: string,
+  scoreInfo: { score: number | null; total: number | null },
+  token: string,
+  extraAttemptUpdate: Record<string, unknown> = {},
+) {
+  const nowIso = new Date().toISOString()
+  await svc.from('onb_attempts').update({ mastery_reached: true, completed_at: nowIso, ...extraAttemptUpdate }).eq('id', attemptId)
+  await svc.from('onb_candidates').update({ status: 'test_passed', test_passed_at: nowIso, updated_at: nowIso }).eq('id', cand.id)
+  const cert = await issueCertificateIfNeeded(svc, {
+    candidateId: cand.id,
+    name: `${cand.first_name} ${cand.last_name}`.trim(),
+    score: scoreInfo.score, total: scoreInfo.total,
+  })
+  if (cert) {
+    await sendCertificateEmail({
+      to: cand.email,
+      firstName: cand.first_name,
+      certNo: formatCertNo(cert.certificate_number),
+      certUrl: `${PORTAL_URL}/onboarding/certificate?token=${token}`,
+    })
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -19,7 +49,7 @@ export async function POST(req: NextRequest) {
   const svc = createServiceClient()
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, token_expires_at')
+    .select('id, first_name, last_name, email, token_expires_at')
     .eq('access_token', hashToken(token))
     .single()
   if (!cand) return NextResponse.json({ error: 'invalid_token' }, { status: 404 })
@@ -44,11 +74,9 @@ export async function POST(req: NextRequest) {
     mastery_remaining?: string[]
   }
   const remainingIds: string[] = answersJson.mastery_remaining || []
-  const nowIso = new Date().toISOString()
 
   if (remainingIds.length === 0) {
-    await svc.from('onb_attempts').update({ mastery_reached: true, completed_at: nowIso }).eq('id', attempt.id)
-    await svc.from('onb_candidates').update({ status: 'test_passed', test_passed_at: nowIso, updated_at: nowIso }).eq('id', cand.id)
+    await finish(svc, cand, attempt.id, { score: attempt.first_score, total: attempt.first_total }, token)
     return NextResponse.json({ done: true })
   }
 
@@ -68,12 +96,7 @@ export async function POST(req: NextRequest) {
   const updatedAnswers = { ...answersJson, mastery_remaining: stillWrong }
 
   if (stillWrong.length === 0) {
-    await svc.from('onb_attempts')
-      .update({ answers: updatedAnswers, mastery_reached: true, completed_at: nowIso })
-      .eq('id', attempt.id)
-    await svc.from('onb_candidates')
-      .update({ status: 'test_passed', test_passed_at: nowIso, updated_at: nowIso })
-      .eq('id', cand.id)
+    await finish(svc, cand, attempt.id, { score: attempt.first_score, total: attempt.first_total }, token, { answers: updatedAnswers })
     return NextResponse.json({ done: true })
   }
 
