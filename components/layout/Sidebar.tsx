@@ -9,7 +9,7 @@ import {
   ShieldCheck, AlertTriangle, Sparkles, Target, Handshake,
   SlidersHorizontal, ChevronDown, ChevronRight, TrendingUp,
   Building2, BookUser, Map, Activity, Mail, Brain, FileText,
-  Wallet, CheckSquare, Upload, Stethoscope, HeartPulse, CalendarDays,
+  Wallet, CheckSquare, Upload, Stethoscope, HeartPulse, CalendarDays, UserPlus,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -38,6 +38,7 @@ const adminNav: NavSection[] = [
   {
     type: 'group', id: 'workforce', label: 'Workforce', emoji: '👥',
     items: [
+      { href: '/candidates',  label: 'Candidates',           icon: UserPlus },
       { href: '/staff',       label: 'Caregiver Directory',  icon: Users },
       { href: '/credentials', label: 'Credentials',          icon: BadgeCheck },
       { href: '/appraisals',  label: 'Appraisals',           icon: ClipboardList },
