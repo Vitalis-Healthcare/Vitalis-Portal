@@ -330,8 +330,13 @@ export default function TestRunner({ token, firstName, initial }: { token: strin
               ? <>You worked through every question and mastered the material. Your first-attempt score was <strong>{result.score} / {result.total}</strong> ({pct}%).</>
               : <>You passed the Vitalis caregiver competency test with <strong>{result.score} / {result.total}</strong> ({pct}%).</>}
           </p>
-          <p style={{ color: C.faint, fontSize: 14, lineHeight: 1.7, margin: '14px 0 0' }}>
-            The Vitalis team will be in touch with your next steps. You can close this page.
+          <div style={{ marginTop: 22 }}>
+            <a href={`/onboarding/certificate?token=${token}`} style={{ display: 'inline-block', padding: '13px 30px', background: 'linear-gradient(135deg,#2D5A1B,#5A9E2F)', color: '#fff', textDecoration: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700 }}>
+              View your certificate
+            </a>
+          </div>
+          <p style={{ color: C.faint, fontSize: 14, lineHeight: 1.7, margin: '18px 0 0' }}>
+            The Vitalis team will be in touch with your next steps. You can also close this page.
           </p>
         </div>
       </Shell>
