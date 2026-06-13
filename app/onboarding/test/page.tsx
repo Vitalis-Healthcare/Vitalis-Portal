@@ -1,14 +1,25 @@
 // app/onboarding/test/page.tsx
-// Public, token-gated landing for invited candidates (no auth/Supabase session).
-// v0.6.0 validates the magic-link token and greets the candidate; the full
-// competency test is wired in here in v0.6.1.
+// Public, token-gated competency test for invited candidates (no Supabase session).
+// Server component: validates the magic-link token, decides which state the
+// candidate is in (intro / mastery-in-progress / completed), and serves only
+// what that state needs. The answer key is NEVER sent for the first attempt.
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
+import TestRunner from './TestRunner'
 
 export const dynamic = 'force-dynamic'
 
 function hashToken(raw: string) {
   return crypto.createHash('sha256').update(raw).digest('hex')
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -42,6 +53,8 @@ function InvalidLink() {
   )
 }
 
+type Opt = { key: string; text: string }
+
 export default async function OnboardingTestPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const { token } = await searchParams
   if (!token) return <InvalidLink />
@@ -49,27 +62,87 @@ export default async function OnboardingTestPage({ searchParams }: { searchParam
   const svc = createServiceClient()
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, status, token_expires_at')
+    .select('id, first_name, token_expires_at')
     .eq('access_token', hashToken(token))
     .single()
 
   if (!cand) return <InvalidLink />
   if (cand.token_expires_at && new Date(cand.token_expires_at) < new Date()) return <InvalidLink />
 
+  const { data: attempt } = await svc
+    .from('onb_attempts')
+    .select('*')
+    .eq('candidate_id', cand.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  // Already finished (passed first try, or completed the mastery loop)
+  if (attempt && (attempt.first_passed || attempt.mastery_reached)) {
+    return (
+      <TestRunner
+        token={token}
+        firstName={cand.first_name}
+        initial={{ mode: 'completed', score: attempt.first_score ?? 0, total: attempt.first_total ?? 0, firstPassed: !!attempt.first_passed }}
+      />
+    )
+  }
+
+  // Failed the first attempt and still working through mastery
+  if (attempt && !attempt.first_passed) {
+    const answers = (attempt.answers || {}) as { first?: Record<string, { selected: string | null }>; mastery_remaining?: string[] }
+    const remainingIds: string[] = answers.mastery_remaining || []
+    if (remainingIds.length > 0) {
+      const { data: qs } = await svc
+        .from('onb_questions')
+        .select('id, prompt, options, correct_key, rationale')
+        .in('id', remainingIds)
+      const firstAns = answers.first || {}
+      const remaining = (qs || []).map((q) => ({
+        id: q.id as string,
+        prompt: q.prompt as string,
+        options: q.options as Opt[],
+        correct_key: q.correct_key as string,
+        rationale: (q.rationale || '') as string,
+        selected: firstAns[q.id]?.selected ?? null,
+      }))
+      return (
+        <TestRunner
+          token={token}
+          firstName={cand.first_name}
+          initial={{ mode: 'mastery_review', remaining, firstScore: attempt.first_score ?? 0, total: attempt.first_total ?? 0 }}
+        />
+      )
+    }
+    // Edge: attempt exists, not passed, nothing left to master — treat as done.
+    return (
+      <TestRunner
+        token={token}
+        firstName={cand.first_name}
+        initial={{ mode: 'completed', score: attempt.first_score ?? 0, total: attempt.first_total ?? 0, firstPassed: false }}
+      />
+    )
+  }
+
+  // Fresh: serve the full test, shuffled, with NO answer key.
+  const { data: questions } = await svc
+    .from('onb_questions')
+    .select('id, domain, prompt, options')
+    .eq('active', true)
+    .order('sort_order')
+
+  const shuffled = shuffle(questions || []).map((q) => ({
+    id: q.id as string,
+    domain: q.domain as string,
+    prompt: q.prompt as string,
+    options: q.options as Opt[],
+  }))
+
   return (
-    <Shell>
-      <h2 style={{ fontSize: 20, color: '#1A2E44', margin: '0 0 10px' }}>Welcome, {cand.first_name}! 👋</h2>
-      <p style={{ color: '#4A6070', fontSize: 14, lineHeight: 1.7, margin: '0 0 18px' }}>
-        Thank you for taking the first step toward joining the Vitalis caregiver team. Your competency
-        test is being prepared and will appear here shortly.
-      </p>
-      <div style={{ background: '#F8FAFC', borderRadius: 10, padding: '16px 18px' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#0A5C5B', marginBottom: 6 }}>What to expect</div>
-        <div style={{ fontSize: 13, color: '#4A6070', lineHeight: 1.7 }}>
-          86 multiple-choice questions on everyday caregiving — communication, safety, infection control,
-          documentation, and client care. There is no time limit, and you can use this same link to return.
-        </div>
-      </div>
-    </Shell>
+    <TestRunner
+      token={token}
+      firstName={cand.first_name}
+      initial={{ mode: 'intro', questions: shuffled, total: shuffled.length }}
+    />
   )
 }
