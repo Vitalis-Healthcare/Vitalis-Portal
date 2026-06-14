@@ -8,6 +8,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import {
   APPLICATION_EDITABLE_STATUSES,
   APPLICATION_SUBMITTED_STATUSES,
+  applicationRowToData,
   type ApplicationData,
 } from '@/lib/onboarding/application'
 import { ONB_DOCUMENT_TYPES, type StoredDocument } from '@/lib/onboarding/documents'
@@ -99,53 +100,9 @@ export default async function ApplicationPage({ searchParams }: { searchParams: 
     .order('uploaded_at', { ascending: false })
 
   // Build the initial form values from the saved row (or sensible defaults).
-  const initial: ApplicationData = {
-    legal_first_name: appRow?.legal_first_name ?? cand.first_name ?? '',
-    middle_name: appRow?.middle_name ?? '',
-    legal_last_name: appRow?.legal_last_name ?? cand.last_name ?? '',
-    preferred_name: appRow?.preferred_name ?? '',
-    date_of_birth: appRow?.date_of_birth ?? '',
-    gender: appRow?.gender ?? '',
-    ssn: appRow?.ssn ?? '',
-    phone: appRow?.phone ?? '',
-    home_phone: appRow?.home_phone ?? '',
-    email: appRow?.email ?? cand.email ?? '',
-    address_street: appRow?.address_street ?? '',
-    address_unit: appRow?.address_unit ?? '',
-    address_city: appRow?.address_city ?? '',
-    address_state: appRow?.address_state ?? '',
-    address_zip: appRow?.address_zip ?? '',
-    driver_license_received: appRow?.driver_license_received ?? null,
-    driver_license_number: appRow?.driver_license_number ?? '',
-    driver_license_state: appRow?.driver_license_state ?? '',
-    work_authorized: appRow?.work_authorized ?? null,
-    requires_sponsorship: appRow?.requires_sponsorship ?? null,
-    is_18_or_older: appRow?.is_18_or_older ?? null,
-    has_transportation: appRow?.has_transportation ?? null,
-    credential_type: appRow?.credential_type ?? '',
-    license_number: appRow?.license_number ?? '',
-    years_experience: appRow?.years_experience ?? '',
-    languages: appRow?.languages ?? '',
-    availability: appRow?.availability ?? '',
-    earliest_start_date: appRow?.earliest_start_date ?? '',
-    available_all_hours: appRow?.available_all_hours ?? null,
-    availability_days: appRow?.availability_days ?? {},
-    live_in_interested: appRow?.live_in_interested ?? null,
-    live_in_max_days: appRow?.live_in_max_days != null ? String(appRow.live_in_max_days) : '',
-    willing_to_work_with: appRow?.willing_to_work_with ?? [],
-    experience_with: appRow?.experience_with ?? [],
-    additional_certifications: appRow?.additional_certifications ?? '',
-    work_experience: appRow?.work_experience ?? [],
-    applicant_references: appRow?.applicant_references ?? [],
-    emergency_contacts: appRow?.emergency_contacts ?? [],
-    smoker: appRow?.smoker ?? null,
-    smoker_per_day: appRow?.smoker_per_day ?? '',
-    how_heard: appRow?.how_heard ?? '',
-    recent_experience: appRow?.recent_experience ?? '',
-    why_caregiver: appRow?.why_caregiver ?? '',
-    attested: appRow?.attested ?? false,
-    signature_name: appRow?.signature_name ?? '',
-  }
+  const initial: ApplicationData = applicationRowToData(appRow, {
+    first_name: cand.first_name, last_name: cand.last_name, email: cand.email,
+  })
 
   const documents: StoredDocument[] = (docRows || []) as StoredDocument[]
 
