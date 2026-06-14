@@ -12,6 +12,7 @@ import { buildApplicationRow } from '@/lib/onboarding/sanitize'
 export const dynamic = 'force-dynamic'
 
 const FROM_EMAIL = process.env.NOTIFY_FROM_EMAIL || 'Vitalis Portal <notifications@vitalishealthcare.com>'
+const TEAM_NOTIFY = process.env.TEAM_NOTIFY_EMAIL || 'team@vitalishealthcare.com'
 const RESEND_KEY = process.env.RESEND_API_KEY
 
 function hashToken(raw: string) {
@@ -58,7 +59,7 @@ async function sendConfirmation(to: string, firstName: string): Promise<boolean>
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: FROM_EMAIL, to: [to],
+        from: FROM_EMAIL, to: [to], bcc: [TEAM_NOTIFY],
         subject: 'We received your Vitalis caregiver application',
         html: buildConfirmationEmail(firstName),
       }),

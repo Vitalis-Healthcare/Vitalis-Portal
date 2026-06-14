@@ -15,6 +15,7 @@ import { ONB_DOCUMENT_TYPES, docTypeLabel } from '@/lib/onboarding/documents'
 export const dynamic = 'force-dynamic'
 
 const FROM_EMAIL = process.env.NOTIFY_FROM_EMAIL || 'Vitalis Portal <notifications@vitalishealthcare.com>'
+const TEAM_NOTIFY = process.env.TEAM_NOTIFY_EMAIL || 'team@vitalishealthcare.com'
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://vitalis-portal.vercel.app'
 const RESEND_KEY = process.env.RESEND_API_KEY
 const TOKEN_TTL_DAYS = 30
@@ -79,6 +80,7 @@ async function sendRequest(to: string, firstName: string, link: string, items: s
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: [to],
+        bcc: [TEAM_NOTIFY],
         subject: 'Vitalis caregiver application — a few documents needed',
         html: buildRequestEmail({ firstName, link, items, note }),
       }),

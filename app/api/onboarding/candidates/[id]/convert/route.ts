@@ -12,6 +12,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 export const dynamic = 'force-dynamic'
 
 const FROM_EMAIL = process.env.NOTIFY_FROM_EMAIL || 'Vitalis Portal <notifications@vitalishealthcare.com>'
+const TEAM_NOTIFY = process.env.TEAM_NOTIFY_EMAIL || 'team@vitalishealthcare.com'
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://vitalis-portal.vercel.app'
 const RESEND_KEY = process.env.RESEND_API_KEY
 
@@ -76,7 +77,7 @@ async function sendWelcome(email: string, firstName: string, fullName: string, l
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: FROM_EMAIL, to: [email],
+        from: FROM_EMAIL, to: [email], bcc: [TEAM_NOTIFY],
         subject: 'Welcome to Vitalis — set your caregiver portal password',
         html: buildWelcomeEmail({ firstName, fullName, email, setPasswordLink: link }),
       }),

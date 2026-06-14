@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 
 const FROM_EMAIL = process.env.NOTIFY_FROM_EMAIL || 'Vitalis Portal <notifications@vitalishealthcare.com>'
+const TEAM_NOTIFY = process.env.TEAM_NOTIFY_EMAIL || 'team@vitalishealthcare.com'
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://vitalis-portal.vercel.app'
 const RESEND_KEY = process.env.RESEND_API_KEY
 const TOKEN_TTL_DAYS = 30
@@ -83,6 +84,7 @@ async function sendInvite(to: string, firstName: string, rawToken: string): Prom
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: [to],
+        bcc: [TEAM_NOTIFY],
         subject: 'Welcome to Vitalis — start your caregiver competency test',
         html: buildInviteEmail({ firstName, testLink }),
       }),
