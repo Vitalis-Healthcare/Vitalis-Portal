@@ -2,6 +2,7 @@
 // app/(dashboard)/candidates/CandidatesClient.tsx
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { UserPlus, Mail, RefreshCw, X, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 type Candidate = {
@@ -161,7 +162,11 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
             <tbody>
               {candidates.map((c) => (
                 <tr key={c.id} style={{ borderTop: '1px solid #EFF2F5' }}>
-                  <td style={{ padding: '14px 18px', fontWeight: 600, color: '#1A2E44' }}>{c.first_name} {c.last_name}</td>
+                  <td style={{ padding: '14px 18px', fontWeight: 600 }}>
+                    <Link href={`/candidates/${c.id}`} style={{ color: '#0A5C5B', textDecoration: 'none' }}>
+                      {c.first_name} {c.last_name}
+                    </Link>
+                  </td>
                   <td style={{ padding: '14px 18px', color: '#4A6070' }}>{c.email}</td>
                   <td style={{ padding: '14px 18px' }}><StatusBadge status={c.status} /></td>
                   <td style={{ padding: '14px 18px', color: '#8FA0B0' }}>{fmtDate(c.invited_at)}</td>
