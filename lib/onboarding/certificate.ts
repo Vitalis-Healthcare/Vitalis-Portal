@@ -7,6 +7,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 type Svc = ReturnType<typeof createServiceClient>
 
 const FROM_EMAIL = process.env.NOTIFY_FROM_EMAIL || 'Vitalis Portal <notifications@vitalishealthcare.com>'
+const TEAM_NOTIFY = process.env.TEAM_NOTIFY_EMAIL || 'team@vitalishealthcare.com'
 const RESEND_KEY = process.env.RESEND_API_KEY
 
 export function formatCertNo(n: number): string {
@@ -115,6 +116,7 @@ export async function sendCertificateEmail(opts: { to: string; firstName: string
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: [opts.to],
+        bcc: [TEAM_NOTIFY],
         subject: '🎓 Your Vitalis caregiver competency certificate',
         html: buildCertificateEmail({ firstName: opts.firstName, certNo: opts.certNo, certUrl: opts.certUrl }),
       }),
