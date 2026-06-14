@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck } from 'lucide-react'
 import { docTypeLabel, type DocTypeDef } from '@/lib/onboarding/documents'
 
 const C = {
@@ -33,6 +33,7 @@ type Candidate = {
   invited_at: string | null; created_at: string | null
   test_passed_at: string | null; application_submitted_at: string | null; axiscare_pushed_at: string | null
   axiscare_applicant_id: number | null
+  converted_to_profile_id: string | null
 }
 type AppRow = Record<string, unknown> | null
 type DocRow = {
@@ -137,6 +138,7 @@ export default function CandidateDetailClient({
   const a = application || {}
   const [status, setStatus] = useState(candidate.status)
   const [axiscareId, setAxiscareId] = useState<number | null>(candidate.axiscare_applicant_id)
+  const [convertedId, setConvertedId] = useState<string | null>(candidate.converted_to_profile_id)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null)
   const [showReqModal, setShowReqModal] = useState(false)
@@ -147,6 +149,7 @@ export default function CandidateDetailClient({
   const canRequestDocs = status === 'application_submitted' || status === 'in_review'
   const canPushAxiscare = !axiscareId && (status === 'application_submitted' || status === 'in_review')
   const canEdit = !!application && (status === 'application_submitted' || status === 'in_review')
+  const canConvert = !convertedId && (status === 'in_review' || status === 'axiscare_created')
 
   async function beginReview() {
     setBusy(true); setBanner(null)
@@ -182,6 +185,31 @@ export default function CandidateDetailClient({
       } else {
         setBanner({ kind: 'ok', text: data.already ? base : `${base} Application details were added as a "Pushed from Vita" note.` })
       }
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function convertToCaregiver() {
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/convert`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not convert this candidate.' }); return }
+      setConvertedId(data.profile_id as string)
+      setStatus('converted')
+      const linked = data.outcome === 'linked_existing'
+      setBanner({
+        kind: 'ok',
+        text: linked
+          ? 'Linked to the existing portal account. The candidate is now a caregiver.'
+          : data.emailed
+            ? 'Converted to caregiver. A welcome email with a password link was sent.'
+            : 'Converted to caregiver. The account was created, but the welcome email did not send — they can use “Forgot password?” on the login page.',
+      })
       router.refresh()
     } catch {
       setBanner({ kind: 'warn', text: 'Network error — please try again.' })
@@ -300,6 +328,17 @@ export default function CandidateDetailClient({
             <Pencil size={16} /> Edit application
           </Link>
         )}
+        {convertedId ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: C.greenBg, color: C.green, border: `1px solid ${C.greenBorder}` }}>
+            <UserCheck size={16} /> Converted to caregiver
+          </span>
+        ) : canConvert ? (
+          <button onClick={convertToCaregiver} disabled={busy}
+            title="Create a caregiver portal account for this candidate"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 'none', color: '#fff', cursor: busy ? 'default' : 'pointer', background: 'linear-gradient(135deg,#1B7A43,#2E9B5B)', opacity: busy ? 0.6 : 1 }}>
+            <UserCheck size={16} /> Convert to caregiver
+          </button>
+        ) : null}
       </div>
 
       {/* Competency test */}
