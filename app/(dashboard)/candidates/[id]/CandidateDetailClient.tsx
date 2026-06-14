@@ -176,7 +176,12 @@ export default function CandidateDetailClient({
       const newId = data.axiscare_applicant_id as number
       setAxiscareId(newId)
       setStatus('axiscare_created')
-      setBanner({ kind: 'ok', text: data.already ? `Already in AxisCare (applicant #${newId}).` : `Pushed to AxisCare — applicant #${newId} created.` })
+      const base = data.already ? `Already in AxisCare (applicant #${newId}).` : `Pushed to AxisCare — applicant #${newId} created.`
+      if (!data.already && data.note_posted === false) {
+        setBanner({ kind: 'warn', text: `${base} Note: the "Pushed from Vita" details note could not be added in AxisCare — you may need to add it manually.` })
+      } else {
+        setBanner({ kind: 'ok', text: data.already ? base : `${base} Application details were added as a "Pushed from Vita" note.` })
+      }
       router.refresh()
     } catch {
       setBanner({ kind: 'warn', text: 'Network error — please try again.' })
