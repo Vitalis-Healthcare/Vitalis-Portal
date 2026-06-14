@@ -69,10 +69,13 @@ type DocsState = StoredDocument[]
 
 export default function ApplicationForm({
   token, firstName, initial, documents, docTypes, readOnly, submitted,
+  mode = 'candidate', candidateId, backHref,
 }: {
   token: string; firstName: string; initial: ApplicationData
   documents: DocsState; docTypes: DocTypeDef[]; readOnly: boolean; submitted: boolean
+  mode?: 'candidate' | 'staff'; candidateId?: string; backHref?: string
 }) {
+  const isStaff = mode === 'staff'
   // Seed repeatable groups so the form always has the right slots.
   const seeded: ApplicationData = {
     ...initial,
@@ -145,10 +148,13 @@ export default function ApplicationForm({
   async function save(action: 'save' | 'submit') {
     setBusy(true); setError(''); setNotice('')
     try {
-      const res = await fetch('/api/onboarding/application', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, action, application: form }) })
+      const url = isStaff ? `/api/onboarding/candidates/${candidateId}/application` : '/api/onboarding/application'
+      const payload = isStaff ? { application: form } : { token, action, application: form }
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Something went wrong. Please try again.'); return }
-      if (action === 'submit') { setDone(true); window.scrollTo({ top: 0 }) }
+      if (isStaff) { setNotice('Changes saved.'); window.scrollTo({ top: 0 }) }
+      else if (action === 'submit') { setDone(true); window.scrollTo({ top: 0 }) }
       else { setNotice('Your progress has been saved. You can come back to this link any time.') }
     } catch { setError('Something went wrong. Please check your connection and try again.') } finally { setBusy(false) }
   }
@@ -213,11 +219,26 @@ export default function ApplicationForm({
 
   return (
     <Shell>
-      <h2 style={{ fontSize: 20, color: C.navy, margin: '0 0 8px' }}>Welcome, {firstName} — let’s finish your application</h2>
-      <p style={{ color: C.gray, fontSize: 14.5, lineHeight: 1.7, margin: 0 }}>
-        Please complete the sections below and attach any documents you have on hand (including your résumé). You can
-        <strong> save your progress</strong> and return to this same link any time before you submit.
-      </p>
+      {isStaff ? (
+        <>
+          {backHref && (
+            <a href={backHref} style={{ display: 'inline-block', color: C.gray, fontSize: 13.5, fontWeight: 600, textDecoration: 'none', marginBottom: 12 }}>← Back to candidate</a>
+          )}
+          <h2 style={{ fontSize: 20, color: C.navy, margin: '0 0 8px' }}>Edit {firstName}’s application</h2>
+          <p style={{ color: C.gray, fontSize: 14.5, lineHeight: 1.7, margin: 0 }}>
+            Correct any details below and click <strong>Save changes</strong>. This updates the candidate record only — it
+            does not email the candidate or change their status.
+          </p>
+        </>
+      ) : (
+        <>
+          <h2 style={{ fontSize: 20, color: C.navy, margin: '0 0 8px' }}>Welcome, {firstName} — let’s finish your application</h2>
+          <p style={{ color: C.gray, fontSize: 14.5, lineHeight: 1.7, margin: 0 }}>
+            Please complete the sections below and attach any documents you have on hand (including your résumé). You can
+            <strong> save your progress</strong> and return to this same link any time before you submit.
+          </p>
+        </>
+      )}
 
       <Section title="Personal details">
         <Row>
@@ -436,6 +457,7 @@ export default function ApplicationForm({
         </Row>
       </Section>
 
+      {!isStaff && (
       <Section title="Documents (optional)">
         <p style={{ color: C.gray, fontSize: 13.5, lineHeight: 1.7, margin: '0 0 14px' }}>
           Attach your <strong>résumé</strong> and any of the listed documents if you have them. PDF, JPG, or PNG, up to {(MAX_FILE_BYTES / (1024 * 1024)).toFixed(0)} MB each.
@@ -469,6 +491,7 @@ export default function ApplicationForm({
           ))
         )}
       </Section>
+      )}
 
       <Section title="Attestation">
         <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', padding: '12px 14px', background: C.bg, borderRadius: 10 }}>
@@ -484,9 +507,15 @@ export default function ApplicationForm({
       {notice && <div style={{ marginTop: 18, padding: '11px 15px', background: C.greenBg, color: C.green, border: `1px solid ${C.greenBorder}`, borderRadius: 9, fontSize: 13.5, fontWeight: 600 }}>{notice}</div>}
       {error && <div style={{ marginTop: 18, padding: '11px 15px', background: C.redBg, color: C.red, border: `1px solid ${C.redBorder}`, borderRadius: 9, fontSize: 13.5, fontWeight: 600 }}>{error}</div>}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', marginTop: 24 }}>
-        <button type="button" onClick={() => save('save')} disabled={busy || uploading} style={{ ...btnGhost, opacity: busy || uploading ? 0.6 : 1 }}>{busy ? 'Saving…' : 'Save and finish later'}</button>
-        <button type="button" onClick={() => save('submit')} disabled={busy || uploading} style={{ ...btnPrimary, opacity: busy || uploading ? 0.6 : 1 }}>{busy ? 'Submitting…' : 'Submit application'}</button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: isStaff ? 'flex-end' : 'space-between', marginTop: 24 }}>
+        {isStaff ? (
+          <button type="button" onClick={() => save('save')} disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}>{busy ? 'Saving…' : 'Save changes'}</button>
+        ) : (
+          <>
+            <button type="button" onClick={() => save('save')} disabled={busy || uploading} style={{ ...btnGhost, opacity: busy || uploading ? 0.6 : 1 }}>{busy ? 'Saving…' : 'Save and finish later'}</button>
+            <button type="button" onClick={() => save('submit')} disabled={busy || uploading} style={{ ...btnPrimary, opacity: busy || uploading ? 0.6 : 1 }}>{busy ? 'Submitting…' : 'Submit application'}</button>
+          </>
+        )}
       </div>
     </Shell>
   )

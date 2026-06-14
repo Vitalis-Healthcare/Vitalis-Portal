@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2 } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil } from 'lucide-react'
 import { docTypeLabel, type DocTypeDef } from '@/lib/onboarding/documents'
 
 const C = {
@@ -146,6 +146,7 @@ export default function CandidateDetailClient({
   const canBeginReview = status === 'application_submitted'
   const canRequestDocs = status === 'application_submitted' || status === 'in_review'
   const canPushAxiscare = !axiscareId && (status === 'application_submitted' || status === 'in_review')
+  const canEdit = !!application && (status === 'application_submitted' || status === 'in_review')
 
   async function beginReview() {
     setBusy(true); setBanner(null)
@@ -287,6 +288,12 @@ export default function CandidateDetailClient({
             }}>
             <Building2 size={16} /> Push to AxisCare
           </button>
+        )}
+        {canEdit && (
+          <Link href={`/candidates/${candidate.id}/edit`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: '#fff', border: `1px solid ${C.border}`, color: C.navy, textDecoration: 'none' }}>
+            <Pencil size={16} /> Edit application
+          </Link>
         )}
       </div>
 
