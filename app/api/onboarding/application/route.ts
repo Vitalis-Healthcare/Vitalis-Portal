@@ -1,13 +1,19 @@
 // app/api/onboarding/application/route.ts
 // Public, token-gated. Saves the candidate application as a draft ('save') or
-// submits it ('submit'). On first save the candidate moves test_passed ->
-// applying; on submit, applying -> application_submitted (+ timestamp) and a
-// confirmation email is sent (soft-fail). The form is editable only while the
-// candidate is in an editable status (test_passed | applying).
+// submits it ('submit'). Persists scalar fields, the two checkbox arrays
+// (willing_to_work_with / experience_with), the availability map, and the three
+// repeatable JSONB groups (work_experience / applicant_references /
+// emergency_contacts). On first save: test_passed -> applying; on submit:
+// applying -> application_submitted (+ timestamp) and a confirmation email.
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
-import { APPLICATION_EDITABLE_STATUSES, APPLICATION_FIELDS, type ApplicationData } from '@/lib/onboarding/application'
+import {
+  APPLICATION_EDITABLE_STATUSES, APPLICATION_FIELDS, APPLICATION_BOOLEAN_FIELDS,
+  WILLING_TO_WORK_WITH, EXPERIENCE_WITH, WEEK_DAYS, REFERENCE_SLOTS,
+  MAX_WORK_EXPERIENCE, MAX_EMERGENCY_CONTACTS,
+  type ApplicationData,
+} from '@/lib/onboarding/application'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,8 +64,7 @@ async function sendConfirmation(to: string, firstName: string): Promise<boolean>
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: [to],
+        from: FROM_EMAIL, to: [to],
         subject: 'We received your Vitalis caregiver application',
         html: buildConfirmationEmail(firstName),
       }),
@@ -72,18 +77,87 @@ async function sendConfirmation(to: string, firstName: string): Promise<boolean>
   }
 }
 
-// Keep only whitelisted fields; coerce empty strings to null so optional dates
-// don't fail (an empty <input type="date"> sends '').
-function sanitize(input: Record<string, unknown>): Record<string, unknown> {
+const BOOLEAN_SET = new Set<string>(APPLICATION_BOOLEAN_FIELDS as string[])
+
+function trimOrNull(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const t = v.trim()
+  return t === '' ? null : t
+}
+
+// Scalar fields (with boolean coercion + integer for live_in_max_days).
+function sanitizeScalars(input: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const key of APPLICATION_FIELDS) {
     if (!(key in input)) continue
-    let v = input[key]
-    if (typeof v === 'string') {
-      v = v.trim()
-      if (v === '') v = null
+    const raw = input[key]
+    if (BOOLEAN_SET.has(key as string)) {
+      out[key as string] = typeof raw === 'boolean' ? raw : null
+    } else if (key === 'live_in_max_days') {
+      const n = parseInt(String(raw ?? ''), 10)
+      out[key as string] = Number.isFinite(n) ? n : null
+    } else {
+      out[key as string] = trimOrNull(raw)
     }
-    out[key] = v
+  }
+  return out
+}
+
+function sanitizeStringArray(v: unknown, allowed: readonly string[]): string[] {
+  if (!Array.isArray(v)) return []
+  const set = new Set(allowed)
+  return v.map((x) => String(x)).filter((x) => set.has(x))
+}
+
+function sanitizeWorkExperience(v: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(v)) return []
+  return v.slice(0, MAX_WORK_EXPERIENCE).map((e) => {
+    const o = (e || {}) as Record<string, unknown>
+    return {
+      organization: trimOrNull(o.organization),
+      contact_person: trimOrNull(o.contact_person),
+      telephone: trimOrNull(o.telephone),
+      dates_worked: trimOrNull(o.dates_worked),
+      may_contact: typeof o.may_contact === 'boolean' ? o.may_contact : null,
+    }
+  }).filter((e) => e.organization || e.contact_person || e.telephone || e.dates_worked)
+}
+
+function sanitizeReferences(v: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(v)) return []
+  return v.slice(0, REFERENCE_SLOTS.length).map((e, i) => {
+    const o = (e || {}) as Record<string, unknown>
+    const kind = o.kind === 'character' ? 'character' : REFERENCE_SLOTS[i]?.kind || 'professional'
+    return {
+      kind,
+      name: trimOrNull(o.name),
+      title: trimOrNull(o.title),
+      phone: trimOrNull(o.phone),
+      dates_known: trimOrNull(o.dates_known),
+    }
+  }).filter((e) => e.name || e.phone)
+}
+
+function sanitizeEmergencyContacts(v: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(v)) return []
+  return v.slice(0, MAX_EMERGENCY_CONTACTS).map((e) => {
+    const o = (e || {}) as Record<string, unknown>
+    return {
+      name: trimOrNull(o.name),
+      relationship: trimOrNull(o.relationship),
+      phone: trimOrNull(o.phone),
+      phone_type: trimOrNull(o.phone_type),
+    }
+  }).filter((e) => e.name || e.phone)
+}
+
+function sanitizeAvailabilityDays(v: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!v || typeof v !== 'object') return out
+  const o = v as Record<string, unknown>
+  for (const d of WEEK_DAYS) {
+    const t = trimOrNull(o[d.key])
+    if (t) out[d.key] = t
   }
   return out
 }
@@ -110,25 +184,29 @@ export async function POST(req: NextRequest) {
 
   const status: string = cand.status || ''
   if (!(APPLICATION_EDITABLE_STATUSES as readonly string[]).includes(status)) {
-    // Already submitted / under review / advanced — don't accept further edits here.
     return NextResponse.json({ error: 'not_editable' }, { status: 409 })
   }
 
   const nowIso = new Date().toISOString()
-  const fields = sanitize(application as Record<string, unknown>)
+  const input = application as Record<string, unknown>
+  const scalars = sanitizeScalars(input)
 
   if (action === 'submit') {
-    // Minimal required-field gate for a final submit.
     const required: (keyof ApplicationData)[] = ['legal_first_name', 'legal_last_name', 'phone', 'email', 'signature_name']
-    const missing = required.filter((k) => !fields[k as string])
+    const missing = required.filter((k) => !scalars[k as string])
     if (missing.length) return NextResponse.json({ error: 'Please complete your name, phone, email, and signature before submitting.' }, { status: 400 })
     if (!application.attested) return NextResponse.json({ error: 'Please check the attestation box before submitting.' }, { status: 400 })
   }
 
-  // Upsert the application row on candidate_id.
   const row: Record<string, unknown> = {
     candidate_id: cand.id,
-    ...fields,
+    ...scalars,
+    willing_to_work_with: sanitizeStringArray(input.willing_to_work_with, WILLING_TO_WORK_WITH),
+    experience_with: sanitizeStringArray(input.experience_with, EXPERIENCE_WITH),
+    work_experience: sanitizeWorkExperience(input.work_experience),
+    applicant_references: sanitizeReferences(input.applicant_references),
+    emergency_contacts: sanitizeEmergencyContacts(input.emergency_contacts),
+    availability_days: sanitizeAvailabilityDays(input.availability_days),
     updated_at: nowIso,
   }
   if (action === 'submit') {
@@ -137,29 +215,22 @@ export async function POST(req: NextRequest) {
     row.submitted_at = nowIso
   }
 
-  const { error: upErr } = await svc
-    .from('onb_applications')
-    .upsert(row, { onConflict: 'candidate_id' })
+  const { error: upErr } = await svc.from('onb_applications').upsert(row, { onConflict: 'candidate_id' })
   if (upErr) {
     console.error('[onboarding-application] upsert failed:', upErr.message)
     return NextResponse.json({ error: 'Could not save your application. Please try again.' }, { status: 500 })
   }
 
-  // Status transitions.
   if (action === 'submit') {
     await svc.from('onb_candidates')
       .update({ status: 'application_submitted', application_submitted_at: nowIso, updated_at: nowIso })
       .eq('id', cand.id)
-    // Soft-fail: the application is saved; a failed email never blocks success.
     const emailed = await sendConfirmation(cand.email, cand.first_name)
     return NextResponse.json({ success: true, submitted: true, emailed })
   }
 
-  // Draft save: move test_passed -> applying the first time they save.
   if (status === 'test_passed') {
-    await svc.from('onb_candidates')
-      .update({ status: 'applying', updated_at: nowIso })
-      .eq('id', cand.id)
+    await svc.from('onb_candidates').update({ status: 'applying', updated_at: nowIso }).eq('id', cand.id)
   }
   return NextResponse.json({ success: true, submitted: false })
 }

@@ -81,14 +81,47 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function Readout({ rows }: { rows: [string, string][] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px 24px' }}>
-      {rows.map(([label, value]) => (
-        <div key={label}>
+      {rows.map(([label, value], i) => (
+        <div key={`${label}-${i}`}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 3 }}>{label}</div>
           <div style={{ fontSize: 14, color: C.navy, lineHeight: 1.5, wordBreak: 'break-word' }}>{value}</div>
         </div>
       ))}
     </div>
   )
+}
+
+function ItemBlock({ title, rows }: { title: string; rows: [string, string][] }) {
+  return (
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.teal, marginBottom: 8 }}>{title}</div>
+      <Readout rows={rows} />
+    </div>
+  )
+}
+
+// SSN is shown masked (last 4 only) on the staff screen, even though the full
+// value is stored server-side and pushed to AxisCare.
+function maskSsn(v: unknown): string {
+  const digits = (v == null ? '' : String(v)).replace(/\D/g, '')
+  if (!digits) return '—'
+  return `•••-••-${digits.slice(-4)}`
+}
+function asArray(v: unknown): Record<string, unknown>[] {
+  return Array.isArray(v) ? (v as Record<string, unknown>[]) : []
+}
+function listStr(v: unknown): string {
+  if (Array.isArray(v) && v.length) return v.map((x) => String(x)).join(', ')
+  return '—'
+}
+const DAY_LABELS: [string, string][] = [
+  ['mon', 'Mon'], ['tue', 'Tue'], ['wed', 'Wed'], ['thu', 'Thu'], ['fri', 'Fri'], ['sat', 'Sat'], ['sun', 'Sun'],
+]
+function availDays(v: unknown): string {
+  if (!v || typeof v !== 'object') return '—'
+  const o = v as Record<string, unknown>
+  const parts = DAY_LABELS.filter(([k]) => o[k]).map(([k, l]) => `${l}: ${String(o[k])}`)
+  return parts.length ? parts.join(' · ') : '—'
 }
 
 export default function CandidateDetailClient({
@@ -275,9 +308,19 @@ export default function CandidateDetailClient({
               ['Legal name', `${str(a.legal_first_name)} ${a.middle_name ? str(a.middle_name) + ' ' : ''}${str(a.legal_last_name)}`.trim()],
               ['Preferred name', str(a.preferred_name)],
               ['Date of birth', fmtDate(a.date_of_birth as string)],
-              ['Phone', str(a.phone)],
+              ['Gender', str(a.gender)],
+              ['Mobile phone', str(a.phone)],
+              ['Home phone', str(a.home_phone)],
               ['Email', str(a.email)],
+              ['Social Security #', maskSsn(a.ssn)],
               ['Address', [a.address_street, a.address_unit, a.address_city, a.address_state, a.address_zip].filter(Boolean).join(', ') || '—'],
+            ]} />
+          </Card>
+          <Card title="Driver's license">
+            <Readout rows={[
+              ['Has license', yesNo(a.driver_license_received)],
+              ['License number', str(a.driver_license_number)],
+              ['Issuing state', str(a.driver_license_state)],
             ]} />
           </Card>
           <Card title="Work eligibility">
@@ -296,27 +339,69 @@ export default function CandidateDetailClient({
               ['Languages', str(a.languages)],
             ]} />
           </Card>
+          <Card title="Previous caregiver experience">
+            {asArray(a.work_experience).length === 0 ? (
+              <div style={{ fontSize: 14, color: C.faint }}>None provided.</div>
+            ) : asArray(a.work_experience).map((e, i) => (
+              <ItemBlock key={i} title={`Experience ${i + 1}`} rows={[
+                ['Organization', str(e.organization)],
+                ['Dates worked', str(e.dates_worked)],
+                ['Contact person', str(e.contact_person)],
+                ['Telephone', str(e.telephone)],
+                ['May contact?', yesNo(e.may_contact)],
+              ]} />
+            ))}
+          </Card>
+          <Card title="References">
+            {asArray(a.applicant_references).length === 0 ? (
+              <div style={{ fontSize: 14, color: C.faint }}>None provided.</div>
+            ) : asArray(a.applicant_references).map((r, i) => (
+              <ItemBlock key={i} title={String(r.kind) === 'character' ? 'Character reference' : 'Professional reference'} rows={[
+                ['Name', str(r.name)],
+                ['Position / title', str(r.title)],
+                ['Telephone', str(r.phone)],
+                ['Dates known', str(r.dates_known)],
+              ]} />
+            ))}
+          </Card>
+          <Card title="Emergency contacts">
+            {asArray(a.emergency_contacts).length === 0 ? (
+              <div style={{ fontSize: 14, color: C.faint }}>None provided.</div>
+            ) : asArray(a.emergency_contacts).map((c, i) => (
+              <ItemBlock key={i} title={`Contact ${i + 1}`} rows={[
+                ['Name', str(c.name)],
+                ['Relationship', str(c.relationship)],
+                ['Phone', str(c.phone)],
+                ['Phone type', str(c.phone_type)],
+              ]} />
+            ))}
+          </Card>
+          <Card title="Skills & preferences">
+            <Readout rows={[['Willing to work with', listStr(a.willing_to_work_with)]]} />
+          </Card>
+          <Card title="Specialized training">
+            <Readout rows={[
+              ['Experience with', listStr(a.experience_with)],
+              ['Additional certifications', str(a.additional_certifications)],
+            ]} />
+          </Card>
           <Card title="Availability">
             <Readout rows={[
               ['Earliest start', fmtDate(a.earliest_start_date as string)],
+              ['Available all hours', yesNo(a.available_all_hours)],
+              ['Day-by-day', availDays(a.availability_days)],
+              ['Interested in live-in', yesNo(a.live_in_interested)],
+              ['Max consecutive days', str(a.live_in_max_days)],
               ['General availability', str(a.availability)],
             ]} />
           </Card>
-          <Card title="Emergency contact">
+          <Card title="Additional questions">
             <Readout rows={[
-              ['Name', str(a.emergency_name)],
-              ['Relationship', str(a.emergency_relationship)],
-              ['Phone', str(a.emergency_phone)],
-            ]} />
-          </Card>
-          <Card title="References">
-            <Readout rows={[
-              ['Reference 1', str(a.reference1_name)],
-              ['Relationship', str(a.reference1_relationship)],
-              ['Contact', str(a.reference1_contact)],
-              ['Reference 2', str(a.reference2_name)],
-              ['Relationship', str(a.reference2_relationship)],
-              ['Contact', str(a.reference2_contact)],
+              ['Smoker', yesNo(a.smoker)],
+              ['If yes, per day', str(a.smoker_per_day)],
+              ['How they heard about us', str(a.how_heard)],
+              ['Recent caregiving experience', str(a.recent_experience)],
+              ['Why caregiver with us', str(a.why_caregiver)],
             ]} />
           </Card>
           <Card title="Attestation">

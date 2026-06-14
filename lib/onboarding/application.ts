@@ -1,17 +1,21 @@
 // lib/onboarding/application.ts
-// Shared types + constants for the candidate application (Phase 2 / v0.6.3).
-// Pure data — safe to import from both the public form (client) and the API
-// route (server).
+// Shared types + constants for the candidate application (Phase 2 + v0.6.5
+// expansion). Pure data — safe to import from both the public form (client) and
+// the API route (server).
 
-// The candidate statuses at which the application form is editable by the
-// candidate. Anything past this is read-only on the candidate side.
+// Statuses at which the candidate may edit the application.
 export const APPLICATION_EDITABLE_STATUSES = ['test_passed', 'applying'] as const
 // Statuses where the candidate has finished and is awaiting / under staff review.
 export const APPLICATION_SUBMITTED_STATUSES = ['application_submitted', 'in_review'] as const
 
-// Credential set — mirrors the provider credential vocabulary used elsewhere.
 export const CREDENTIAL_TYPES = ['UA', 'CNA', 'GNA', 'CMT', 'LPN', 'RN', 'PT', 'OT', 'ST'] as const
 export type CredentialType = (typeof CREDENTIAL_TYPES)[number]
+
+export const GENDER_OPTIONS = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+  { value: 'unspecified', label: 'Prefer not to say' },
+] as const
 
 export const US_STATES = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID',
@@ -20,16 +24,72 @@ export const US_STATES = [
   'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
 ] as const
 
-// The full editable shape, as the form submits it and the API persists it.
-// All optional so a draft can be saved partially; required fields are checked
-// at submit time only (see the API route).
+// "Willing to work with" (preferences) and "Experience with" (specialized
+// training) checkbox sets — taken from the Vitalis caregiver application.
+export const WILLING_TO_WORK_WITH = [
+  'Companionship', 'Bathing / Dressing', 'Hoyer Lift', 'Gait Belt', 'Incontinence',
+  'Driving', 'Transfer Assist', 'Smoking', "Alzheimer's / Dementia",
+  'Males', 'Females', 'Dogs', 'Cats',
+] as const
+
+export const EXPERIENCE_WITH = [
+  'Hoyer Lift', 'Gait Belt', 'Incontinence', 'Transfer Assist', "Alzheimer's / Dementia",
+] as const
+
+export const WEEK_DAYS = [
+  { key: 'mon', label: 'Monday' }, { key: 'tue', label: 'Tuesday' },
+  { key: 'wed', label: 'Wednesday' }, { key: 'thu', label: 'Thursday' },
+  { key: 'fri', label: 'Friday' }, { key: 'sat', label: 'Saturday' },
+  { key: 'sun', label: 'Sunday' },
+] as const
+
+export const MAX_WORK_EXPERIENCE = 4
+export const MAX_EMERGENCY_CONTACTS = 3
+
+// ── Repeatable-group shapes ──
+export type WorkExperience = {
+  organization?: string
+  contact_person?: string
+  telephone?: string
+  dates_worked?: string
+  may_contact?: boolean | null
+}
+export type ReferenceKind = 'professional' | 'character'
+export type ReferenceEntry = {
+  kind: ReferenceKind
+  name?: string
+  title?: string
+  phone?: string
+  dates_known?: string
+}
+export type EmergencyContact = {
+  name?: string
+  relationship?: string
+  phone?: string
+  phone_type?: string
+}
+export type AvailabilityDays = Record<string, string>
+
+// The three fixed reference slots (2 professional + 1 character).
+export const REFERENCE_SLOTS: { kind: ReferenceKind; label: string }[] = [
+  { kind: 'professional', label: 'Professional reference 1' },
+  { kind: 'professional', label: 'Professional reference 2' },
+  { kind: 'character', label: 'Character reference' },
+]
+
+// The full editable shape. All optional so a draft can be saved partially;
+// required fields are checked at submit time only (see the API route).
 export type ApplicationData = {
+  // Personal
   legal_first_name?: string
   middle_name?: string
   legal_last_name?: string
   preferred_name?: string
-  date_of_birth?: string        // YYYY-MM-DD
+  date_of_birth?: string
+  gender?: string
+  ssn?: string
   phone?: string
+  home_phone?: string
   email?: string
   address_street?: string
   address_unit?: string
@@ -37,45 +97,71 @@ export type ApplicationData = {
   address_state?: string
   address_zip?: string
 
+  // Driver's license
+  driver_license_received?: boolean | null
+  driver_license_number?: string
+  driver_license_state?: string
+
+  // Eligibility
   work_authorized?: boolean | null
   requires_sponsorship?: boolean | null
   is_18_or_older?: boolean | null
   has_transportation?: boolean | null
 
+  // Professional
   credential_type?: string
   license_number?: string
   years_experience?: string
   languages?: string
 
+  // Availability
   availability?: string
-  earliest_start_date?: string  // YYYY-MM-DD
+  earliest_start_date?: string
+  available_all_hours?: boolean | null
+  availability_days?: AvailabilityDays
+  live_in_interested?: boolean | null
+  live_in_max_days?: string
 
-  emergency_name?: string
-  emergency_relationship?: string
-  emergency_phone?: string
+  // Skills & training
+  willing_to_work_with?: string[]
+  experience_with?: string[]
+  additional_certifications?: string
 
-  reference1_name?: string
-  reference1_relationship?: string
-  reference1_contact?: string
-  reference2_name?: string
-  reference2_relationship?: string
-  reference2_contact?: string
+  // Repeatable groups
+  work_experience?: WorkExperience[]
+  applicant_references?: ReferenceEntry[]
+  emergency_contacts?: EmergencyContact[]
 
+  // Additional questions
+  smoker?: boolean | null
+  smoker_per_day?: string
+  how_heard?: string
+  recent_experience?: string
+  why_caregiver?: string
+
+  // Attestation
   attested?: boolean
   signature_name?: string
 }
 
-// Whitelist of columns the API accepts from the client. Keeps the upsert tight
-// and prevents a rogue body from setting workflow columns (status, *_at, etc.).
+// Scalar (non-array, non-jsonb-group) fields the API accepts directly.
 export const APPLICATION_FIELDS: (keyof ApplicationData)[] = [
   'legal_first_name', 'middle_name', 'legal_last_name', 'preferred_name',
-  'date_of_birth', 'phone', 'email',
+  'date_of_birth', 'gender', 'ssn', 'phone', 'home_phone', 'email',
   'address_street', 'address_unit', 'address_city', 'address_state', 'address_zip',
+  'driver_license_received', 'driver_license_number', 'driver_license_state',
   'work_authorized', 'requires_sponsorship', 'is_18_or_older', 'has_transportation',
   'credential_type', 'license_number', 'years_experience', 'languages',
-  'availability', 'earliest_start_date',
-  'emergency_name', 'emergency_relationship', 'emergency_phone',
-  'reference1_name', 'reference1_relationship', 'reference1_contact',
-  'reference2_name', 'reference2_relationship', 'reference2_contact',
+  'availability', 'earliest_start_date', 'available_all_hours',
+  'live_in_interested', 'live_in_max_days',
+  'additional_certifications',
+  'smoker', 'smoker_per_day', 'how_heard', 'recent_experience', 'why_caregiver',
   'attested', 'signature_name',
+]
+
+// Boolean scalar fields (so the route coerces them correctly).
+export const APPLICATION_BOOLEAN_FIELDS: (keyof ApplicationData)[] = [
+  'driver_license_received', 'work_authorized', 'requires_sponsorship',
+  'is_18_or_older', 'has_transportation', 'available_all_hours',
+  'live_in_interested', 'smoker',
 ]
