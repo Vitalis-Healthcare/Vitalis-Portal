@@ -331,12 +331,14 @@ export default function TestRunner({ token, firstName, initial }: { token: strin
               : <>You passed the Vitalis caregiver competency test with <strong>{result.score} / {result.total}</strong> ({pct}%).</>}
           </p>
           <div style={{ marginTop: 22 }}>
-            <a href={`/onboarding/certificate?token=${token}`} style={{ display: 'inline-block', padding: '13px 30px', background: 'linear-gradient(135deg,#2D5A1B,#5A9E2F)', color: '#fff', textDecoration: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700 }}>
-              View your certificate
+            <a href={`/onboarding/application?token=${token}`} style={{ display: 'inline-block', padding: '13px 34px', background: 'linear-gradient(135deg,#0E7C7B,#1A9B87)', color: '#fff', textDecoration: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700 }}>
+              Continue to your application
             </a>
           </div>
-          <p style={{ color: C.faint, fontSize: 14, lineHeight: 1.7, margin: '18px 0 0' }}>
-            The Vitalis team will be in touch with your next steps. You can also close this page.
+          <p style={{ color: C.gray, fontSize: 13.5, lineHeight: 1.7, margin: '14px 0 0' }}>
+            The next step is a short application. You can also{' '}
+            <a href={`/onboarding/certificate?token=${token}`} style={{ color: C.green, fontWeight: 700, textDecoration: 'underline' }}>view your certificate</a>{' '}
+            first — your link stays active either way.
           </p>
         </div>
       </Shell>
