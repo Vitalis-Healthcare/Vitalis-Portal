@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2 } from 'lucide-react'
 import { docTypeLabel, type DocTypeDef } from '@/lib/onboarding/documents'
 
 const C = {
@@ -32,6 +32,7 @@ type Candidate = {
   id: string; first_name: string; last_name: string; email: string; status: string
   invited_at: string | null; created_at: string | null
   test_passed_at: string | null; application_submitted_at: string | null; axiscare_pushed_at: string | null
+  axiscare_applicant_id: number | null
 }
 type AppRow = Record<string, unknown> | null
 type DocRow = {
@@ -102,6 +103,7 @@ export default function CandidateDetailClient({
   const router = useRouter()
   const a = application || {}
   const [status, setStatus] = useState(candidate.status)
+  const [axiscareId, setAxiscareId] = useState<number | null>(candidate.axiscare_applicant_id)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null)
   const [showReqModal, setShowReqModal] = useState(false)
@@ -110,6 +112,7 @@ export default function CandidateDetailClient({
 
   const canBeginReview = status === 'application_submitted'
   const canRequestDocs = status === 'application_submitted' || status === 'in_review'
+  const canPushAxiscare = !axiscareId && (status === 'application_submitted' || status === 'in_review')
 
   async function beginReview() {
     setBusy(true); setBanner(null)
@@ -122,6 +125,24 @@ export default function CandidateDetailClient({
       if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not start review.' }); return }
       setStatus('in_review')
       setBanner({ kind: 'ok', text: 'This candidate is now marked In review.' })
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function pushAxisCare() {
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/axiscare`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not push to AxisCare.' }); return }
+      const newId = data.axiscare_applicant_id as number
+      setAxiscareId(newId)
+      setStatus('axiscare_created')
+      setBanner({ kind: 'ok', text: data.already ? `Already in AxisCare (applicant #${newId}).` : `Pushed to AxisCare — applicant #${newId} created.` })
       router.refresh()
     } catch {
       setBanner({ kind: 'warn', text: 'Network error — please try again.' })
@@ -219,6 +240,21 @@ export default function CandidateDetailClient({
           }}>
           <Mail size={16} /> Request documents
         </button>
+        {axiscareId ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: C.greenBg, color: C.green, border: `1px solid ${C.greenBorder}` }}>
+            <CheckCircle2 size={16} /> In AxisCare · #{axiscareId}
+          </span>
+        ) : (
+          <button onClick={pushAxisCare} disabled={!canPushAxiscare || busy}
+            title={canPushAxiscare ? 'Create this applicant in AxisCare' : 'Available once the application is submitted or in review'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+              background: '#fff', border: `1px solid ${C.border}`, color: C.navy,
+              cursor: canPushAxiscare && !busy ? 'pointer' : 'default', opacity: canPushAxiscare && !busy ? 1 : 0.5,
+            }}>
+            <Building2 size={16} /> Push to AxisCare
+          </button>
+        )}
       </div>
 
       {/* Competency test */}

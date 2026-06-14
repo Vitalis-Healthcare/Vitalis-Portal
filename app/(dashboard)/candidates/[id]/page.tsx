@@ -25,7 +25,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
 
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, last_name, email, status, invited_at, created_at, test_passed_at, application_submitted_at, axiscare_pushed_at')
+    .select('id, first_name, last_name, email, status, invited_at, created_at, test_passed_at, application_submitted_at, axiscare_pushed_at, axiscare_applicant_id')
     .eq('id', id)
     .maybeSingle()
   if (!cand) notFound()
