@@ -73,15 +73,24 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // Build the payload per the AxisCare Add Applicant schema.
-  const payload: Record<string, unknown> = {
-    firstName,
-    lastName,
-    middleInitial: (nonEmpty(app?.middle_name)?.slice(0, 2)) || null,
-    ssn: null, // not collected in the application
-    dateOfBirth: nonEmpty(app?.date_of_birth) || null,
-    personalEmail: nonEmpty(app?.email) || nonEmpty(cand.email) || '',
-    mobilePhone: nonEmpty(app?.phone) || null,
-  }
+  // IMPORTANT: AxisCare's live validator rejects explicit null for the optional
+  // fields (middleInitial / ssn / dateOfBirth / mobilePhone) — they must be
+  // OMITTED when empty, not sent as null. So we add keys only when we have a
+  // real value. The minimum AxisCare requires is firstName + lastName.
+  const payload: Record<string, unknown> = { firstName, lastName }
+
+  const middleInitial = nonEmpty(app?.middle_name)?.slice(0, 2)
+  if (middleInitial) payload.middleInitial = middleInitial
+
+  const dateOfBirth = nonEmpty(app?.date_of_birth)
+  if (dateOfBirth) payload.dateOfBirth = dateOfBirth
+
+  const personalEmail = nonEmpty(app?.email) || nonEmpty(cand.email)
+  if (personalEmail) payload.personalEmail = personalEmail
+
+  const mobilePhone = nonEmpty(app?.phone)
+  if (mobilePhone) payload.mobilePhone = mobilePhone
+  // ssn is never collected in the application — omit it entirely.
 
   // mailingAddress has minProperties:5 — only include it when the core parts are
   // present, and always send all five keys (streetAddress2 defaults to "").
