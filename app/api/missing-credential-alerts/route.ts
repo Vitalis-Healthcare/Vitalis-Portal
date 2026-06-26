@@ -19,6 +19,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // ── Credential email kill switch (v0.6.11) ─────────────────────────────
+  // Master off-switch for aide-facing credential emails. While the
+  // credentials section is being brought to truth level, set the Vercel env
+  // var CREDENTIAL_EMAILS_ENABLED=false to silence BOTH credential crons
+  // (this one and the other credential-alerts route). Unset or =true sends.
+  if (process.env.CREDENTIAL_EMAILS_ENABLED === 'false') {
+    console.log('[credential-email] skipped: CREDENTIAL_EMAILS_ENABLED=false')
+    return NextResponse.json({
+      success: true,
+      totalSent: 0,
+      skipped: true,
+      reason: 'CREDENTIAL_EMAILS_ENABLED=false',
+    })
+  }
+
   const RESEND_API_KEY = process.env.RESEND_API_KEY
   if (!RESEND_API_KEY) {
     return NextResponse.json({ error: 'RESEND_API_KEY not set' }, { status: 500 })
