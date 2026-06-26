@@ -46,10 +46,10 @@ interface Position  { id:string; name:string; description:string; pp_roles:strin
 const inp = { width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #D1D9E0', fontSize:13, outline:'none', fontFamily:'inherit', background:'#fff', boxSizing:'border-box' as const }
 const lbl = { fontSize:12, fontWeight:600 as const, color:'#4A6070', display:'block' as const, marginBottom:5 }
 
-export default function SettingsClient({ profile, credTypes, isAdmin }: { profile:Profile|null; credTypes:CredType[]; isAdmin?:boolean }) {
+export default function SettingsClient({ profile, credTypes, isAdmin, credEmailsEnabled = true, envOverrideActive = false }: { profile:Profile|null; credTypes:CredType[]; isAdmin?:boolean; credEmailsEnabled?:boolean; envOverrideActive?:boolean }) {
   const supabase = createClient()
   const router   = useRouter()
-  const [tab, setTab]     = useState<'profile'|'credentials'|'positions'|'org'>('profile')
+  const [tab, setTab]     = useState<'profile'|'credentials'|'positions'|'org'|'notifications'>('profile')
   const [saving, setSaving]   = useState(false)
   const [saved,  setSaved]    = useState(false)
   const [form, setForm] = useState({
@@ -63,6 +63,35 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
   const [posLoading, setPosLoading] = useState(false)
   const [newPos,  setNewPos]  = useState({ name:'', description:'', pp_roles:'' })
   const [posSaved, setPosSaved] = useState('')
+
+  // Credential-email toggle (v0.6.12)
+  const [emailsOn, setEmailsOn]       = useState(credEmailsEnabled)
+  const [flagSaving, setFlagSaving]   = useState(false)
+  const [flagSaved, setFlagSaved]     = useState(false)
+  const [flagError, setFlagError]     = useState('')
+
+  const toggleCredEmails = async (next: boolean) => {
+    setFlagSaving(true); setFlagSaved(false); setFlagError('')
+    const prev = emailsOn
+    setEmailsOn(next) // optimistic
+    try {
+      const res = await fetch('/api/admin/credential-emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j.error || `Request failed (${res.status})`)
+      }
+      setFlagSaved(true); setTimeout(() => setFlagSaved(false), 2500)
+    } catch (e: any) {
+      setEmailsOn(prev) // revert
+      setFlagError(e?.message || 'Could not save. Please try again.')
+    } finally {
+      setFlagSaving(false)
+    }
+  }
 
   useEffect(() => { if (tab === 'positions') loadPositions() }, [tab])
 
@@ -109,6 +138,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
     { id:'credentials', label:'Credential Types' },
     ...(isAdmin ? [{ id:'positions', label:'Positions' }] : []),
     { id:'org',         label:'Organisation' },
+    ...(isAdmin ? [{ id:'notifications', label:'Notifications' }] : []),
   ] as const
 
   return (
@@ -283,6 +313,53 @@ export default function SettingsClient({ profile, credTypes, isAdmin }: { profil
           ))}
           <div style={{ marginTop:12, padding:'14px 16px', background:'#E6F4F4', borderRadius:8, fontSize:13, color:'#0A5C5B', lineHeight:1.6 }}>
             <strong>Active modules:</strong> Training (LMS) · Policies & Procedures · Emergency Preparedness · Credentials · Staff Management · Email Reminders
+          </div>
+        </div>
+      )}
+
+      {tab === 'notifications' && (
+        <div style={{ maxWidth:560 }}>
+          <div style={{ background:'#fff', borderRadius:12, padding:28, boxShadow:'0 1px 4px rgba(0,0,0,0.07)' }}>
+            <h2 style={{ fontSize:16, fontWeight:700, color:'#1A2E44', marginBottom:4 }}>Email Notifications</h2>
+            <p style={{ fontSize:13, color:'#8FA0B0', marginBottom:20 }}>
+              Control the automated emails the portal sends to staff and caregivers.
+            </p>
+
+            {envOverrideActive && (
+              <div style={{ background:'#FEF3EA', border:'1px solid #F6C99A', borderRadius:8, padding:'12px 16px', marginBottom:20, fontSize:12.5, color:'#8A4B1F', lineHeight:1.6 }}>
+                <strong>A Vercel override is active.</strong> The environment variable <code style={{ background:'#F4D9BE', padding:'1px 5px', borderRadius:4 }}>CREDENTIAL_EMAILS_ENABLED=false</code> is currently forcing credential emails OFF, regardless of the switch below. To make this switch the single control, remove that variable in Vercel (Settings → Environment Variables) and redeploy.
+              </div>
+            )}
+
+            <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:20, padding:'18px 20px', border:'1px solid #EFF2F5', borderRadius:10 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:'#1A2E44', marginBottom:4 }}>Credential emails to aides</div>
+                <div style={{ fontSize:12.5, color:'#8FA0B0', lineHeight:1.6 }}>
+                  Daily automated emails to caregivers about missing credentials and upcoming expiries. Turn this OFF while the credentials data is being brought to truth level, so aides are not contacted with incorrect requests.
+                </div>
+              </div>
+              <button
+                onClick={() => { if (!flagSaving) toggleCredEmails(!emailsOn) }}
+                disabled={flagSaving}
+                aria-pressed={emailsOn}
+                style={{ flexShrink:0, width:52, height:30, borderRadius:999, border:'none', background: emailsOn ? '#0E7C7B' : '#CBD5DF', position:'relative', cursor: flagSaving ? 'wait' : 'pointer', transition:'background 0.15s', padding:0, opacity: flagSaving ? 0.7 : 1 }}
+              >
+                <span style={{ position:'absolute', top:3, left: emailsOn ? 25 : 3, width:24, height:24, borderRadius:'50%', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,0.25)', transition:'left 0.15s' }} />
+              </button>
+            </div>
+
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:14, minHeight:20 }}>
+              <span style={{ fontSize:13, fontWeight:700, color: emailsOn ? '#0E7C7B' : '#8FA0B0' }}>
+                {emailsOn ? 'Emails are ON' : 'Emails are OFF'}
+              </span>
+              {flagSaving && <span style={{ fontSize:12, color:'#8FA0B0' }}>Saving…</span>}
+              {flagSaved && <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12.5, color:'#2A9D8F', fontWeight:600 }}><CheckCircle size={13}/> Saved</span>}
+              {flagError && <span style={{ fontSize:12, color:'#B91C1C', fontWeight:600 }}>{flagError}</span>}
+            </div>
+
+            <div style={{ marginTop:18, padding:'12px 16px', background:'#F8FAFB', borderRadius:8, fontSize:12, color:'#8FA0B0', lineHeight:1.6 }}>
+              Changes take effect on the next scheduled run — no redeploy needed. This one switch controls both the missing-credential alerts and the expiry reminders.
+            </div>
           </div>
         </div>
       )}

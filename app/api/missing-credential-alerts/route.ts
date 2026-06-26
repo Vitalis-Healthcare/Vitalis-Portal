@@ -34,6 +34,27 @@ export async function GET(request: Request) {
     })
   }
 
+  // ── In-portal toggle (v0.6.12) ─────────────────────────────────────────
+  // Admins flip this from Settings → Notifications. Read from portal_settings;
+  // 'false' means off, and it takes effect on the next run with no redeploy.
+  {
+    const svcFlag = createServiceClient()
+    const { data: flag } = await svcFlag
+      .from('portal_settings')
+      .select('value')
+      .eq('key', 'credential_emails_enabled')
+      .maybeSingle()
+    if (flag?.value === 'false') {
+      console.log('[credential-email] skipped: portal toggle off')
+      return NextResponse.json({
+        success: true,
+        totalSent: 0,
+        skipped: true,
+        reason: 'portal_settings.credential_emails_enabled=false',
+      })
+    }
+  }
+
   const RESEND_API_KEY = process.env.RESEND_API_KEY
   if (!RESEND_API_KEY) {
     return NextResponse.json({ error: 'RESEND_API_KEY not set' }, { status: 500 })
