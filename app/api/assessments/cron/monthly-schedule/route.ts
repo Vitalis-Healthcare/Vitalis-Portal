@@ -10,6 +10,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getDischargedClientIds, applyDischargedFilter } from '@/lib/assessments/discharged'
 import { sendMonthlyScheduleEmail } from '@/lib/assessments/email'
 import type { DigestItem } from '@/lib/assessments/email'
 
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
     const lastDay  = new Date(Date.UTC(year, month + 1, 0)).toISOString().split('T')[0]
 
     // ── Fetch this month's assessments with nurse + client ───────────────────
-    const { data: rawRows, error: aErr } = await db
+    let monthlyQ = db
       .from('assessments')
       .select(`
         scheduled_date,
@@ -72,6 +73,8 @@ export async function POST(request: Request) {
       .gte('scheduled_date', firstDay)
       .lte('scheduled_date', lastDay)
       .order('scheduled_date', { ascending: true })
+    monthlyQ = applyDischargedFilter(monthlyQ, await getDischargedClientIds(db))
+    const { data: rawRows, error: aErr } = await monthlyQ
 
     if (aErr) {
       console.error('[monthly-schedule] fetch error:', aErr.message)
