@@ -328,20 +328,40 @@ function InvitePanel({ onClose, onSuccess, caregiverOnly = false }: {
   const [step,    setStep]    = useState<'form' | 'sent'>('form')
   const [sending, setSending] = useState(false)
   const [form,    setForm]    = useState({ full_name: '', email: '', role: 'caregiver', department: '' })
+  const [outcome, setOutcome] = useState<'invited' | 'reinvited'>('invited')
+  const [errMsg,  setErrMsg]  = useState('')
 
   const handleInvite = async () => {
     if (!form.full_name.trim() || !form.email.trim()) { alert('Name and email are required.'); return }
     setSending(true)
+    setErrMsg('')
     try {
       const res = await fetch('/api/staff/invite', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ full_name: form.full_name, email: form.email, role: form.role, department: form.department }),
       })
       const data = await res.json()
-      if (!res.ok) { alert(data.error || 'Failed to send invite.'); setSending(false); return }
-      if (data.status === 'already_exists') { alert('An account with this email already exists.'); setSending(false); return }
+
+      // Genuine already-active account — not an error, just can't re-invite.
+      if (data.status === 'already_exists') {
+        setErrMsg(data.message || 'An account with this email already exists and has signed in.')
+        setSending(false)
+        return
+      }
+
+      // Delivery failures now arrive as HTTP 502 with a real reason.
+      if (!res.ok) {
+        setErrMsg(data.message || data.error || 'Failed to send invite.')
+        setSending(false)
+        return
+      }
+
+      // Success — first invite or recovery of a stranded account.
+      setOutcome(data.status === 'reinvited' ? 'reinvited' : 'invited')
       setStep('sent')
-    } catch { alert('Network error. Please try again.') }
+    } catch {
+      setErrMsg('Network error. Please try again.')
+    }
     setSending(false)
   }
 
@@ -350,10 +370,13 @@ function InvitePanel({ onClose, onSuccess, caregiverOnly = false }: {
       <div style={{ width: 52, height: 52, background: '#E6F6F4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
         <Send size={22} color="#2A9D8F" />
       </div>
-      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A2E44', marginBottom: 6 }}>Invite sent!</h3>
+      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A2E44', marginBottom: 6 }}>
+        {outcome === 'reinvited' ? 'Invite re-sent!' : 'Invite sent!'}
+      </h3>
       <p style={{ color: '#8FA0B0', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-        An email was sent to <strong>{form.email}</strong>.<br />
-        They click the link to set their password and access the portal.
+        {outcome === 'reinvited'
+          ? <>An existing account was found for <strong>{form.email}</strong> and a fresh invite was re-sent.<br />They click the link to set their password and access the portal.</>
+          : <>An email was sent to <strong>{form.email}</strong>.<br />They click the link to set their password and access the portal.</>}
       </p>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
         <button onClick={() => { setStep('form'); setForm({ full_name:'', email:'', role:'caregiver', department:'' }) }}
@@ -400,6 +423,11 @@ function InvitePanel({ onClose, onSuccess, caregiverOnly = false }: {
       <div style={{ background: '#E6F4F4', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#0A5C5B', marginBottom: 20, lineHeight: 1.6 }}>
         📧 Staff will receive an email with a login link. They set their own password on first sign-in.
       </div>
+      {errMsg && (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#B91C1C', marginBottom: 16, lineHeight: 1.6 }}>
+          {errMsg}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         <button onClick={onClose} style={{ padding: '9px 20px', background: '#EFF2F5', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
         <button onClick={handleInvite} disabled={sending} style={{ padding: '9px 20px', background: '#0E7C7B', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#fff', opacity: sending ? 0.7 : 1 }}>
