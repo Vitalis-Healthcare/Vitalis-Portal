@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getDischargedClientIds, applyDischargedFilter } from '@/lib/assessments/discharged'
 import PrintDownloadActions from './PrintDownloadActions'
 
 function normRel<T>(rel: T | T[] | null): T | null {
@@ -127,20 +128,26 @@ export default async function AssessmentsPage({
     .eq('status', 'active').order('full_name')
   const nurses = nursesRaw ?? []
 
+  // Exclude discharged (archived) clients from every assessment view below.
+  const dischargedIds = await getDischargedClientIds(db)
+
   // ── Stat queries ───────────────────────────────────────────────────────────
   let dueQ = db.from('assessments').select('id', { count: 'exact', head: true })
     .in('status', ['scheduled', 'overdue'])
     .gte('scheduled_date', rangeStart).lte('scheduled_date', rangeEnd)
   if (effectiveNurseId) dueQ = dueQ.eq('nurse_id', effectiveNurseId)
+  dueQ = applyDischargedFilter(dueQ, dischargedIds)
 
   let overdueQ = db.from('assessments').select('id', { count: 'exact', head: true })
     .or(`status.eq.overdue,and(status.eq.scheduled,scheduled_date.lt.${todayStr})`)
   if (effectiveNurseId) overdueQ = overdueQ.eq('nurse_id', effectiveNurseId)
+  overdueQ = applyDischargedFilter(overdueQ, dischargedIds)
 
   let completedQ = db.from('assessments').select('id', { count: 'exact', head: true })
     .eq('status', 'completed')
     .gte('completed_date', rangeStart).lte('completed_date', rangeEnd)
   if (effectiveNurseId) completedQ = completedQ.eq('nurse_id', effectiveNurseId)
+  completedQ = applyDischargedFilter(completedQ, dischargedIds)
 
   // 4th stat: agency-wide for admin/supervisor, assigned clients for nurse_monitor
   const fourthStatPromise = isNurseMonitor
@@ -194,6 +201,7 @@ export default async function AssessmentsPage({
       .gte('scheduled_date', rangeStart).lte('scheduled_date', rangeEnd)
   }
   if (effectiveNurseId) tableQ = tableQ.eq('nurse_id', effectiveNurseId)
+  tableQ = applyDischargedFilter(tableQ, dischargedIds)
 
   const { data: tableRaw } = await tableQ
   let tableRows = (tableRaw ?? []) as unknown as AssessmentRow[]

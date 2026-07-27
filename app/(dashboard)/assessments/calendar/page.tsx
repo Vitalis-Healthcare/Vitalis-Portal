@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getDischargedClientIds, applyDischargedFilter } from '@/lib/assessments/discharged'
 import CalendarPrintButton from './CalendarPrintButton'
 import type { CalendarPrintRow } from './CalendarPrintButton'
 
@@ -97,6 +98,7 @@ export default async function AssessmentCalendarPage({
     .lte('scheduled_date', monthEnd)
     .order('scheduled_date')
   if (effectiveNurseId) q = q.eq('nurse_id', effectiveNurseId)
+  q = applyDischargedFilter(q, await getDischargedClientIds(db))
 
   const { data: rawRows } = await q
   const rows = (rawRows ?? []) as unknown as AssessmentRow[]

@@ -254,12 +254,15 @@ export default function ClientDetailView({
         body: JSON.stringify({ status:'discharged' }),
       })
       if (!res.ok) { const d = await res.json(); setErr(d.error ?? 'Failed.'); return }
-      router.push('/assessments/clients')
+      router.push('/assessments/clients?status=discharged')
     } catch { setErr('Unexpected error.') } finally { setBusy(false) }
   }
 
+  const normalizeName = (v: string) => v.trim().replace(/\s+/g, ' ').toLowerCase()
+  const deleteNameMatches = normalizeName(deleteConfirmName) === normalizeName(client.full_name)
+
   const deleteClient = async () => {
-    if (deleteConfirmName !== client.full_name) return
+    if (!deleteNameMatches) return
     setBusy(true); setErr(null)
     try {
       const res = await fetch(`/api/assessments/clients/${client.id}`, { method:'DELETE' })
@@ -658,16 +661,16 @@ export default function ClientDetailView({
             </div>
             <p style={{ fontSize:13, color:'#4A6070', margin:'0 0 10px' }}>Type the client&apos;s full name to confirm:</p>
             <input
-              style={{ ...inp, marginBottom:6, borderColor: deleteConfirmName && deleteConfirmName !== client.full_name ? '#FECACA' : '#D1D9E0' }}
+              style={{ ...inp, marginBottom:6, borderColor: deleteConfirmName && !deleteNameMatches ? '#FECACA' : '#D1D9E0' }}
               value={deleteConfirmName} onChange={e => setDeleteConfirmName(e.target.value)} placeholder={client.full_name}
             />
-            {deleteConfirmName && deleteConfirmName !== client.full_name && <div style={{ fontSize:11, color:'#B91C1C', marginBottom:14 }}>Name does not match — check capitalisation.</div>}
+            {deleteConfirmName && !deleteNameMatches && <div style={{ fontSize:11, color:'#B91C1C', marginBottom:14 }}>Name does not match — check spelling.</div>}
             {!deleteConfirmName && <div style={{ marginBottom:14 }} />}
             {err && <div style={{ color:'#B91C1C', fontSize:12, marginBottom:12 }}>{err}</div>}
             <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
               <button onClick={() => { setShowDelete(false); setDeleteConfirmName('') }} disabled={busy} style={{ padding:'8px 16px', background:'#F8FAFC', border:'1px solid #D1D9E0', borderRadius:7, fontSize:13, cursor:'pointer' }}>Cancel</button>
-              <button onClick={deleteClient} disabled={busy || deleteConfirmName !== client.full_name}
-                style={{ padding:'8px 20px', background: (busy || deleteConfirmName !== client.full_name) ? '#E0A0A0' : '#B91C1C', color:'#fff', border:'none', borderRadius:7, fontSize:13, fontWeight:600, cursor: (busy || deleteConfirmName !== client.full_name) ? 'not-allowed' : 'pointer' }}>
+              <button onClick={deleteClient} disabled={busy || !deleteNameMatches}
+                style={{ padding:'8px 20px', background: (busy || !deleteNameMatches) ? '#E0A0A0' : '#B91C1C', color:'#fff', border:'none', borderRadius:7, fontSize:13, fontWeight:600, cursor: (busy || !deleteNameMatches) ? 'not-allowed' : 'pointer' }}>
                 {busy ? 'Deleting…' : 'Delete Permanently'}
               </button>
             </div>

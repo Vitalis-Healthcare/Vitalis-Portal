@@ -11,6 +11,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getDischargedClientIds, applyDischargedFilter } from '@/lib/assessments/discharged'
 import { sendWeeklyDigestEmail } from '@/lib/assessments/email'
 import type { DigestItem } from '@/lib/assessments/email'
 
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     const endStr = endDate.toISOString().split('T')[0]
 
     // ── 3. Fetch this week's assessments with nurse + client ─────────────────
-    const { data: rawRows, error: aErr } = await db
+    let weeklyQ = db
       .from('assessments')
       .select(`
         scheduled_date,
@@ -85,6 +86,8 @@ export async function POST(request: Request) {
       .gte('scheduled_date', todayStr)
       .lte('scheduled_date', endStr)
       .order('scheduled_date', { ascending: true })
+    weeklyQ = applyDischargedFilter(weeklyQ, await getDischargedClientIds(db))
+    const { data: rawRows, error: aErr } = await weeklyQ
 
     if (aErr) {
       console.error('[weekly-digest] fetch error:', aErr.message)
