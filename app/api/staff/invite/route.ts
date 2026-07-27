@@ -8,6 +8,13 @@
 //   3. svc.auth.admin.generateLink()     — get hashed_token for recovery
 //   4. Build link to /auth/confirm       — our server handles token exchange
 //   5. Resend                            — branded invite email
+//
+// v0.6.13:
+//   - Suppressed addresses (Resend returns 200 with no id) are now detected
+//     and reported as a real failure instead of a false "invited".
+//   - "already exists" is no longer a dead end: if the account has never
+//     signed in, we re-generate the link and re-send (status 'reinvited').
+//   - Link/email failures return HTTP 502 so the UI cannot read them as success.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -83,6 +90,65 @@ function buildInviteEmail(opts: {
 </html>`
 }
 
+// ── Shared: generate a recovery link + send the branded email ────────────────
+// Returns { ok: true } on confirmed delivery, or { ok: false, code, message }
+// where code is a machine-readable failure the client can branch on.
+async function sendInviteEmail(opts: {
+  svc: ReturnType<typeof createServiceClient>
+  email: string; full_name: string; role: string; invitedBy: string
+}): Promise<{ ok: true } | { ok: false; code: 'no_link' | 'suppressed' | 'email_failed'; message: string }> {
+  const { svc, email, full_name, role, invitedBy } = opts
+  const firstName = full_name.split(' ')[0]
+
+  // Generate hashed token — our own /auth/confirm route handles the exchange.
+  const { data: linkData, error: linkError } = await svc.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: { redirectTo: `${PORTAL_URL}/update-password` },
+  })
+
+  if (linkError || !linkData?.properties?.hashed_token) {
+    console.error('[invite] generateLink error:', linkError?.message)
+    return { ok: false, code: 'no_link', message: 'Account exists, but the invite link could not be generated. The user can use "Forgot password?" on the login page.' }
+  }
+
+  const setPasswordLink = `${PORTAL_URL}/auth/confirm?token_hash=${linkData.properties.hashed_token}&type=recovery&next=/update-password`
+  const html = buildInviteEmail({ firstName, fullName: full_name, email, role, setPasswordLink, invitedBy })
+
+  const resendRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: FROM_EMAIL,
+      to: [email],
+      subject: `You've been invited to Vitalis Portal — set your password`,
+      html,
+    }),
+  })
+
+  // Read the body regardless of status — Resend returns 200 even for a
+  // suppressed address, but with no `id`. A real send always carries an id.
+  let payload: { id?: string; message?: string; name?: string } = {}
+  try { payload = await resendRes.json() } catch { /* non-JSON body */ }
+
+  if (!resendRes.ok) {
+    console.error('[invite] Resend error:', resendRes.status, JSON.stringify(payload))
+    return { ok: false, code: 'email_failed', message: payload.message || `Invite email failed (Resend ${resendRes.status}).` }
+  }
+
+  if (!payload.id) {
+    // 200 with no id — the address is suppressed (prior hard bounce or complaint).
+    console.error('[invite] Resend suppressed/no-id:', JSON.stringify(payload))
+    return {
+      ok: false,
+      code: 'suppressed',
+      message: `The email address is suppressed at Resend (usually a prior bounce). Confirm the mailbox exists, then remove it from the Resend suppression list and try again.`,
+    }
+  }
+
+  return { ok: true }
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -117,7 +183,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'full_name and email are required' }, { status: 400 })
   }
 
-  const firstName = full_name.split(' ')[0]
   const invitedBy = adminProfile?.full_name || 'The Vitalis admin team'
 
   // ── Step 1: Create auth user ──────────────────────────────────────────────
@@ -130,11 +195,33 @@ export async function POST(req: NextRequest) {
   if (createError) {
     const alreadyExists =
       createError.message?.toLowerCase().includes('already') ||
-      createError.message?.toLowerCase().includes('exists')
-    if (alreadyExists) {
-      return NextResponse.json({ status: 'already_exists', message: 'An account with this email already exists.' })
+      createError.message?.toLowerCase().includes('exists') ||
+      createError.message?.toLowerCase().includes('registered')
+
+    if (!alreadyExists) {
+      return NextResponse.json({ error: createError.message }, { status: 500 })
     }
-    return NextResponse.json({ error: createError.message }, { status: 500 })
+
+    // ── Re-invite path ──────────────────────────────────────────────────────
+    // The account exists. If the person has NEVER signed in, treat this as a
+    // re-invite: re-generate the link and re-send. If they HAVE signed in,
+    // it's a genuine "already active" — refuse as before.
+    const { data: list, error: listError } = await svc.auth.admin.listUsers()
+    if (listError) {
+      return NextResponse.json({ error: `Account exists but lookup failed: ${listError.message}` }, { status: 500 })
+    }
+    const existing = list?.users?.find(u => u.email?.toLowerCase() === email)
+
+    if (existing?.last_sign_in_at) {
+      return NextResponse.json({ status: 'already_exists', message: 'An account with this email already exists and has signed in.' })
+    }
+
+    // Never signed in — recover the stranded account.
+    const send = await sendInviteEmail({ svc, email, full_name, role, invitedBy })
+    if (!send.ok) {
+      return NextResponse.json({ status: send.code, message: send.message }, { status: 502 })
+    }
+    return NextResponse.json({ status: 'reinvited', message: `Existing account found — invite re-sent to ${email}.` })
   }
 
   // ── Step 2: Belt-and-braces profile upsert (trigger handles this normally) ─
@@ -145,43 +232,12 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // ── Step 3: Generate hashed token ────────────────────────────────────────
-  // We use hashed_token (not action_link) so our own /auth/confirm route
-  // handles the token exchange server-side — no hash fragments in the browser.
-  const { data: linkData, error: linkError } = await svc.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: { redirectTo: `${PORTAL_URL}/update-password` },
-  })
-
-  if (linkError || !linkData?.properties?.hashed_token) {
-    console.error('[invite] generateLink error:', linkError?.message)
-    return NextResponse.json({
-      status: 'created_no_link',
-      message: 'Account created but invite link failed. User can use "Forgot password?" on the login page.',
-    })
-  }
-
-  // Build link to our own server route — token exchange happens server-side
-  const setPasswordLink = `${PORTAL_URL}/auth/confirm?token_hash=${linkData.properties.hashed_token}&type=recovery&next=/update-password`
-
-  // ── Step 4: Send via Resend ───────────────────────────────────────────────
-  const html = buildInviteEmail({ firstName, fullName: full_name, email, role, setPasswordLink, invitedBy })
-
-  const resendRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: [email],
-      subject: `You've been invited to Vitalis Portal — set your password`,
-      html,
-    }),
-  })
-
-  if (!resendRes.ok) {
-    console.error('[invite] Resend error:', await resendRes.text())
-    return NextResponse.json({ status: 'created_email_failed', message: 'Account created but invite email failed.' })
+  // ── Step 3+4: Generate link and send via Resend ───────────────────────────
+  const send = await sendInviteEmail({ svc, email, full_name, role, invitedBy })
+  if (!send.ok) {
+    // Account was created, but the invite could not be delivered. Report a
+    // real error so the UI never shows a false success.
+    return NextResponse.json({ status: send.code, message: send.message }, { status: 502 })
   }
 
   return NextResponse.json({ status: 'invited', message: `Invite sent to ${email}` })
