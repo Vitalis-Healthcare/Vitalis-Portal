@@ -16,7 +16,17 @@ import { createServiceClient } from '@/lib/supabase/service'
 import {
   DOCUMENTS_BUCKET, MAX_FILE_BYTES, isAcceptedMime, safeFileName,
 } from '@/lib/onboarding/documents'
-import { ONB_STAFF_DOCUMENT_TYPES, isStaffDocType } from '@/lib/onboarding/staff-documents'
+import {
+  ONB_CREDENTIAL_PAGE_TYPES, isStaffDocType, isOnBehalfDocType,
+  isStaffUploadableDocType,
+} from '@/lib/onboarding/staff-documents'
+
+/** YYYY-MM-DD or null. Anything else is rejected rather than coerced. */
+function asDate(v: FormDataEntryValue | null): string | null {
+  const s = String(v ?? '').trim()
+  if (!s) return null
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -44,12 +54,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!g.ok) return g.res
 
   const svc = createServiceClient()
-  const staffKeys = ONB_STAFF_DOCUMENT_TYPES.map((d) => d.key)
+  const staffKeys = ONB_CREDENTIAL_PAGE_TYPES.map((d) => d.key)
 
   try {
     const { data, error } = await svc
       .from('onb_documents')
-      .select('id, doc_type, file_name, storage_path, mime_type, size_bytes, uploaded_at')
+      .select('id, doc_type, file_name, storage_path, mime_type, size_bytes, uploaded_at, uploaded_by, issued_on, expires_on')
       .eq('candidate_id', id)
       .in('doc_type', staffKeys)
       .order('uploaded_at', { ascending: false })
@@ -75,6 +85,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         mime_type: d.mime_type,
         size_bytes: d.size_bytes,
         uploaded_at: d.uploaded_at,
+        // null when the candidate filed it themselves — which is what decides
+        // whether staff may remove it.
+        uploaded_by: d.uploaded_by ?? null,
+        issued_on: d.issued_on ?? null,
+        expires_on: d.expires_on ?? null,
         url,
       })
     }
@@ -109,7 +124,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Reject rather than coerce: silently filing a background check as "other"
   // would leave the gate open while looking like it had been satisfied.
-  if (!isStaffDocType(docType)) {
+  if (!isStaffUploadableDocType(docType)) {
     return NextResponse.json({ error: 'Unknown document type for a staff upload.' }, { status: 400 })
   }
   if (!(file instanceof File)) return NextResponse.json({ error: 'No file received.' }, { status: 400 })
@@ -144,8 +159,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       storage_path: storagePath,
       mime_type: file.type,
       size_bytes: file.size,
+      // Stamping the uploader is what lets DELETE tell a coordinator's
+      // on-behalf upload apart from the candidate's own file.
+      uploaded_by: g.userId,
+      issued_on: asDate(fd.get('issued_on')),
+      expires_on: asDate(fd.get('expires_on')),
     })
-    .select('id, doc_type, file_name, mime_type, size_bytes, uploaded_at')
+    .select('id, doc_type, file_name, mime_type, size_bytes, uploaded_at, uploaded_by, issued_on, expires_on')
     .single()
 
   if (insErr || !inserted) {
@@ -156,6 +176,62 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   return NextResponse.json({ success: true, document: inserted })
+}
+
+// ── PATCH: set the issue / expiry dates on a document already on file ───────
+//
+// Needed because the candidate uploads their own TB result and CPR card, and
+// nothing in their form asks for the dates printed on them. Without this the
+// coordinator could only record an expiry by deleting and re-uploading, which
+// she cannot do for a candidate-owned file.
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const g = await staffGate()
+  if (!g.ok) return g.res
+
+  let docId = ''
+  let issuedOn: string | null = null
+  let expiresOn: string | null = null
+  try {
+    const body = await req.json()
+    docId = String(body.document_id ?? '').trim()
+    issuedOn = asDate(body.issued_on ?? null)
+    expiresOn = asDate(body.expires_on ?? null)
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+  if (!docId) return NextResponse.json({ error: 'document_id is required' }, { status: 400 })
+  if (issuedOn && expiresOn && expiresOn < issuedOn) {
+    return NextResponse.json({ error: 'The expiry date cannot fall before the issue date.' }, { status: 400 })
+  }
+
+  const svc = createServiceClient()
+
+  const { data: doc } = await svc
+    .from('onb_documents')
+    .select('id, candidate_id, doc_type')
+    .eq('id', docId)
+    .maybeSingle()
+
+  if (!doc || doc.candidate_id !== id) {
+    return NextResponse.json({ error: 'Document not found.' }, { status: 404 })
+  }
+  if (!isStaffUploadableDocType(String(doc.doc_type))) {
+    return NextResponse.json({ error: 'Dates are not tracked for that document type.' }, { status: 400 })
+  }
+
+  try {
+    const { data, error } = await svc
+      .from('onb_documents')
+      .update({ issued_on: issuedOn, expires_on: expiresOn })
+      .eq('id', docId)
+      .select('id, issued_on, expires_on')
+      .single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true, document: data })
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 })
+  }
 }
 
 // ── DELETE: remove one ──────────────────────────────────────────────────────
@@ -177,15 +253,22 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { data: doc } = await svc
     .from('onb_documents')
-    .select('id, candidate_id, doc_type, storage_path')
+    .select('id, candidate_id, doc_type, storage_path, uploaded_by')
     .eq('id', docId)
     .maybeSingle()
 
   if (!doc || doc.candidate_id !== id) {
     return NextResponse.json({ error: 'Document not found.' }, { status: 404 })
   }
-  if (!isStaffDocType(String(doc.doc_type))) {
-    return NextResponse.json({ error: 'That document is not a staff upload.' }, { status: 400 })
+  // Staff may delete their own uploads. A file the CANDIDATE submitted is
+  // theirs — removing it here would destroy evidence they provided, and the
+  // Request-documents loop is the correct way to ask for a replacement.
+  const isStaffOwn = isStaffDocType(String(doc.doc_type))
+  const isOnBehalfOwn = isOnBehalfDocType(String(doc.doc_type)) && !!doc.uploaded_by
+  if (!isStaffOwn && !isOnBehalfOwn) {
+    return NextResponse.json({
+      error: 'That document was uploaded by the candidate. Use Request documents to ask them to replace it.',
+    }, { status: 400 })
   }
 
   try {

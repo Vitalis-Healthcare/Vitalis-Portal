@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  ONB_STAFF_DOCUMENT_TYPES, CJIS_DOC_TYPE, MBON_DOC_TYPE,
+  ONB_CREDENTIAL_PAGE_TYPES, CJIS_DOC_TYPE, MBON_DOC_TYPE,
+  isOnBehalfDocType, REQUIRED_CANDIDATE_DOC_TYPES,
 } from '@/lib/onboarding/staff-documents'
 import { isLicensedCredential, type Blocker } from '@/lib/onboarding/gates'
 import { ACCEPTED_ACCEPT_ATTR } from '@/lib/onboarding/documents'
@@ -32,6 +33,10 @@ type Doc = {
   size_bytes: number | null
   uploaded_at: string
   url: string | null
+  /** null when the candidate filed it themselves. */
+  uploaded_by: string | null
+  issued_on: string | null
+  expires_on: string | null
 }
 
 function fmtDate(iso: string): string {
@@ -61,6 +66,7 @@ export default function CredentialGateClient({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const [dateEdits, setDateEdits] = useState<Record<string, { issued: string; expires: string }>>({})
   const [waiverOpen, setWaiverOpen] = useState(false)
   const [waiverReason, setWaiverReason] = useState('')
 
@@ -95,6 +101,32 @@ export default function CredentialGateClient({
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || 'Upload failed.')
+      await load()
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const saveDates = async (docId: string) => {
+    const e = dateEdits[docId]
+    if (!e) return
+    setBusy(`dates:${docId}`); setError(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/staff-documents`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document_id: docId,
+          issued_on: e.issued || null,
+          expires_on: e.expires || null,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'Could not save those dates.')
+      setDateEdits((m) => { const c = { ...m }; delete c[docId]; return c })
       await load()
       router.refresh()
     } catch (err) {
@@ -205,9 +237,11 @@ export default function CredentialGateClient({
         </div>
       )}
 
-      {ONB_STAFF_DOCUMENT_TYPES.map((t) => {
+      {ONB_CREDENTIAL_PAGE_TYPES.map((t) => {
         const mine = docsFor(t.key)
         const isMbon = t.key === MBON_DOC_TYPE
+        const onBehalf = isOnBehalfDocType(t.key)
+        const required = REQUIRED_CANDIDATE_DOC_TYPES.includes(t.key)
         const satisfied = mine.length > 0 || (isMbon && waived && !licensed)
 
         return (
@@ -229,6 +263,9 @@ export default function CredentialGateClient({
                   </span>
                   {t.key === CJIS_DOC_TYPE && (
                     <span style={{ fontSize: 11, color: '#8FA0B0' }}>cannot be waived</span>
+                  )}
+                  {onBehalf && required && (
+                    <span style={{ fontSize: 11, color: '#8FA0B0' }}>candidate normally supplies this</span>
                   )}
                 </div>
                 <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.6 }}>{t.hint}</div>
@@ -266,8 +303,8 @@ export default function CredentialGateClient({
               <div style={{ marginTop: 14, borderTop: `1px solid ${LINE}`, paddingTop: 12 }}>
                 {mine.map((d) => (
                   <div key={d.id} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    gap: 12, fontSize: 13, padding: '5px 0',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                    gap: 12, fontSize: 13, padding: '7px 0',
                   }}>
                     <div style={{ minWidth: 0 }}>
                       {d.url ? (
@@ -280,19 +317,73 @@ export default function CredentialGateClient({
                       )}
                       <span style={{ color: '#8FA0B0', marginLeft: 8, fontSize: 12 }}>
                         {fmtDate(d.uploaded_at)} {fmtSize(d.size_bytes)}
+                        {!d.uploaded_by && ' · uploaded by the candidate'}
                       </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, flexWrap: 'wrap' }}>
+                        <label style={{ fontSize: 11.5, color: '#8FA0B0', fontWeight: 600 }}>Issued</label>
+                        <input
+                          type="date"
+                          value={dateEdits[d.id]?.issued ?? d.issued_on ?? ''}
+                          onChange={(ev) => setDateEdits((m) => ({
+                            ...m,
+                            [d.id]: {
+                              issued: ev.target.value,
+                              expires: m[d.id]?.expires ?? d.expires_on ?? '',
+                            },
+                          }))}
+                          style={{
+                            padding: '4px 8px', border: '1px solid #D1D9E0', borderRadius: 6,
+                            fontSize: 12, color: NAVY,
+                          }}
+                        />
+                        <label style={{ fontSize: 11.5, color: '#8FA0B0', fontWeight: 600 }}>Expires</label>
+                        <input
+                          type="date"
+                          value={dateEdits[d.id]?.expires ?? d.expires_on ?? ''}
+                          onChange={(ev) => setDateEdits((m) => ({
+                            ...m,
+                            [d.id]: {
+                              issued: m[d.id]?.issued ?? d.issued_on ?? '',
+                              expires: ev.target.value,
+                            },
+                          }))}
+                          style={{
+                            padding: '4px 8px', border: '1px solid #D1D9E0', borderRadius: 6,
+                            fontSize: 12, color: NAVY,
+                          }}
+                        />
+                        {dateEdits[d.id] && (
+                          <button
+                            onClick={() => saveDates(d.id)}
+                            disabled={busy === `dates:${d.id}`}
+                            style={{
+                              padding: '4px 12px', background: TEAL, color: '#fff', border: 'none',
+                              borderRadius: 6, fontSize: 12, fontWeight: 600,
+                              cursor: busy === `dates:${d.id}` ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            {busy === `dates:${d.id}` ? 'Saving…' : 'Save dates'}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => removeDoc(d.id)}
-                      disabled={busy === d.id}
-                      style={{
-                        padding: '3px 10px', background: '#fff', border: '1px solid #D1D9E0',
-                        borderRadius: 6, fontSize: 12, color: MUTED,
-                        cursor: busy === d.id ? 'not-allowed' : 'pointer', flexShrink: 0,
-                      }}
-                    >
-                      {busy === d.id ? '…' : 'Remove'}
-                    </button>
+                    {d.uploaded_by || !isOnBehalfDocType(d.doc_type) ? (
+                      <button
+                        onClick={() => removeDoc(d.id)}
+                        disabled={busy === d.id}
+                        style={{
+                          padding: '3px 10px', background: '#fff', border: '1px solid #D1D9E0',
+                          borderRadius: 6, fontSize: 12, color: MUTED,
+                          cursor: busy === d.id ? 'not-allowed' : 'pointer', flexShrink: 0,
+                        }}
+                      >
+                        {busy === d.id ? '…' : 'Remove'}
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 11.5, color: '#8FA0B0', flexShrink: 0 }}>
+                        theirs — use Request documents
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
