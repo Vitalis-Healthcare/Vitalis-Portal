@@ -313,7 +313,9 @@ export default function CandidateDetailClient({
         return
       }
       setStatus('awaiting_approval')
-      setBanner({ kind: 'ok', text: 'Sent for approval. An administrator will review it.' })
+      setBanner(data.emailed
+        ? { kind: 'ok', text: `Sent for approval. ${(data.notified || []).length} administrator(s) have been emailed.` }
+        : { kind: 'warn', text: `Sent for approval, but the notification email did not go out. ${data.email_error || ''} Tell an administrator directly.`.trim() })
       router.refresh()
     } catch {
       setBanner({ kind: 'warn', text: 'Network error — please try again.' })
@@ -336,11 +338,15 @@ export default function CandidateDetailClient({
       }
       if (decision === 'return') {
         setStatus('in_review'); setReturnOpen(false); setReturnNote('')
-        setBanner({ kind: 'ok', text: 'Returned to the coordinator with your reason.' })
+        setBanner(data.emailed
+          ? { kind: 'ok', text: 'Returned to the coordinator, and your reason has been emailed to them.' }
+          : { kind: 'warn', text: `Returned, but the email did not reach the coordinator. ${data.email_error || ''} Your reason is on this page, so tell them to look here.`.trim() })
       } else {
         setConvertedId((data.profile_id as string) || null)
         setStatus('converted')
-        setBanner({ kind: 'ok', text: 'Approved. The caregiver account has been created.' })
+        setBanner(data.requester_emailed === false
+          ? { kind: 'warn', text: `Approved and the caregiver account was created, but the coordinator could not be emailed. ${data.requester_email_error || ''}`.trim() }
+          : { kind: 'ok', text: 'Approved. The caregiver account has been created and the coordinator has been told.' })
       }
       router.refresh()
     } catch {

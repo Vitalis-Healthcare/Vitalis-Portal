@@ -183,7 +183,9 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
                   </td>
                   <td style={{ padding: '14px 18px', color: '#4A6070' }}>{c.email}</td>
                   <td style={{ padding: '14px 18px' }}><StatusBadge status={c.status} /></td>
-                  <td style={{ padding: '14px 18px', color: '#8FA0B0' }}>{fmtDate(c.invited_at)}</td>
+                  <td style={{ padding: '14px 18px', color: '#8FA0B0' }}>
+                    {c.invited ? fmtDate(c.invited_at) : '\u2014'}
+                  </td>
                   <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                     <button
                       onClick={() => resend(c.id)}
