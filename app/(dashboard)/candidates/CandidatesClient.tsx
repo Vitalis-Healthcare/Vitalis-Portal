@@ -16,6 +16,10 @@ type Candidate = {
   test_passed_at: string | null
   application_submitted_at: string | null
   axiscare_pushed_at: string | null
+  /** 'carematch360' when pushed in from CareMatch360; null when keyed in here. */
+  source: string | null
+  /** True once a magic-link token exists, i.e. an invite has been sent. */
+  invited: boolean
 }
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
@@ -167,6 +171,15 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
                     <Link href={`/candidates/${c.id}`} style={{ color: '#0A5C5B', textDecoration: 'none' }}>
                       {c.first_name} {c.last_name}
                     </Link>
+                    {c.source === 'carematch360' && (
+                      <span
+                        title="Pushed in from CareMatch360. Their application is already part-filled."
+                        style={{
+                          display: 'inline-block', marginLeft: 8, padding: '2px 8px', borderRadius: 999,
+                          background: '#EEF2FF', color: '#3F4E9B', fontSize: 11, fontWeight: 700,
+                          verticalAlign: 'middle', whiteSpace: 'nowrap',
+                        }}>CareMatch360</span>
+                    )}
                   </td>
                   <td style={{ padding: '14px 18px', color: '#4A6070' }}>{c.email}</td>
                   <td style={{ padding: '14px 18px' }}><StatusBadge status={c.status} /></td>
@@ -175,14 +188,14 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
                     <button
                       onClick={() => resend(c.id)}
                       disabled={resendingId === c.id}
-                      title="Resend the test invite"
+                      title={c.invited ? 'Resend the test invite' : 'Send the test invite'}
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px',
                         background: '#fff', border: '1px solid #D1D9E0', borderRadius: 8,
                         color: '#0A5C5B', fontSize: 13, fontWeight: 600,
                         cursor: resendingId === c.id ? 'default' : 'pointer', opacity: resendingId === c.id ? 0.6 : 1,
                       }}>
-                      <RefreshCw size={13} /> {resendingId === c.id ? 'Sending…' : 'Resend'}
+                      {c.invited ? <RefreshCw size={13} /> : <Mail size={13} />} {resendingId === c.id ? 'Sending…' : (c.invited ? 'Resend' : 'Invite')}
                     </button>
                   </td>
                 </tr>
