@@ -9,6 +9,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect, notFound } from 'next/navigation'
+import { loadGateInput } from '@/lib/onboarding/gate-data'
+import { evaluateContractGate } from '@/lib/onboarding/gates'
 import ContractSendClient from './ContractSendClient'
 
 export const dynamic = 'force-dynamic'
@@ -41,10 +43,17 @@ export default async function CandidateContractPage(
     .eq('candidate_id', id)
     .order('sent_at', { ascending: false })
 
+  // Same evaluator the send route enforces with, so the page can never promise
+  // something the API will refuse.
+  const gateInput = await loadGateInput(id)
+  const gate = gateInput ? evaluateContractGate(gateInput) : { ok: false, blockers: [] }
+
   return (
     <ContractSendClient
       candidate={cand}
       contracts={contracts || []}
+      blockers={gate.blockers}
+      gateOk={gate.ok}
     />
   )
 }

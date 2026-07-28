@@ -17,6 +17,8 @@ import {
   type ContractTemplateKey,
 } from '@/lib/onboarding/contract-templates'
 import { newRawToken, hashToken, tokenExpiry } from '@/lib/onboarding/contract'
+import { loadGateInput } from '@/lib/onboarding/gate-data'
+import { evaluateContractGate, blockerSummary } from '@/lib/onboarding/gates'
 
 const FROM_EMAIL = process.env.NOTIFY_FROM_EMAIL || 'Vitalis Portal <notifications@vitalishealthcare.com>'
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://vitalis-portal.vercel.app'
@@ -100,6 +102,24 @@ export async function POST(req: NextRequest) {
     .eq('id', candidateId)
     .maybeSingle()
   if (!cand) return NextResponse.json({ error: 'Candidate not found.' }, { status: 404 })
+
+  // ── Credentialing gate ────────────────────────────────────────────────────
+  // Enforced here, not only in the interface. A disabled button is a hint; this
+  // is the rule. Blockers are returned in full so the page can say exactly what
+  // is missing rather than just refusing.
+  const gateInput = await loadGateInput(candidateId)
+  if (!gateInput) {
+    return NextResponse.json({ error: 'Could not check credentialing status.' }, { status: 500 })
+  }
+  const gate = evaluateContractGate(gateInput)
+  if (!gate.ok) {
+    console.warn('[contract/send] blocked for', candidateId, '-', blockerSummary(gate.blockers))
+    return NextResponse.json({
+      error: 'Credentialing is not complete for this candidate.',
+      code: 'gate_blocked',
+      blockers: gate.blockers,
+    }, { status: 409 })
+  }
 
   // ── Supersede any unsigned contract, never a signed one ───────────────────
   try {
