@@ -6,8 +6,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck, ShieldCheck } from 'lucide-react'
 import { docTypeLabel, type DocTypeDef } from '@/lib/onboarding/documents'
+import type { Blocker } from '@/lib/onboarding/gates'
 
 const C = {
   navy: '#1A2E44', teal: '#0A5C5B', tealBtn: '#0E7C7B', tealSoft: '#E6F4F4',
@@ -143,6 +144,7 @@ export default function CandidateDetailClient({
   const [convertedId, setConvertedId] = useState<string | null>(candidate.converted_to_profile_id)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null)
+  const [blockers, setBlockers] = useState<Blocker[]>([])
   const [showReqModal, setShowReqModal] = useState(false)
   const [reqKeys, setReqKeys] = useState<string[]>([])
   const [reqNote, setReqNote] = useState('')
@@ -216,11 +218,24 @@ export default function CandidateDetailClient({
   }
 
   async function convertToCaregiver() {
-    setBusy(true); setBanner(null)
+    setBusy(true); setBanner(null); setBlockers([])
     try {
       const res = await fetch(`/api/onboarding/candidates/${candidate.id}/convert`, { method: 'POST' })
       const data = await res.json()
-      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not convert this candidate.' }); return }
+      if (!res.ok) {
+        // The convert route returns { error, code:'gate_blocked', blockers:[…] }.
+        // Showing only `error` is what made a working gate look like a broken
+        // button — the coordinator was told no, and never told why (pitfall #42).
+        const list: Blocker[] = Array.isArray(data.blockers) ? data.blockers : []
+        setBlockers(list)
+        setBanner({
+          kind: 'warn',
+          text: list.length
+            ? 'This candidate is not ready to be converted. What is outstanding is listed below.'
+            : (data.error || 'Could not convert this candidate.'),
+        })
+        return
+      }
       setConvertedId(data.profile_id as string)
       setStatus('converted')
       const linked = data.outcome === 'linked_existing'
@@ -309,6 +324,28 @@ export default function CandidateDetailClient({
         </div>
       )}
 
+      {blockers.length > 0 && (
+        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '18px 22px', marginTop: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#92400E', marginBottom: 4 }}>
+            Conversion is blocked until credentialing is complete
+          </div>
+          <div style={{ fontSize: 12.5, color: '#A16207', marginBottom: 14, lineHeight: 1.6 }}>
+            {blockers.length === 1 ? 'One thing is outstanding:' : `${blockers.length} things are outstanding:`}
+          </div>
+          {blockers.map((b) => (
+            <div key={b.code} style={{ background: '#fff', border: '1px solid #FDE68A', borderRadius: 8, padding: '12px 15px', marginBottom: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 4 }}>{b.label}</div>
+              <div style={{ fontSize: 12.5, color: C.gray, lineHeight: 1.65 }}>{b.detail}</div>
+              {b.fixHref && (
+                <Link href={b.fixHref} style={{ display: 'inline-block', marginTop: 9, fontSize: 12.5, color: C.teal, textDecoration: 'none', fontWeight: 600 }}>
+                  {b.fixLabel || 'Fix this'} &rarr;
+                </Link>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Actions */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 16 }}>
         <button onClick={beginReview} disabled={!canBeginReview || busy}
@@ -329,6 +366,14 @@ export default function CandidateDetailClient({
           }}>
           <Mail size={16} /> Request documents
         </button>
+        <Link href={`/candidates/${candidate.id}/credentials`}
+          title="Upload the CJIS background check and MBON license verification"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+            background: '#fff', border: `1px solid ${C.border}`, color: C.navy, textDecoration: 'none',
+          }}>
+          <ShieldCheck size={16} /> Credentials
+        </Link>
         {axiscareId ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: C.greenBg, color: C.green, border: `1px solid ${C.greenBorder}` }}>
             <CheckCircle2 size={16} /> In AxisCare · #{axiscareId}
