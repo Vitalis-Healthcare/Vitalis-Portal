@@ -10,6 +10,7 @@ import type {
 import {
   CREDENTIAL_TYPES, US_STATES, GENDER_OPTIONS, WILLING_TO_WORK_WITH, EXPERIENCE_WITH,
   WEEK_DAYS, REFERENCE_SLOTS, MAX_WORK_EXPERIENCE, MAX_EMERGENCY_CONTACTS,
+  validateReferences, validateEmergencyContacts,
 } from '@/lib/onboarding/application'
 import {
   ACCEPTED_ACCEPT_ATTR, MAX_FILE_BYTES, docTypeLabel,
@@ -146,6 +147,20 @@ export default function ApplicationForm({
     } catch { setError('Could not remove that file. Please try again.') }
   }
   async function save(action: 'save' | 'submit') {
+    // Check before the round trip, and only on submit — a draft is allowed to
+    // be incomplete, which is the whole point of "save and finish later".
+    if (action === 'submit' && !isStaff) {
+      const problems = [
+        ...validateReferences(form.applicant_references),
+        ...validateEmergencyContacts(form.emergency_contacts),
+      ]
+      if (problems.length) {
+        setError(problems.join(' '))
+        setNotice('')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+    }
     setBusy(true); setError(''); setNotice('')
     try {
       const url = isStaff ? `/api/onboarding/candidates/${candidateId}/application` : '/api/onboarding/application'
@@ -348,7 +363,7 @@ export default function ApplicationForm({
       </Section>
 
       <Section title="References">
-        <p style={{ color: C.gray, fontSize: 13.5, lineHeight: 1.7, margin: '0 0 14px' }}>Please provide two professional references and one character reference. Do not list family or friends as professional references.</p>
+        <p style={{ color: C.gray, fontSize: 13.5, lineHeight: 1.7, margin: '0 0 14px' }}>Please provide two professional references and one character reference. Do not list family or friends as professional references. We contact references by email, so a name and email address are required for each one.</p>
         {REFERENCE_SLOTS.map((slot, i) => (
           <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 11, padding: '14px 16px', marginBottom: 12 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.teal, marginBottom: 10 }}>{slot.label}</div>
@@ -357,7 +372,10 @@ export default function ApplicationForm({
               <Field label="Position / title"><input style={inputStyle} value={form.applicant_references?.[i]?.title || ''} onChange={(e) => updateRef(i, 'title', e.target.value)} /></Field>
             </Row>
             <Row>
+              <Field label="Email" required><input type="email" style={inputStyle} value={form.applicant_references?.[i]?.email || ''} onChange={(e) => updateRef(i, 'email', e.target.value)} placeholder="name@example.com" /></Field>
               <Field label="Telephone"><input style={inputStyle} value={form.applicant_references?.[i]?.phone || ''} onChange={(e) => updateRef(i, 'phone', e.target.value)} /></Field>
+            </Row>
+            <Row>
               <Field label="Dates known"><input style={inputStyle} value={form.applicant_references?.[i]?.dates_known || ''} onChange={(e) => updateRef(i, 'dates_known', e.target.value)} /></Field>
             </Row>
           </div>
@@ -380,6 +398,9 @@ export default function ApplicationForm({
             <Row>
               <Field label="Phone"><input style={inputStyle} value={c.phone || ''} onChange={(e) => updateEmg(i, 'phone', e.target.value)} /></Field>
               <Field label="Phone type"><input style={inputStyle} value={c.phone_type || ''} onChange={(e) => updateEmg(i, 'phone_type', e.target.value)} placeholder="Mobile / Home / Work" /></Field>
+            </Row>
+            <Row>
+              <Field label="Email"><input type="email" style={inputStyle} value={c.email || ''} onChange={(e) => updateEmg(i, 'email', e.target.value)} placeholder="Optional" /></Field>
             </Row>
           </div>
         ))}

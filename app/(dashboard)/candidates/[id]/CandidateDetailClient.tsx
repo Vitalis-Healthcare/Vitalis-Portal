@@ -33,6 +33,7 @@ type Candidate = {
   invited_at: string | null; created_at: string | null
   test_passed_at: string | null; application_submitted_at: string | null; axiscare_pushed_at: string | null
   axiscare_applicant_id: number | null
+  axiscare_login_sent_at: string | null
   converted_to_profile_id: string | null
 }
 type AppRow = Record<string, unknown> | null
@@ -138,6 +139,7 @@ export default function CandidateDetailClient({
   const a = application || {}
   const [status, setStatus] = useState(candidate.status)
   const [axiscareId, setAxiscareId] = useState<number | null>(candidate.axiscare_applicant_id)
+  const [loginSentAt, setLoginSentAt] = useState<string | null>(candidate.axiscare_login_sent_at)
   const [convertedId, setConvertedId] = useState<string | null>(candidate.converted_to_profile_id)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null)
@@ -168,6 +170,26 @@ export default function CandidateDetailClient({
     } finally {
       setBusy(false)
     }
+  }
+
+  // The AxisCare sign-in instructions. Only meaningful once the caregiver
+  // account exists AND the AxisCare profile exists — the route enforces both.
+  async function sendAxisCareLogin() {
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/axiscare-login`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not send the AxisCare instructions.' }); return }
+      setLoginSentAt(data.sent_at as string)
+      setBanner({
+        kind: 'ok',
+        text: data.warning
+          ? `AxisCare instructions sent to ${data.email}. ${data.warning}`
+          : `AxisCare sign-in instructions sent to ${data.email}.`,
+      })
+    } catch {
+      setBanner({ kind: 'warn', text: 'Could not send the AxisCare instructions.' })
+    } finally { setBusy(false) }
   }
 
   async function pushAxisCare() {
@@ -322,6 +344,18 @@ export default function CandidateDetailClient({
             <Building2 size={16} /> Push to AxisCare
           </button>
         )}
+        {convertedId && axiscareId && (
+          <button onClick={sendAxisCareLogin} disabled={busy}
+            title={loginSentAt ? 'Send the AxisCare sign-in instructions again' : 'Email this caregiver their AxisCare sign-in instructions'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+              background: '#fff', border: `1px solid ${loginSentAt ? C.greenBorder : C.border}`,
+              color: loginSentAt ? C.green : C.navy,
+              cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
+            }}>
+            <Mail size={16} /> {loginSentAt ? 'Resend AxisCare login' : 'Send AxisCare login'}
+          </button>
+        )}
         {canEdit && (
           <Link href={`/candidates/${candidate.id}/edit`}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: '#fff', border: `1px solid ${C.border}`, color: C.navy, textDecoration: 'none' }}>
@@ -410,6 +444,7 @@ export default function CandidateDetailClient({
               <ItemBlock key={i} title={String(r.kind) === 'character' ? 'Character reference' : 'Professional reference'} rows={[
                 ['Name', str(r.name)],
                 ['Position / title', str(r.title)],
+                ['Email', str(r.email)],
                 ['Telephone', str(r.phone)],
                 ['Dates known', str(r.dates_known)],
               ]} />

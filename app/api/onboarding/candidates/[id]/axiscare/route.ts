@@ -101,7 +101,7 @@ function buildVitaNote(app: Record<string, unknown> | null): string {
     section('References')
     refs.forEach((r) => {
       const kind = String(r.kind) === 'character' ? 'Character' : 'Professional'
-      const detail = [nonEmpty(r.name), nonEmpty(r.title), nonEmpty(r.phone), nonEmpty(r.dates_known) ? `known ${nonEmpty(r.dates_known)}` : null].filter(Boolean).join(' · ')
+      const detail = [nonEmpty(r.name), nonEmpty(r.title), nonEmpty(r.email), nonEmpty(r.phone), nonEmpty(r.dates_known) ? `known ${nonEmpty(r.dates_known)}` : null].filter(Boolean).join(' · ')
       if (detail) lines.push(`${kind}: ${detail}`)
     })
   }
@@ -111,7 +111,7 @@ function buildVitaNote(app: Record<string, unknown> | null): string {
   if (emg.length) {
     section('Emergency contacts')
     emg.forEach((c, i) => {
-      const detail = [nonEmpty(c.name), nonEmpty(c.relationship), nonEmpty(c.phone), nonEmpty(c.phone_type) ? `(${nonEmpty(c.phone_type)})` : null].filter(Boolean).join(' · ')
+      const detail = [nonEmpty(c.name), nonEmpty(c.relationship), nonEmpty(c.email), nonEmpty(c.phone), nonEmpty(c.phone_type) ? `(${nonEmpty(c.phone_type)})` : null].filter(Boolean).join(' · ')
       if (detail) lines.push(`${i + 1}. ${detail}`)
     })
   }
