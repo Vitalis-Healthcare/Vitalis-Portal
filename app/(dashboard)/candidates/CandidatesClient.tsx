@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { UserPlus, Mail, RefreshCw, X, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { UserPlus, Mail, RefreshCw, X, CheckCircle2, AlertTriangle, LayoutGrid } from 'lucide-react'
 
 type Candidate = {
   id: string
@@ -121,6 +121,14 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
             Invite applicants to the Vitalis caregiver competency test and track their onboarding.
           </p>
         </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <Link href="/candidates/board" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 16px',
+          background: '#fff', border: '1px solid #D1D9E0', borderRadius: 10,
+          color: '#0A5C5B', fontSize: 14, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap',
+        }}>
+          <LayoutGrid size={15} /> Track board
+        </Link>
         <button onClick={() => { setShowForm(true); setBanner(null) }} style={{
           display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px',
           background: 'linear-gradient(135deg,#0E7C7B,#1A9B87)', color: '#fff', border: 'none',
@@ -128,6 +136,7 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
         }}>
           <UserPlus size={16} /> New candidate
         </button>
+        </div>
       </div>
 
       {banner && (
