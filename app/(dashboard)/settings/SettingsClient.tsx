@@ -1,4 +1,47 @@
 'use client'
+// Inline "does not expire" toggle.
+//
+// Some credentials genuinely have no end date — a completed background check
+// and a Hep B waiver are facts, not licences. Before v0.6.22-b every type was
+// treated as expiring, so the reminder line claimed a schedule that could
+// never fire. The flag is inherited by staff_credentials.does_not_expire when
+// a credential is seeded, which is why it lives on the TYPE and not only on
+// the individual record.
+function ExpiryToggle({ id, value, onSaved }: { id: string; value: boolean; onSaved: () => void }) {
+  const supabase = createClient()
+  const [saving, setSaving] = useState(false)
+  const [checked, setChecked] = useState(value)
+
+  const toggle = async (next: boolean) => {
+    setChecked(next)          // optimistic — the row is one boolean
+    setSaving(true)
+    const { error } = await supabase
+      .from('credential_types')
+      .update({ does_not_expire: next })
+      .eq('id', id)
+    setSaving(false)
+    if (error) {
+      setChecked(!next)       // put it back rather than lie about the state
+      alert('Could not save that change: ' + error.message)
+      return
+    }
+    onSaved()
+  }
+
+  return (
+    <label style={{ display:'inline-flex', alignItems:'center', gap:7, cursor: saving ? 'wait' : 'pointer', fontSize:12.5, color:'#4A6070' }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={saving}
+        onChange={e=>toggle(e.target.checked)}
+        style={{ width:15, height:15, cursor:'inherit' }}
+      />
+      Does not expire
+    </label>
+  )
+}
+
 // Inline editable credential name — click to rename
 function EditableCredName({ id, name, onSaved }: { id: string; name: string; onSaved: () => void }) {
   const supabase = createClient()
@@ -40,7 +83,7 @@ import { useRouter } from 'next/navigation'
 import { CheckCircle, Plus, Trash2 } from 'lucide-react'
 
 interface Profile  { id:string; full_name:string; email:string; role:string; phone?:string; department?:string; position_name?:string }
-interface CredType  { id:string; name:string; validity_days:number; reminder_days:any }
+interface CredType  { id:string; name:string; validity_days:number; reminder_days:any; does_not_expire?:boolean }
 interface Position  { id:string; name:string; description:string; pp_roles:string[]; sort_order:number }
 
 const inp = { width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #D1D9E0', fontSize:13, outline:'none', fontFamily:'inherit', background:'#fff', boxSizing:'border-box' as const }
@@ -58,7 +101,7 @@ export default function SettingsClient({ profile, credTypes, isAdmin, credEmails
     department:    profile?.department    || '',
     position_name: profile?.position_name || '',
   })
-  const [newCred, setNewCred] = useState<{ name:string; validity_days:number }>({ name:'', validity_days:365 })
+  const [newCred, setNewCred] = useState<{ name:string; validity_days:number; does_not_expire:boolean }>({ name:'', validity_days:365, does_not_expire:false })
   const [positions,  setPositions]  = useState<Position[]>([])
   const [posLoading, setPosLoading] = useState(false)
   const [newPos,  setNewPos]  = useState({ name:'', description:'', pp_roles:'' })
@@ -111,8 +154,13 @@ export default function SettingsClient({ profile, credTypes, isAdmin, credEmails
 
   const handleAddCredType = async () => {
     if (!newCred.name.trim()) { alert('Enter a credential name.'); return }
-    await supabase.from('credential_types').insert({ name: newCred.name, validity_days: 365, reminder_days: [90,60,30,14,7] })
-    setNewCred({ name:'', validity_days:365 })
+    await supabase.from('credential_types').insert({
+      name: newCred.name,
+      validity_days: 365,
+      reminder_days: [90,60,30,14,7],
+      does_not_expire: newCred.does_not_expire,
+    })
+    setNewCred({ name:'', validity_days:365, does_not_expire:false })
     router.refresh()
   }
 
@@ -194,11 +242,11 @@ export default function SettingsClient({ profile, credTypes, isAdmin, credEmails
           <h2 style={{ fontSize:16, fontWeight:700, color:'#1A2E44', marginBottom:4 }}>Credential Types</h2>
           <p style={{ fontSize:13, color:'#8FA0B0', marginBottom:4 }}>Define the certifications and credentials tracked for your caregivers.</p>
           <div style={{ fontSize:12, color:'#0A5C5B', background:'#E6F4F4', borderRadius:8, padding:'8px 14px', marginBottom:20 }}>
-            ℹ All credential reminders are sent at <strong>90, 60, 30, 14, and 7 days</strong> before expiry — standard for CMS compliance.
+            ℹ Credential reminders are sent at <strong>90, 60, 30, 14, and 7 days</strong> before expiry — standard for CMS compliance. Types marked <strong>does not expire</strong> are never chased.
           </div>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, marginBottom:24 }}>
             <thead><tr style={{ background:'#F8FAFB' }}>
-              {['Credential Name','Reminders','Actions'].map(h=>(
+              {['Credential Name','Expiry','Reminders','Actions'].map(h=>(
                 <th key={h} style={{ textAlign:'left', padding:'10px 14px', fontSize:11, fontWeight:700, color:'#8FA0B0', textTransform:'uppercase', letterSpacing:'0.8px', borderBottom:'1px solid #EFF2F5' }}>{h}</th>
               ))}
             </tr></thead>
@@ -208,8 +256,11 @@ export default function SettingsClient({ profile, credTypes, isAdmin, credEmails
                   <td style={{ padding:'11px 14px' }}>
                     <EditableCredName id={c.id} name={c.name} onSaved={()=>router.refresh()}/>
                   </td>
+                  <td style={{ padding:'11px 14px' }}>
+                    <ExpiryToggle id={c.id} value={!!c.does_not_expire} onSaved={()=>router.refresh()}/>
+                  </td>
                   <td style={{ padding:'11px 14px', color:'#8FA0B0', fontSize:12 }}>
-                    90d, 60d, 30d, 14d, 7d before expiry
+                    {c.does_not_expire ? '—' : '90d, 60d, 30d, 14d, 7d before expiry'}
                   </td>
                   <td style={{ padding:'11px 14px', textAlign:'right' as const }}>
                     <button onClick={async()=>{
@@ -230,6 +281,15 @@ export default function SettingsClient({ profile, credTypes, isAdmin, credEmails
               <div>
                 <label style={lbl}>Credential Name</label>
                 <input value={newCred.name} onChange={e=>setNewCred(f=>({...f,name:e.target.value}))} placeholder="e.g. OSHA Safety Training" style={inp}/>
+                <label style={{ display:'inline-flex', alignItems:'center', gap:7, marginTop:10, fontSize:12.5, color:'#4A6070', cursor:'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={newCred.does_not_expire}
+                    onChange={e=>setNewCred(f=>({...f,does_not_expire:e.target.checked}))}
+                    style={{ width:15, height:15, cursor:'inherit' }}
+                  />
+                  Does not expire
+                </label>
               </div>
               <button onClick={handleAddCredType} style={{ padding:'9px 18px', background:'#0E7C7B', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' as const }}>Add Type</button>
             </div>
