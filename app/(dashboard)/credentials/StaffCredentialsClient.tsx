@@ -8,7 +8,9 @@ interface CredType { id: string; name: string; validity_days: number }
 interface Cred {
   id: string
   credential_type_id: string
-  issue_date: string
+  // Nullable since v0.6.22-c: a credential seeded on conversion has no
+  // issue date until someone records the one printed on the document.
+  issue_date: string | null
   expiry_date?: string
   notes?: string
   submitted_notes?: string

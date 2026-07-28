@@ -34,7 +34,7 @@ import CredentialDocViewer from '@/components/credentials/CredentialDocViewer'
 interface CredType { id: string; name: string; validity_days: number; required_for_roles?: string[] }
 interface StaffMember { id: string; full_name: string; role: string; status: string }
 interface Cred {
-  id: string; user_id: string; credential_type_id: string; issue_date: string;
+  id: string; user_id: string; credential_type_id: string; issue_date: string | null;
   expiry_date?: string; document_url?: string; notes?: string; status: string;
   does_not_expire?: boolean; not_applicable?: boolean; review_status?: string; submitted_notes?: string;
   submitter?: { full_name: string };
@@ -357,7 +357,7 @@ export default function CredentialsClient({
             <div key={c.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 16px', borderRadius:8, border:'1px solid #EFF2F5', marginBottom:10 }}>
               <div>
                 <div style={{ fontWeight:600, color:'#1A2E44' }}>{c.staffName} — {c.credName}</div>
-                <div style={{ fontSize:12, color:'#8FA0B0', marginTop:2 }}>Issue: {c.issue_date}{c.expiry_date?` · Expires: ${c.expiry_date}`:''}</div>
+                <div style={{ fontSize:12, color:'#8FA0B0', marginTop:2 }}>Issue: {c.issue_date || 'not recorded'}{c.expiry_date?` · Expires: ${c.expiry_date}`:''}</div>
                 {c.submitted_notes && <div style={{ fontSize:12, color:'#4A6070', marginTop:4 }}>Notes: {c.submitted_notes}</div>}
                 {c.document_url && (
                   <button
