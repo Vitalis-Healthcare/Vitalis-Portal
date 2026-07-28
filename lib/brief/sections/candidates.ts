@@ -21,8 +21,8 @@
 // ═════════════════════════════════════════════════════════════════════════
 
 import { loadTrackBoard, type TrackRow } from '@/lib/onboarding/track-board'
-import { createServiceClient } from '@/lib/supabase/service'
 import type { BriefSection, Item, Metric } from '@/lib/brief/types'
+import { buildTrend, trendCounts, trendMetric, fetchAll } from '@/lib/brief/db'
 
 const KEY = 'candidates'
 const TITLE = 'Candidates'
@@ -41,17 +41,10 @@ const TITLE = 'Candidates'
  *  board, we report neither number and say why.
  *
  *  Returns null if the probe itself cannot run. */
-async function probeCandidateCount(): Promise<number | null> {
-  try {
-    const svc = createServiceClient()
-    const { count, error } = await svc
-      .from('onb_candidates')
-      .select('id', { count: 'exact', head: true })
-    if (error) return null
-    return typeof count === 'number' ? count : null
-  } catch {
-    return null
-  }
+async function probeCandidates(): Promise<Array<Record<string, unknown>> | null> {
+  const res = await fetchAll<Record<string, unknown>>('onb_candidates', 'id, created_at')
+  if (!res.ok) return null
+  return res.rows
 }
 
 function unreadable(reason: string): BriefSection {
@@ -111,8 +104,8 @@ export async function collectCandidates(
   const warnings: string[] = []
   let rows: TrackRow[] = []
 
-  const probed = await probeCandidateCount()
-  if (probed === null) {
+  const probeRows = await probeCandidates()
+  if (probeRows === null) {
     return unreadable(
       'Candidate figures unavailable: the candidate table could not be reached.'
     )
@@ -128,6 +121,7 @@ export async function collectCandidates(
   // The corroboration. `loadTrackBoard()` swallows its own errors and
   // returns an empty array, so an empty board against a non-empty table
   // means the load failed silently — NOT that there are no candidates.
+  const probed = probeRows.length
   if (rows.length === 0 && probed > 0) {
     return unreadable(
       'Candidate figures suppressed: the track board returned nothing while ' +
@@ -171,7 +165,15 @@ export async function collectCandidates(
   orphaned.sort(byDaysDesc)
   moved.sort(function (a, b) { return (a.days || 0) - (b.days || 0) })
 
+  // New candidates across three windows, so a quiet week is distinguishable
+  // from a pipeline that has stopped producing anything at all.
+  // Counted from onb_candidates, NOT from TrackRow - TrackRow carries no
+  // created_at, so counting off it would silently report zero every week.
+  const trend = buildTrend(closedSince, closedUntil)
+  const newCounts = trendCounts(probeRows as unknown[], 'created_at', trend)
+
   const headline: Metric[] = [
+    trendMetric('New candidates', newCounts),
     { label: 'In progress', value: live.length, hint: 'not yet converted or closed' },
     { label: 'Moved this week', value: moved.length, hint: null },
     { label: 'Completed this week', value: completedInWindow, hint: null },
