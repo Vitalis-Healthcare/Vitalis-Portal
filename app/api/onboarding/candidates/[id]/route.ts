@@ -11,6 +11,7 @@ import crypto from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { ONB_DOCUMENT_TYPES, docTypeLabel } from '@/lib/onboarding/documents'
+import { REFERENCE_SLOTS } from '@/lib/onboarding/application'
 
 export const dynamic = 'force-dynamic'
 
@@ -133,9 +134,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     const keys: string[] = Array.isArray(body.doc_keys) ? body.doc_keys : []
     const validKeys = keys.filter((k) => ONB_DOCUMENT_TYPES.some((d) => d.key === k))
-    if (validKeys.length === 0) return NextResponse.json({ error: 'Select at least one document to request.' }, { status: 400 })
+    // Reference slots are 1-based and validated against REFERENCE_SLOTS rather
+     // than trusted from the client, so a hand-rolled request cannot ask the
+     // candidate to re-do a referee that does not exist.
+    const rawSlots: unknown[] = Array.isArray(body.reference_slots) ? body.reference_slots : []
+    const validSlots = rawSlots
+      .map((s) => Number(s))
+      .filter((s) => Number.isInteger(s) && s >= 1 && s <= REFERENCE_SLOTS.length)
+      .filter((s, i, arr) => arr.indexOf(s) === i)
+      .sort((x, y) => x - y)
+
+    if (validKeys.length === 0 && validSlots.length === 0) {
+      return NextResponse.json({ error: 'Select at least one document or reference to request.' }, { status: 400 })
+    }
     const note = typeof body.note === 'string' ? body.note.slice(0, 1000) : ''
     const items = validKeys.map((k) => docTypeLabel(k))
+    // Named in the same list the candidate already reads, so one email covers
+    // both. The wording says CONTACT DETAILS deliberately - we are asking them
+    // to correct an address, not to nominate a different referee.
+    for (const slot of validSlots) {
+      items.push(`Correct contact details for your ${REFERENCE_SLOTS[slot - 1].label.toLowerCase()}`)
+    }
 
     // Mint a fresh token and reopen the application.
     const rawToken = crypto.randomBytes(32).toString('hex')

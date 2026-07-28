@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { CheckCircle } from 'lucide-react'
 import StaffCredentialsCard from './StaffCredentialsCard'
 import StaffReferencesCard from './StaffReferencesCard'
+import { loadApplicationReferences } from '@/lib/onboarding/application-references'
 import StaffTrainingCard from './StaffTrainingCard'
 import StaffAppraisalsCard from './StaffAppraisalsCard'
 
@@ -76,6 +77,10 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
 
   const completedCourses  = (enrollments || []).filter(e => e.completed_at)
   const expiringCreds     = (credentials || []).filter(c => c.status === 'expiring' || c.status === 'expired')
+  // What this caregiver told us on their candidate application. Empty for
+  // anyone who was added to the portal directly rather than onboarded.
+  const applicationReferences = await loadApplicationReferences(svc, id)
+
   const receivedRefs      = (references || []).filter(r => r.status === 'received').length
   const enrolledProgIds   = (progEnrollments || []).map((e: any) => e.programme_id)
 
@@ -161,6 +166,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 20 }}>
         <StaffReferencesCard
           references={references || []}
+          applicationReferences={applicationReferences}
           caregiverId={id}
           caregiverName={member.full_name}
           viewerRole={viewer?.role || 'staff'}
