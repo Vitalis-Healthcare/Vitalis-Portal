@@ -61,12 +61,14 @@ export type ReferenceEntry = {
   kind: ReferenceKind
   name?: string
   title?: string
+  email?: string
   phone?: string
   dates_known?: string
 }
 export type EmergencyContact = {
   name?: string
   relationship?: string
+  email?: string
   phone?: string
   phone_type?: string
 }
@@ -78,6 +80,51 @@ export const REFERENCE_SLOTS: { kind: ReferenceKind; label: string }[] = [
   { kind: 'professional', label: 'Professional reference 2' },
   { kind: 'character', label: 'Character reference' },
 ]
+
+/**
+ * Loose email shape check. Deliberately not RFC-complete — the job is catching
+ * typos like a missing @ or a truncated domain, not adjudicating exotic but
+ * legal addresses. Rejecting a real address is worse than accepting an odd one.
+ */
+export function isValidEmail(value: string | null | undefined): boolean {
+  const s = (value || '').trim()
+  if (!s || s.length > 254) return false
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s)
+}
+
+/**
+ * Email is how references actually get chased, so every slot needs a name and a
+ * working-looking address before an application can be submitted.
+ *
+ * Shared by the form and the API route so the candidate is never told the form
+ * is fine and then rejected by the server.
+ */
+export function validateReferences(refs: unknown): string[] {
+  const problems: string[] = []
+  const list = Array.isArray(refs) ? (refs as ReferenceEntry[]) : []
+  REFERENCE_SLOTS.forEach((slot, i) => {
+    const r = list[i] || ({} as ReferenceEntry)
+    const name = (r.name || '').trim()
+    const email = (r.email || '').trim()
+    if (!name) problems.push(`${slot.label}: enter a name.`)
+    if (!email) problems.push(`${slot.label}: enter an email address.`)
+    else if (!isValidEmail(email)) problems.push(`${slot.label}: that email address does not look right.`)
+  })
+  return problems
+}
+
+/** Emergency contact email is optional — but if given, it has to be usable. */
+export function validateEmergencyContacts(contacts: unknown): string[] {
+  const problems: string[] = []
+  const list = Array.isArray(contacts) ? (contacts as EmergencyContact[]) : []
+  list.forEach((c, i) => {
+    const email = (c.email || '').trim()
+    if (email && !isValidEmail(email)) {
+      problems.push(`Emergency contact ${i + 1}: that email address does not look right.`)
+    }
+  })
+  return problems
+}
 
 // The full editable shape. All optional so a draft can be saved partially;
 // required fields are checked at submit time only (see the API route).

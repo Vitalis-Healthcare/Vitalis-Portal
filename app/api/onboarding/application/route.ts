@@ -6,7 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
-import { APPLICATION_EDITABLE_STATUSES, type ApplicationData } from '@/lib/onboarding/application'
+import {
+  APPLICATION_EDITABLE_STATUSES,
+  validateReferences,
+  validateEmergencyContacts,
+  type ApplicationData,
+} from '@/lib/onboarding/application'
 import { buildApplicationRow } from '@/lib/onboarding/sanitize'
 
 export const dynamic = 'force-dynamic'
@@ -105,6 +110,19 @@ export async function POST(req: NextRequest) {
     const missing = required.filter((k) => !fields[k])
     if (missing.length) return NextResponse.json({ error: 'Please complete your name, phone, email, and signature before submitting.' }, { status: 400 })
     if (!application.attested) return NextResponse.json({ error: 'Please check the attestation box before submitting.' }, { status: 400 })
+
+    // References and emergency contacts, checked with the SAME validators the
+    // form uses, so the two can never disagree about what is acceptable.
+    const contactProblems = [
+      ...validateReferences(application.applicant_references),
+      ...validateEmergencyContacts(application.emergency_contacts),
+    ]
+    if (contactProblems.length) {
+      return NextResponse.json({
+        error: contactProblems.join(' '),
+        problems: contactProblems,
+      }, { status: 400 })
+    }
   }
 
   const row: Record<string, unknown> = { candidate_id: cand.id, ...fields, updated_at: nowIso }
