@@ -99,6 +99,21 @@ export async function GET(req: NextRequest) {
           ? `array[${collection.length}]`
           : `${typeof collection} with ${Object.keys(collection as object).length} key(s)`)
         : 'KEY NOT FOUND',
+      // Field NAMES of the first record only — never values, so no applicant
+      // PII leaves the server. This is what decides the match key for the
+      // AxisCare confirmation cron.
+      sample_keys: (() => {
+        if (Array.isArray(collection)) {
+          const first = collection[0]
+          return first && typeof first === 'object' ? Object.keys(first as object) : null
+        }
+        if (collection && typeof collection === 'object') {
+          const values = Object.values(collection as Record<string, unknown>)
+          const first = values[0]
+          return first && typeof first === 'object' ? Object.keys(first as object) : null
+        }
+        return null
+      })(),
       success_field: obj?.success,
       errors_field: obj?.errors,
       raw_first_300: text.slice(0, 300),
