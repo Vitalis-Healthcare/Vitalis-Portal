@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck, ShieldCheck, Send, Undo2 } from 'lucide-react'
 import { docTypeLabel, type DocTypeDef } from '@/lib/onboarding/documents'
 import type { Blocker } from '@/lib/onboarding/gates'
 import { mapApplicationReferences } from '@/lib/onboarding/application-references'
@@ -25,6 +25,7 @@ const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   applying:              { label: 'Applying',           bg: '#E6F4F4', fg: '#0A5C5B' },
   application_submitted: { label: 'Application in',      bg: '#E6F4F4', fg: '#0A5C5B' },
   in_review:             { label: 'In review',          bg: '#F0E9FB', fg: '#6B3FA0' },
+  awaiting_approval:     { label: 'Awaiting approval',   bg: '#FEF3E2', fg: '#B26A00' },
   axiscare_created:      { label: 'In AxisCare',         bg: '#E6F6EC', fg: '#1B7A43' },
   converted:             { label: 'Converted',          bg: '#EDF0F2', fg: '#4A6070' },
   withdrawn:             { label: 'Withdrawn',          bg: '#F4EBEB', fg: '#9B3B3B' },
@@ -40,6 +41,16 @@ type Candidate = {
   documents_accepted_at: string | null
   documents_accepted_by: string | null
   documents_accepted_note: string | null
+}
+type ConversionRequest = {
+  id: string
+  status: string
+  requested_by: string | null
+  requested_at: string | null
+  requested_note: string | null
+  decided_by: string | null
+  decided_at: string | null
+  decision_note: string | null
 }
 type AppRow = Record<string, unknown> | null
 type DocRow = {
@@ -133,12 +144,17 @@ function availDays(v: unknown): string {
 
 export default function CandidateDetailClient({
   candidate, application, documents, attempt, docTypes,
+  viewerRole = 'staff', pendingRequest = null, lastReturned = null, actorNames = {},
 }: {
   candidate: Candidate
   application: AppRow
   documents: DocRow[]
   attempt: Attempt
   docTypes: DocTypeDef[]
+  viewerRole?: string
+  pendingRequest?: ConversionRequest | null
+  lastReturned?: ConversionRequest | null
+  actorNames?: Record<string, string>
 }) {
   const router = useRouter()
   const a = application || {}
@@ -158,6 +174,12 @@ export default function CandidateDetailClient({
   const [docsAcceptedNote, setDocsAcceptedNote] = useState<string | null>(candidate.documents_accepted_note)
   const [acceptOpen, setAcceptOpen] = useState(false)
   const [acceptNote, setAcceptNote] = useState('')
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [returnNote, setReturnNote] = useState('')
+
+  const isAdmin = viewerRole === 'admin'
+  const awaiting = status === 'awaiting_approval'
+  const who = (id: string | null | undefined) => (id && actorNames[id]) || 'a colleague'
 
   // The three referees off the application, one entry per slot.
   const appRefs = mapApplicationReferences(a.applicant_references)
@@ -166,7 +188,10 @@ export default function CandidateDetailClient({
   const canRequestDocs = status === 'application_submitted' || status === 'in_review'
   const canPushAxiscare = !axiscareId && (status === 'application_submitted' || status === 'in_review')
   const canEdit = !!application && (status === 'application_submitted' || status === 'in_review')
-  const canConvert = !convertedId && (status === 'in_review' || status === 'axiscare_created')
+  // An admin converts directly; everyone else raises a request for an admin to
+  // decide. Both run the same gate, so neither is a shortcut past credentialing.
+  const canConvert = isAdmin && !convertedId && (status === 'in_review' || status === 'axiscare_created')
+  const canRequestApproval = !isAdmin && !convertedId && (status === 'in_review' || status === 'axiscare_created')
 
   async function beginReview() {
     setBusy(true); setBanner(null)
@@ -266,6 +291,76 @@ export default function CandidateDetailClient({
     } finally {
       setBusy(false)
     }
+  }
+
+  async function requestApproval() {
+    setBusy(true); setBanner(null); setBlockers([])
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/conversion-request`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: '' }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        const list: Blocker[] = Array.isArray(data.blockers) ? data.blockers : []
+        setBlockers(list)
+        setBanner({
+          kind: 'warn',
+          text: list.length
+            ? 'This candidate is not ready to be sent for approval. What is outstanding is listed below.'
+            : (data.error || 'Could not raise the request.'),
+        })
+        return
+      }
+      setStatus('awaiting_approval')
+      setBanner({ kind: 'ok', text: 'Sent for approval. An administrator will review it.' })
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally { setBusy(false) }
+  }
+
+  async function decideRequest(decision: 'approve' | 'return') {
+    setBusy(true); setBanner(null); setBlockers([])
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/conversion-request`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, note: decision === 'return' ? returnNote.trim() : '' }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        const list: Blocker[] = Array.isArray(data.blockers) ? data.blockers : []
+        setBlockers(list)
+        setBanner({ kind: 'warn', text: list.length ? 'This candidate is no longer ready. See below.' : (data.error || 'Could not record that decision.') })
+        return
+      }
+      if (decision === 'return') {
+        setStatus('in_review'); setReturnOpen(false); setReturnNote('')
+        setBanner({ kind: 'ok', text: 'Returned to the coordinator with your reason.' })
+      } else {
+        setConvertedId((data.profile_id as string) || null)
+        setStatus('converted')
+        setBanner({ kind: 'ok', text: 'Approved. The caregiver account has been created.' })
+      }
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally { setBusy(false) }
+  }
+
+  async function withdrawRequest() {
+    if (!confirm('Withdraw this approval request and return the candidate to In review?')) return
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/conversion-request`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not withdraw that.' }); return }
+      setStatus('in_review')
+      setBanner({ kind: 'ok', text: 'Request withdrawn.' })
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally { setBusy(false) }
   }
 
   function toggleReq(key: string) {
@@ -408,6 +503,71 @@ export default function CandidateDetailClient({
         </div>
       )}
 
+      {awaiting && pendingRequest && (
+        <div style={{ background: '#FEF3E2', border: '1px solid #F4D9A8', borderRadius: 12, padding: '18px 22px', marginTop: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.amber, marginBottom: 5 }}>
+            {isAdmin ? 'Waiting on your decision' : 'Sent for approval'}
+          </div>
+          <div style={{ fontSize: 13, color: C.gray, lineHeight: 1.65 }}>
+            Requested by {who(pendingRequest.requested_by)} on {fmtDate(pendingRequest.requested_at)}.
+            {!isAdmin && ' An administrator will approve it or send it back with a reason.'}
+          </div>
+          {pendingRequest.requested_note && (
+            <div style={{ fontSize: 12.5, color: C.gray, marginTop: 8, fontStyle: 'italic' }}>{pendingRequest.requested_note}</div>
+          )}
+
+          {isAdmin && !returnOpen && (
+            <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+              <button onClick={() => decideRequest('approve')} disabled={busy}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 9, border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, background: 'linear-gradient(135deg,#1B7A43,#2E9B5B)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+                <UserCheck size={16} /> Approve and convert
+              </button>
+              <button onClick={() => setReturnOpen(true)} disabled={busy}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 9, background: '#fff', border: `1px solid ${C.border}`, color: C.navy, fontSize: 14, fontWeight: 700, cursor: busy ? 'default' : 'pointer' }}>
+                <Undo2 size={16} /> Return to coordinator
+              </button>
+            </div>
+          )}
+
+          {isAdmin && returnOpen && (
+            <div style={{ marginTop: 14 }}>
+              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: C.gray, marginBottom: 6 }}>
+                Why are you returning this?
+              </label>
+              <textarea value={returnNote} onChange={(e) => setReturnNote(e.target.value)}
+                placeholder="e.g. The TB result is from 2023 — please get a current one before resubmitting."
+                style={{ width: '100%', minHeight: 68, padding: '10px 12px', borderRadius: 9, border: `1px solid ${C.border}`, fontSize: 13.5, color: C.navy, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', marginBottom: 10 }} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => decideRequest('return')} disabled={busy || returnNote.trim().length < 5}
+                  style={{ padding: '9px 20px', borderRadius: 8, border: 'none', color: '#fff', fontSize: 13.5, fontWeight: 700, background: returnNote.trim().length >= 5 ? C.tealBtn : '#B9C4B4', cursor: returnNote.trim().length >= 5 && !busy ? 'pointer' : 'not-allowed' }}>
+                  {busy ? 'Sending…' : 'Send it back'}
+                </button>
+                <button onClick={() => { setReturnOpen(false); setReturnNote('') }}
+                  style={{ padding: '9px 18px', borderRadius: 8, background: '#fff', border: `1px solid ${C.border}`, color: C.gray, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!isAdmin && (
+            <button onClick={withdrawRequest} disabled={busy}
+              style={{ marginTop: 12, padding: '7px 16px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, color: C.gray, fontSize: 12.5, fontWeight: 600, cursor: busy ? 'default' : 'pointer' }}>
+              Withdraw request
+            </button>
+          )}
+        </div>
+      )}
+
+      {!awaiting && !convertedId && lastReturned && (
+        <div style={{ background: '#F4EBEB', border: '1px solid #E3C9C9', borderRadius: 12, padding: '16px 20px', marginTop: 16 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: C.red, marginBottom: 5 }}>
+            Returned by {who(lastReturned.decided_by)} on {fmtDate(lastReturned.decided_at)}
+          </div>
+          <div style={{ fontSize: 13, color: C.gray, lineHeight: 1.65 }}>{lastReturned.decision_note}</div>
+        </div>
+      )}
+
       {/* Actions */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 16 }}>
         <button onClick={beginReview} disabled={!canBeginReview || busy}
@@ -473,6 +633,12 @@ export default function CandidateDetailClient({
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: C.greenBg, color: C.green, border: `1px solid ${C.greenBorder}` }}>
             <UserCheck size={16} /> Converted to caregiver
           </span>
+        ) : canRequestApproval ? (
+          <button onClick={requestApproval} disabled={busy}
+            title="Send this candidate to an administrator to approve"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 'none', color: '#fff', cursor: busy ? 'default' : 'pointer', background: 'linear-gradient(135deg,#0E7C7B,#1A9B87)', opacity: busy ? 0.6 : 1 }}>
+            <Send size={16} /> Request approval
+          </button>
         ) : canConvert ? (
           <button onClick={convertToCaregiver} disabled={busy}
             title="Create a caregiver portal account for this candidate"
