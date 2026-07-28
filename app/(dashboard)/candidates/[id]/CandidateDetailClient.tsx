@@ -37,6 +37,9 @@ type Candidate = {
   axiscare_applicant_id: number | null
   axiscare_login_sent_at: string | null
   converted_to_profile_id: string | null
+  documents_accepted_at: string | null
+  documents_accepted_by: string | null
+  documents_accepted_note: string | null
 }
 type AppRow = Record<string, unknown> | null
 type DocRow = {
@@ -151,6 +154,10 @@ export default function CandidateDetailClient({
   const [reqNote, setReqNote] = useState('')
   // Reference SLOTS (1-3) the candidate must re-supply contact details for.
   const [reqRefs, setReqRefs] = useState<number[]>([])
+  const [docsAcceptedAt, setDocsAcceptedAt] = useState<string | null>(candidate.documents_accepted_at)
+  const [docsAcceptedNote, setDocsAcceptedNote] = useState<string | null>(candidate.documents_accepted_note)
+  const [acceptOpen, setAcceptOpen] = useState(false)
+  const [acceptNote, setAcceptNote] = useState('')
 
   // The three referees off the application, one entry per slot.
   const appRefs = mapApplicationReferences(a.applicant_references)
@@ -265,6 +272,44 @@ export default function CandidateDetailClient({
     setReqKeys((k) => k.includes(key) ? k.filter((x) => x !== key) : [...k, key])
   }
 
+  async function acceptDocuments() {
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/documents-accepted`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: acceptNote.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not record that.' }); return }
+      setDocsAcceptedAt(data.accepted_at as string)
+      setDocsAcceptedNote(acceptNote.trim() || null)
+      setAcceptOpen(false); setAcceptNote('')
+      setBanner({ kind: 'ok', text: 'Documents recorded as reviewed and accepted.' })
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function withdrawAcceptance() {
+    if (!confirm('Withdraw your acceptance of these documents? This recloses the gate until you accept again.')) return
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/documents-accepted`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not withdraw that.' }); return }
+      setDocsAcceptedAt(null); setDocsAcceptedNote(null)
+      setBanner({ kind: 'ok', text: 'Acceptance withdrawn.' })
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function toggleReqRef(slot: number) {
     setReqRefs((s) => s.includes(slot) ? s.filter((x) => x !== slot) : [...s, slot])
   }
@@ -283,6 +328,10 @@ export default function CandidateDetailClient({
       const data = await res.json()
       if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not send the request.' }); setBusy(false); return }
       setShowReqModal(false); setReqKeys([]); setReqRefs([]); setReqNote('')
+      // The server clears the sign-off when it reopens the application; reflect
+      // that here so the panel does not keep claiming an acceptance that has
+      // just been invalidated.
+      setDocsAcceptedAt(null); setDocsAcceptedNote(null)
       setStatus('applying')
       setBanner(data.emailed
         ? { kind: 'ok', text: `Request sent to ${candidate.email}. The application is reopened for them to add documents.` }
@@ -560,6 +609,57 @@ export default function CandidateDetailClient({
 
       {/* Documents */}
       <Card title={`Documents (${documents.length})`}>
+        {docsAcceptedAt ? (
+          <div style={{ background: C.greenBg, border: `1px solid ${C.greenBorder}`, borderRadius: 10, padding: '13px 16px', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <CheckCircle2 size={16} color={C.green} />
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: C.green }}>
+                Reviewed and accepted {fmtDate(docsAcceptedAt)}
+              </span>
+              <button onClick={withdrawAcceptance} disabled={busy}
+                style={{ marginLeft: 'auto', padding: '4px 12px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 12, color: C.gray, cursor: busy ? 'default' : 'pointer' }}>
+                Withdraw
+              </button>
+            </div>
+            {docsAcceptedNote && (
+              <div style={{ fontSize: 12.5, color: C.gray, marginTop: 7, lineHeight: 1.6 }}>{docsAcceptedNote}</div>
+            )}
+          </div>
+        ) : acceptOpen ? (
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '15px 17px', marginBottom: 14 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: C.navy, marginBottom: 5 }}>
+              Accept these documents
+            </div>
+            <p style={{ fontSize: 12.5, color: C.gray, lineHeight: 1.6, margin: '0 0 10px' }}>
+              Confirm you have opened them and they are legible, current, and belong to this
+              person. Your name and the date are recorded against this candidate.
+            </p>
+            <textarea value={acceptNote} onChange={(e) => setAcceptNote(e.target.value)}
+              placeholder="Optional note — e.g. TB result handed over on paper, scanned and filed."
+              style={{ width: '100%', minHeight: 58, padding: '9px 11px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.navy, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', marginBottom: 10 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={acceptDocuments} disabled={busy}
+                style={{ padding: '8px 18px', background: C.tealBtn, border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1 }}>
+                {busy ? 'Saving…' : 'Record acceptance'}
+              </button>
+              <button onClick={() => { setAcceptOpen(false); setAcceptNote('') }}
+                style={{ padding: '8px 16px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, color: C.gray, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '13px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <AlertTriangle size={16} color={C.amber} />
+            <span style={{ fontSize: 13.5, color: '#92400E', fontWeight: 600 }}>
+              Not yet reviewed and accepted
+            </span>
+            <button onClick={() => setAcceptOpen(true)} disabled={busy}
+              style={{ marginLeft: 'auto', padding: '7px 16px', background: C.tealBtn, border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: busy ? 'default' : 'pointer' }}>
+              Review and accept
+            </button>
+          </div>
+        )}
         {documents.length === 0 ? (
           <div style={{ fontSize: 14, color: C.faint }}>No documents uploaded.</div>
         ) : (

@@ -25,7 +25,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
 
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, last_name, email, status, invited_at, created_at, test_passed_at, application_submitted_at, axiscare_pushed_at, axiscare_applicant_id, axiscare_login_sent_at, converted_to_profile_id')
+    .select('id, first_name, last_name, email, status, invited_at, created_at, test_passed_at, application_submitted_at, axiscare_pushed_at, axiscare_applicant_id, axiscare_login_sent_at, converted_to_profile_id, documents_accepted_at, documents_accepted_by, documents_accepted_note')
     .eq('id', id)
     .maybeSingle()
   if (!cand) notFound()
