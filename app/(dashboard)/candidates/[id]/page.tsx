@@ -50,9 +50,39 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
     .limit(1)
     .maybeSingle()
 
+  // The pending request, if any, plus the most recent decision — so a returned
+  // candidate can show WHY they came back without the coordinator hunting.
+  const { data: reqRows } = await svc
+    .from('onb_conversion_requests')
+    .select('id, status, requested_by, requested_at, requested_note, decided_by, decided_at, decision_note')
+    .eq('candidate_id', cand.id)
+    .order('requested_at', { ascending: false })
+    .limit(5)
+
+  const requests = Array.isArray(reqRows) ? reqRows : []
+  const pendingRequest = requests.find((r) => r.status === 'pending') || null
+  const lastReturned = requests.find((r) => r.status === 'returned') || null
+
+  // Resolve the names behind the ids in one query rather than one per row.
+  const actorIds = Array.from(new Set(
+    [pendingRequest?.requested_by, lastReturned?.decided_by, cand.documents_accepted_by]
+      .filter((v): v is string => typeof v === 'string' && v.length > 0),
+  ))
+  const actorNames: Record<string, string> = {}
+  if (actorIds.length > 0) {
+    const { data: actors } = await svc.from('profiles').select('id, full_name').in('id', actorIds)
+    for (const a of Array.isArray(actors) ? actors : []) {
+      if (a?.id) actorNames[a.id] = a.full_name || ''
+    }
+  }
+
   return (
     <CandidateDetailClient
       candidate={cand}
+      viewerRole={role || 'staff'}
+      pendingRequest={pendingRequest}
+      lastReturned={lastReturned}
+      actorNames={actorNames}
       application={appRow || null}
       documents={docRows || []}
       attempt={attempt || null}

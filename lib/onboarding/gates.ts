@@ -14,7 +14,12 @@ import {
 
 /** Candidate statuses that mean the application is in and under review. */
 export const APPLICATION_IN_STATUSES = [
-  'application_submitted', 'in_review', 'axiscare_created', 'converted',
+  'application_submitted', 'in_review', 'axiscare_created',
+  // A candidate sent for approval still has an application in — omitting this
+  // would make the gate refuse the approval itself, citing a missing
+  // application that is sitting right there.
+  'awaiting_approval',
+  'converted',
 ] as const
 
 export interface Blocker {

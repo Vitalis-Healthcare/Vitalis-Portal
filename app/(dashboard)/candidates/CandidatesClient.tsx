@@ -25,6 +25,7 @@ const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   applying:              { label: 'Applying',           bg: '#E6F4F4', fg: '#0A5C5B' },
   application_submitted: { label: 'Application in',      bg: '#E6F4F4', fg: '#0A5C5B' },
   in_review:             { label: 'In review',          bg: '#F0E9FB', fg: '#6B3FA0' },
+  awaiting_approval:     { label: 'Awaiting approval',   bg: '#FEF3E2', fg: '#B26A00' },
   axiscare_created:      { label: 'In AxisCare',         bg: '#E6F6EC', fg: '#1B7A43' },
   converted:             { label: 'Converted',          bg: '#EDF0F2', fg: '#4A6070' },
   withdrawn:             { label: 'Withdrawn',          bg: '#F4EBEB', fg: '#9B3B3B' },
