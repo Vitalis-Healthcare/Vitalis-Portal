@@ -63,10 +63,14 @@ function sanitizeReferences(v: unknown): Record<string, unknown>[] {
       kind,
       name: trimOrNull(o.name),
       title: trimOrNull(o.title),
+      // Required by the form and by validateReferences, so it has to be
+      // persisted. Omitting it here is what made the v0.6.23 prefill read
+      // blank every time.
+      email: trimOrNull(o.email),
       phone: trimOrNull(o.phone),
       dates_known: trimOrNull(o.dates_known),
     }
-  }).filter((e) => e.name || e.phone)
+  }).filter((e) => e.name || e.email || e.phone)
 }
 
 function sanitizeEmergencyContacts(v: unknown): Record<string, unknown>[] {
@@ -76,10 +80,13 @@ function sanitizeEmergencyContacts(v: unknown): Record<string, unknown>[] {
     return {
       name: trimOrNull(o.name),
       relationship: trimOrNull(o.relationship),
+      // Optional on the form, but validateEmergencyContacts checks it when
+      // given, and the AxisCare push already reads it back.
+      email: trimOrNull(o.email),
       phone: trimOrNull(o.phone),
       phone_type: trimOrNull(o.phone_type),
     }
-  }).filter((e) => e.name || e.phone)
+  }).filter((e) => e.name || e.email || e.phone)
 }
 
 function sanitizeAvailabilityDays(v: unknown): Record<string, string> {
