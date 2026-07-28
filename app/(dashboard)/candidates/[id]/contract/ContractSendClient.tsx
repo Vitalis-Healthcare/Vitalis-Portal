@@ -6,6 +6,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CONTRACT_TEMPLATE_CHOICES, type ContractTemplateKey } from '@/lib/onboarding/contract-templates'
+import type { Blocker } from '@/lib/onboarding/gates'
 
 const TEAL = '#0E7C7B'
 const NAVY = '#1A2E44'
@@ -49,9 +50,13 @@ function statusOf(c: Contract): { label: string; bg: string; color: string } {
 export default function ContractSendClient({
   candidate,
   contracts,
+  blockers,
+  gateOk,
 }: {
   candidate: Candidate
   contracts: Contract[]
+  blockers: Blocker[]
+  gateOk: boolean
 }) {
   const router = useRouter()
   const [templateKey, setTemplateKey] = useState<ContractTemplateKey | ''>('')
@@ -89,7 +94,7 @@ export default function ContractSendClient({
     }
   }
 
-  const canSend = !!templateKey && payRate.trim().length > 0 && !sending
+  const canSend = gateOk && !!templateKey && payRate.trim().length > 0 && !sending
 
   return (
     <div style={{ padding: '32px 32px 64px', maxWidth: 860, margin: '0 auto' }}>
@@ -117,9 +122,45 @@ export default function ContractSendClient({
         </div>
       )}
 
+      {!gateOk && (
+        <div style={{
+          background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12,
+          padding: '18px 22px', marginBottom: 22,
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#92400E', marginBottom: 4 }}>
+            Sending is blocked until credentialing is complete
+          </div>
+          <div style={{ fontSize: 12.5, color: '#A16207', marginBottom: 14, lineHeight: 1.6 }}>
+            {blockers.length === 1
+              ? 'One thing is outstanding:'
+              : `${blockers.length} things are outstanding:`}
+          </div>
+          {blockers.map((b) => (
+            <div key={b.code} style={{
+              background: '#fff', border: '1px solid #FDE68A', borderRadius: 8,
+              padding: '12px 15px', marginBottom: 10,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 4 }}>
+                {b.label}
+              </div>
+              <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.65 }}>{b.detail}</div>
+              {b.fixHref && (
+                <Link href={b.fixHref} style={{
+                  display: 'inline-block', marginTop: 9, fontSize: 12.5,
+                  color: TEAL, textDecoration: 'none', fontWeight: 600,
+                }}>
+                  {b.fixLabel || 'Fix this'} →
+                </Link>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{
         background: '#fff', border: `1px solid ${LINE}`, borderRadius: 12,
         padding: '24px 26px', marginBottom: 26,
+        opacity: gateOk ? 1 : 0.6,
       }}>
         <label style={{
           display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.06em',

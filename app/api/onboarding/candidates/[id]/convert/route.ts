@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { loadGateInput } from '@/lib/onboarding/gate-data'
+import { evaluateConvertGate, blockerSummary } from '@/lib/onboarding/gates'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,6 +114,24 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (cand.converted_to_profile_id) {
     return NextResponse.json({ already: true, profile_id: cand.converted_to_profile_id })
   }
+  // ── Credentialing + signed agreement gate ─────────────────────────────────
+  // Conversion creates a real caregiver account, so it carries the full gate,
+  // not just the signature. A signed agreement must never be the only thing
+  // between an unvetted candidate and an active caregiver.
+  const gateInput = await loadGateInput(id)
+  if (!gateInput) {
+    return NextResponse.json({ error: 'Could not check credentialing status.' }, { status: 500 })
+  }
+  const gate = evaluateConvertGate(gateInput)
+  if (!gate.ok) {
+    console.warn('[convert] blocked for', id, '-', blockerSummary(gate.blockers))
+    return NextResponse.json({
+      error: 'This candidate is not ready to be converted.',
+      code: 'gate_blocked',
+      blockers: gate.blockers,
+    }, { status: 409 })
+  }
+
   if (!CONVERTIBLE_STATUSES.includes(cand.status || '')) {
     return NextResponse.json({ error: 'Convert is available once the candidate is in review or pushed to AxisCare.' }, { status: 409 })
   }
