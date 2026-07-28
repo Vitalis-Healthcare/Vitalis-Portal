@@ -43,7 +43,7 @@ function normClient(c: ClientShape | ClientShape[] | null): ClientShape | null {
   return Array.isArray(c) ? (c[0] ?? null) : c
 }
 
-export async function POST(request: Request) {
+async function handler(request: Request) {
   // Auth: enforce CRON_SECRET if set; allow through if not yet configured.
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret) {
@@ -53,20 +53,25 @@ export async function POST(request: Request) {
     }
   }
 
+  // Read-only rehearsal: compute and report, but never write or send.
+  const dryRun = new URL(request.url).searchParams.get('dry_run') === '1'
+
   try {
     const db = createServiceClient()
     const now      = new Date()
     const todayStr = now.toISOString().split('T')[0]
 
     // ── 1. Flip past-due assessments to overdue ──────────────────────────────
-    const { error: overdueErr } = await db
-      .from('assessments')
-      .update({ status: 'overdue', updated_at: now.toISOString() })
-      .eq('status', 'scheduled')
-      .lt('scheduled_date', todayStr)
+    if (!dryRun) {
+      const { error: overdueErr } = await db
+        .from('assessments')
+        .update({ status: 'overdue', updated_at: now.toISOString() })
+        .eq('status', 'scheduled')
+        .lt('scheduled_date', todayStr)
 
-    if (overdueErr) {
-      console.error('[weekly-digest] overdue flip error:', overdueErr.message)
+      if (overdueErr) {
+        console.error('[weekly-digest] overdue flip error:', overdueErr.message)
+      }
     }
 
     // ── 2. Week range: today (Monday) through +6 days (Sunday) ───────────────
@@ -129,6 +134,18 @@ export async function POST(request: Request) {
     ).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     const weekLabel = `${startLabel}\u2013${endLabel}`
 
+    if (dryRun) {
+      return NextResponse.json({
+        dry_run: true,
+        week: weekLabel,
+        would_send: byNurse.size,
+        nurses: Array.from(byNurse.values()).map((n) => ({
+          email: n.email,
+          assessments: n.items.length,
+        })),
+      })
+    }
+
     // ── 6. Send one email per nurse ──────────────────────────────────────────
     let sent = 0
     const errors: string[] = []
@@ -158,3 +175,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }
+
+// ── Method exports ──────────────────────────────────────────────────────────
+// Vercel Cron invokes scheduled routes with GET. This route previously exported
+// POST only, so every scheduled run returned 405 and nothing was ever sent.
+// Both verbs now share one handler; POST is retained for manual triggers.
+export const GET = handler
+export const POST = handler

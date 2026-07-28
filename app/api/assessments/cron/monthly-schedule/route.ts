@@ -42,7 +42,7 @@ function normClient(c: ClientShape | ClientShape[] | null): ClientShape | null {
   return Array.isArray(c) ? (c[0] ?? null) : c
 }
 
-export async function POST(request: Request) {
+async function handler(request: Request) {
   // Auth: enforce CRON_SECRET if set; allow through if not yet configured.
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret) {
@@ -51,6 +51,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
   }
+
+  // Read-only rehearsal: compute and report, but never send.
+  const dryRun = new URL(request.url).searchParams.get('dry_run') === '1'
 
   try {
     const db    = createServiceClient()
@@ -110,6 +113,18 @@ export async function POST(request: Request) {
     const monthLabel = new Date(year, month, 1)
       .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
+    if (dryRun) {
+      return NextResponse.json({
+        dry_run: true,
+        month: monthLabel,
+        would_send: byNurse.size,
+        nurses: Array.from(byNurse.values()).map((n) => ({
+          email: n.email,
+          assessments: n.items.length,
+        })),
+      })
+    }
+
     // ── Send one email per nurse ─────────────────────────────────────────────
     let sent = 0
     const errors: string[] = []
@@ -139,3 +154,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }
+
+// ── Method exports ──────────────────────────────────────────────────────────
+// Vercel Cron invokes scheduled routes with GET. This route previously exported
+// POST only, so every scheduled run returned 405 and nothing was ever sent.
+// Both verbs now share one handler; POST is retained for manual triggers.
+export const GET = handler
+export const POST = handler
