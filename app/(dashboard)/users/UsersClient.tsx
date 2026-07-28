@@ -11,6 +11,7 @@ interface Profile {
   id: string; email: string; full_name: string; role: string;
   status: string; hire_date?: string; department?: string; phone?: string;
   created_at: string; axiscare_id?: string; can_be_assigned?: boolean;
+  never_signed_in?: boolean;
 }
 
 interface AxCG {
@@ -620,6 +621,27 @@ export default function UsersClient({
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
   const existingEmails = new Set(profiles.map(p => (p.email || '').toLowerCase()).filter(Boolean))
 
+  const [resendingId, setResendingId] = useState<string | null>(null)
+
+  const handleResendInvite = async (p: Profile) => {
+    setResendingId(p.id)
+    try {
+      const res = await fetch('/api/staff/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: p.full_name, email: p.email, role: p.role, department: p.department }),
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.message || data.error || 'Failed to re-send invite.'); return }
+      if (data.status === 'already_exists') { alert(data.message || 'This account has already signed in.'); router.refresh(); return }
+      showToast(`Invite re-sent to ${p.email}`)
+      router.refresh()
+    } catch {
+      alert('Network error. Please try again.')
+    } finally {
+      setResendingId(null)
+    }
+  }
+
   const handleDeleteUser = async (profileId: string, profileName: string) => {
     if (!confirm(`Permanently delete ${profileName}? This cannot be undone.`)) return
     const res = await fetch('/api/admin/delete-user', {
@@ -855,6 +877,9 @@ export default function UsersClient({
                           {p.can_be_assigned && (p.role === 'supervisor' || p.role === 'nurse_monitor') && (
                             <span style={{ fontSize: 9, background: '#F5F3FF', color: '#7C3AED', fontWeight: 700, padding: '1px 6px', borderRadius: 8, letterSpacing: '0.5px' }}>ASSIGNABLE</span>
                           )}
+                          {p.never_signed_in && (
+                            <span style={{ fontSize: 9, background: '#FEF3EA', color: '#92400E', fontWeight: 700, padding: '1px 6px', borderRadius: 8, letterSpacing: '0.5px' }}>NEVER SIGNED IN</span>
+                          )}
                         </div>
                         <div style={{ fontSize: 11, color: '#8FA0B0' }}>{p.email}</div>
                       </div>
@@ -906,6 +931,12 @@ export default function UsersClient({
                       )}
                       {currentUserRole !== 'admin' && p.role !== 'caregiver' && p.status !== 'pending' && (
                         <span style={{ fontSize: 11, color: '#B0BEC5', padding: '6px 0' }}>Manage in Directory</span>
+                      )}
+                      {currentUserRole === 'admin' && p.never_signed_in && (
+                        <button onClick={() => handleResendInvite(p)} disabled={resendingId === p.id}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#FEF3EA', border: '1px solid #F4A26155', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: resendingId === p.id ? 'not-allowed' : 'pointer', color: '#92400E', opacity: resendingId === p.id ? 0.7 : 1 }}>
+                          <Send size={12} /> {resendingId === p.id ? 'Sending…' : 'Re-send Invite'}
+                        </button>
                       )}
                       {currentUserRole === 'admin' && p.id !== currentUserId && (
                         <button onClick={() => handleDeleteUser(p.id, p.full_name)}
