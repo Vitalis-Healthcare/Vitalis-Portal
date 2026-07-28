@@ -7,7 +7,10 @@
 // be rejected, which is the "it is not working" complaint we are trying to
 // design out.
 
-import { CJIS_DOC_TYPE, MBON_DOC_TYPE } from '@/lib/onboarding/staff-documents'
+import {
+  CJIS_DOC_TYPE, MBON_DOC_TYPE, ONB_ON_BEHALF_DOCUMENT_TYPES,
+  REQUIRED_CANDIDATE_DOC_TYPES,
+} from '@/lib/onboarding/staff-documents'
 
 /** Candidate statuses that mean the application is in and under review. */
 export const APPLICATION_IN_STATUSES = [
@@ -109,6 +112,25 @@ export function evaluateContractGate(i: GateInput): GateResult {
         : 'Upload the Maryland Board of Nursing verification, or waive it if this is an unlicensed aide.',
       fixHref: credsHref,
       fixLabel: 'Upload or waive license',
+    })
+  }
+
+  // ── The document half of the gate ────────────────────────────────────────
+  // Until v0.6.21 this was not checked at all: a candidate with ZERO uploads
+  // passed silently (pitfall #44). Every candidate document is optional at
+  // upload time by design, so "required" is enforced here at the gate rather
+  // than in the upload route — that keeps the candidate's own form forgiving
+  // while still refusing to move an incomplete file forward.
+  for (const key of REQUIRED_CANDIDATE_DOC_TYPES) {
+    if (has(key)) continue
+    const def = ONB_ON_BEHALF_DOCUMENT_TYPES.find((d) => d.key === key)
+    blockers.push({
+      code: `doc_missing_${key}`,
+      label: `${def ? def.label : key} is not on file`,
+      detail:
+        'The candidate can add it by reopening their application through Request documents, or you can upload it here yourself if they gave it to you on paper.',
+      fixHref: credsHref,
+      fixLabel: 'Upload on their behalf',
     })
   }
 
