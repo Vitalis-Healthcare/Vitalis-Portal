@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { loadGateInput } from '@/lib/onboarding/gate-data'
 import { evaluateConvertGate, blockerSummary } from '@/lib/onboarding/gates'
+import { seedStaffCredentials } from '@/lib/onboarding/credential-seed'
 
 export const dynamic = 'force-dynamic'
 
@@ -203,5 +204,20 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .update({ converted_to_profile_id: profileId, status: 'converted', updated_at: nowIso })
     .eq('id', cand.id)
 
-  return NextResponse.json({ success: true, profile_id: profileId, outcome, emailed })
+  // ── Seed the credentials board from the credentialing documents ───────────
+  // Soft-fail by construction: the caregiver account already exists and the
+  // candidate is already marked converted. A seeding problem must be reported,
+  // not thrown, or a recoverable data gap becomes a half-finished conversion.
+  let credentials: Awaited<ReturnType<typeof seedStaffCredentials>> = { seeded: [], skipped: [] }
+  try {
+    credentials = await seedStaffCredentials(svc, cand.id, profileId, user.id)
+    if (credentials.skipped.length) {
+      console.warn('[convert] credential seeding skipped:',
+        credentials.skipped.map((s) => `${s.label} (${s.reason})`).join('; '))
+    }
+  } catch (err) {
+    console.error('[convert] credential seeding threw:', err)
+  }
+
+  return NextResponse.json({ success: true, profile_id: profileId, outcome, emailed, credentials })
 }
