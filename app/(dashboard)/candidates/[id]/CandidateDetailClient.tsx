@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck, ShieldCheck } from 'lucide-react'
 import { docTypeLabel, type DocTypeDef } from '@/lib/onboarding/documents'
 import type { Blocker } from '@/lib/onboarding/gates'
+import { mapApplicationReferences } from '@/lib/onboarding/application-references'
 
 const C = {
   navy: '#1A2E44', teal: '#0A5C5B', tealBtn: '#0E7C7B', tealSoft: '#E6F4F4',
@@ -148,6 +149,11 @@ export default function CandidateDetailClient({
   const [showReqModal, setShowReqModal] = useState(false)
   const [reqKeys, setReqKeys] = useState<string[]>([])
   const [reqNote, setReqNote] = useState('')
+  // Reference SLOTS (1-3) the candidate must re-supply contact details for.
+  const [reqRefs, setReqRefs] = useState<number[]>([])
+
+  // The three referees off the application, one entry per slot.
+  const appRefs = mapApplicationReferences(a.applicant_references)
 
   const canBeginReview = status === 'application_submitted'
   const canRequestDocs = status === 'application_submitted' || status === 'in_review'
@@ -259,17 +265,24 @@ export default function CandidateDetailClient({
     setReqKeys((k) => k.includes(key) ? k.filter((x) => x !== key) : [...k, key])
   }
 
+  function toggleReqRef(slot: number) {
+    setReqRefs((s) => s.includes(slot) ? s.filter((x) => x !== slot) : [...s, slot])
+  }
+
   async function submitRequest() {
-    if (reqKeys.length === 0) { setBanner({ kind: 'warn', text: 'Select at least one document to request.' }); return }
+    if (reqKeys.length === 0 && reqRefs.length === 0) {
+      setBanner({ kind: 'warn', text: 'Select at least one document or reference to request.' })
+      return
+    }
     setBusy(true); setBanner(null)
     try {
       const res = await fetch(`/api/onboarding/candidates/${candidate.id}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'request_documents', doc_keys: reqKeys, note: reqNote.trim() }),
+        body: JSON.stringify({ action: 'request_documents', doc_keys: reqKeys, reference_slots: reqRefs, note: reqNote.trim() }),
       })
       const data = await res.json()
       if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not send the request.' }); setBusy(false); return }
-      setShowReqModal(false); setReqKeys([]); setReqNote('')
+      setShowReqModal(false); setReqKeys([]); setReqRefs([]); setReqNote('')
       setStatus('applying')
       setBanner(data.emailed
         ? { kind: 'ok', text: `Request sent to ${candidate.email}. The application is reopened for them to add documents.` }
@@ -576,7 +589,7 @@ export default function CandidateDetailClient({
             </div>
             <div style={{ padding: '20px 24px' }}>
               <p style={{ fontSize: 13.5, color: C.gray, lineHeight: 1.6, margin: '0 0 16px' }}>
-                Select the documents you need. This reopens the application for the candidate and emails them a secure link to add the items.
+                Select what you need. This reopens the application for the candidate and emails them a secure link to put it right.
               </p>
               {docTypes.map((d) => {
                 const checked = reqKeys.includes(d.key)
@@ -587,6 +600,33 @@ export default function CandidateDetailClient({
                   </label>
                 )
               })}
+              {appRefs.length > 0 && (
+                <div style={{ marginTop: 18 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: C.gray, marginBottom: 4 }}>
+                    References to correct
+                  </div>
+                  <p style={{ fontSize: 12.5, color: C.faint, lineHeight: 1.6, margin: '0 0 9px' }}>
+                    Tick any referee whose contact details are wrong or incomplete. The candidate
+                    is asked to re-enter those, not to find a different person.
+                  </p>
+                  {appRefs.map((r) => {
+                    const checked = reqRefs.includes(r.slot)
+                    return (
+                      <label key={r.slot} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '9px 12px', borderRadius: 9, marginBottom: 7, cursor: 'pointer', background: checked ? C.tealSoft : C.bg, border: `1px solid ${checked ? C.tealBtn : 'transparent'}` }}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleReqRef(r.slot)} style={{ width: 17, height: 17, flexShrink: 0, marginTop: 2 }} />
+                        <span style={{ minWidth: 0 }}>
+                          <span style={{ display: 'block', fontSize: 14, color: C.navy, fontWeight: checked ? 700 : 500 }}>
+                            {r.label}
+                          </span>
+                          <span style={{ display: 'block', fontSize: 12.5, color: C.faint, marginTop: 2, wordBreak: 'break-word' }}>
+                            {r.name || 'No name given'} — {r.email || 'no email given'}
+                          </span>
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
               <div style={{ marginTop: 14 }}>
                 <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: C.gray, marginBottom: 6 }}>Note to candidate (optional)</label>
                 <textarea value={reqNote} onChange={(e) => setReqNote(e.target.value)} placeholder="e.g. Please make sure the photo ID is not expired."

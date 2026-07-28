@@ -30,14 +30,25 @@ const SLOTS = [
   { slot: 3, type: 'character'    as const, label: 'Character Reference' },
 ]
 
+interface PrefillReference {
+  slot:  number
+  kind:  string
+  label: string
+  name:  string
+  email: string
+  phone: string
+}
+
 interface Props {
   references:   Reference[]
+  /** Referees from their candidate application. Empty if they never had one. */
+  applicationReferences?: PrefillReference[]
   caregiverId:  string
   caregiverName: string
   viewerRole:   string
 }
 
-export default function StaffReferencesCard({ references, caregiverId, caregiverName, viewerRole }: Props) {
+export default function StaffReferencesCard({ references, applicationReferences = [], caregiverId, caregiverName, viewerRole }: Props) {
   const router = useRouter()
   const [editSlot, setEditSlot]     = useState<number | null>(null)
   const [saving, setSaving]         = useState(false)
@@ -56,12 +67,28 @@ export default function StaffReferencesCard({ references, caregiverId, caregiver
   const statusLabel = (s?: string) =>
     s === 'received' ? '✓ Received' : s === 'sent' ? '⏳ Pending' : '— Not sent'
 
+  const getPrefill = (slot: number) => applicationReferences.find(p => p.slot === slot)
+
+  /** True when this slot is showing what the candidate typed, not what staff did. */
+  const isPrefilled = (slot: number) => {
+    const existing = getRef(slot)
+    const p = getPrefill(slot)
+    return !existing?.referee_email && !!(p && (p.name || p.email || p.phone))
+  }
+
   const openEdit = (slot: number) => {
     const existing = getRef(slot)
+    // Fall back to the application ONLY where staff have entered nothing. A
+    // referee someone already corrected by hand must never be overwritten by
+    // the original (often wrong) details from the application — bad contact
+    // details are exactly why Request documents can ask for them again.
+    const p = getPrefill(slot)
     setForm({
-      referee_name:  existing?.referee_name  || '',
-      referee_email: existing?.referee_email || '',
-      referee_phone: existing?.referee_phone || '',
+      referee_name:  existing?.referee_name  || p?.name  || '',
+      referee_email: existing?.referee_email || p?.email || '',
+      referee_phone: existing?.referee_phone || p?.phone || '',
+      // The application captures a job title, not an organisation, so there is
+      // nothing honest to prefill here.
       referee_org:   existing?.referee_org   || '',
     })
     setEditSlot(slot)
@@ -214,6 +241,17 @@ export default function StaffReferencesCard({ references, caregiverId, caregiver
               </button>
             </div>
             <div style={{ padding: '20px 24px' }}>
+              {isPrefilled(editSlot) && (
+                <div style={{
+                  background: '#E6F4F4', border: '1px solid #BFE0E0', borderRadius: 8,
+                  padding: '10px 13px', fontSize: 12.5, color: '#0A5C5B',
+                  lineHeight: 1.6, marginBottom: 14,
+                }}>
+                  Filled in from what the candidate entered on their application. Check it
+                  before sending — an incomplete email address here is the usual reason a
+                  reference never arrives.
+                </div>
+              )}
               <div style={{ marginBottom: 12 }}>
                 <label style={lbl}>Full Name</label>
                 <input value={form.referee_name} onChange={e => setForm(f => ({ ...f, referee_name: e.target.value }))} style={inp} placeholder="Reference's full name" />
