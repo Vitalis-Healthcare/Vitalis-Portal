@@ -3,10 +3,21 @@
 //
 // Inline styles only — no Tailwind on onboarding surfaces.
 //
-// The signature control stays disabled until the person has scrolled the
-// document frame to the end and ticked the acknowledgment. That is not
-// decoration: "I have read and understand" should have some basis in fact
-// before we record it against their name.
+// The signature control stays disabled until the person has confirmed they
+// read the agreement and ticked the acknowledgment. That is not decoration:
+// "I have read and understand" should have some basis in fact before we record
+// it against their name.
+//
+// v0.6.22-a — the confirmation used to be INFERRED, from a 1px sentinel below
+// the document frame scrolling into the parent viewport. The frame is 78vh and
+// carries its own scrollbar, so a reader scrolling the document scrolls the
+// FRAME and never the parent; Chrome does not chain that scroll outward. The
+// sentinel never fired and the Sign button could never go green. Opening the
+// document in a new tab — which this page invites — made it certain.
+//
+// The signal is now EXPLICIT: an affirmative click, which is better evidence
+// than a scroll position anyway. The sentinel is kept as a second path in, not
+// as the only one.
 
 import { useEffect, useRef, useState } from 'react'
 
@@ -43,7 +54,21 @@ export default function ContractSignClient({
   const [done, setDone] = useState(alreadySigned)
 
   const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const signCardRef = useRef<HTMLDivElement | null>(null)
   const documentUrl = `/api/onboarding/contract/document?token=${encodeURIComponent(token)}`
+
+  // Any of the three routes through the document count. Idempotent, so the
+  // sentinel firing after a click is harmless.
+  const markRead = () => setReachedEnd(true)
+
+  const confirmRead = () => {
+    setReachedEnd(true)
+    // Bring the signing card into view — on a tall frame it sits below the
+    // fold, which is half of why this felt like a dead end.
+    window.setTimeout(() => {
+      signCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 60)
+  }
 
   // The frame is same-origin but its internal scroll is not observable from
   // here in every browser, so the page itself carries the frame at full height
@@ -154,6 +179,7 @@ export default function ContractSignClient({
                 href={documentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={markRead}
                 style={{
                   fontSize: 13, color: GREEN_DARK, textDecoration: 'none',
                   fontWeight: 600, whiteSpace: 'nowrap',
@@ -176,7 +202,30 @@ export default function ContractSignClient({
 
             <div ref={sentinelRef} style={{ height: 1 }} />
 
-            <div style={{
+            {!reachedEnd && (
+              <div style={{
+                background: '#fff', border: `1px solid ${RULE}`, borderRadius: 12,
+                padding: '18px 22px', marginTop: 12, textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 13.5, color: MUTED, lineHeight: 1.65, marginBottom: 12 }}>
+                  Read the whole agreement above — scroll inside the document, or open it
+                  in a new tab. When you have finished, confirm below.
+                </div>
+                <button
+                  type="button"
+                  onClick={confirmRead}
+                  style={{
+                    padding: '11px 26px', background: GREEN_DARK, color: '#fff',
+                    border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  I have read the full agreement
+                </button>
+              </div>
+            )}
+
+            <div ref={signCardRef} style={{
               background: '#fff', border: `1px solid ${RULE}`, borderTop: `3px solid ${GREEN_DARK}`,
               borderRadius: 12, padding: '26px 28px', marginTop: 16,
             }}>
@@ -189,7 +238,8 @@ export default function ContractSignClient({
                   background: '#FBF8EC', border: '1px solid #E8DCB0', borderRadius: 8,
                   padding: '10px 14px', fontSize: 12.5, color: '#6B5A16', marginBottom: 18,
                 }}>
-                  Please scroll to the end of the document above before signing.
+                  Confirm you have read the agreement above — use the button under the
+                  document — and the signature fields will unlock.
                 </div>
               )}
 
