@@ -20,6 +20,7 @@
 // ═════════════════════════════════════════════════════════════════════════
 
 import type { BriefSection, Item, Metric } from '@/lib/brief/types'
+import { buildTrend } from '@/lib/brief/db'
 
 const KEY = 'carematch360'
 const TITLE = 'CareMatch360'
@@ -84,23 +85,19 @@ function unavailable(reason: string): BriefSection {
   }
 }
 
-export async function collectCarematch(
-  closedSince: Date,
-  closedUntil: Date
-): Promise<BriefSection> {
-  const base = process.env.CAREMATCH_STATS_URL
-  const secret = process.env.VITA_STATS_SECRET
-
-  if (!base) return unavailable('CAREMATCH_STATS_URL is not configured')
-  if (!secret) return unavailable('VITA_STATS_SECRET is not configured')
-
+/** One call to the aggregate endpoint for one window. */
+async function fetchWindow(
+  base: string,
+  secret: string,
+  since: Date,
+  until: Date
+): Promise<StatsResponse | string> {
   const url =
     base +
     (base.indexOf('?') === -1 ? '?' : '&') +
-    'since=' + encodeURIComponent(closedSince.toISOString()) +
-    '&until=' + encodeURIComponent(closedUntil.toISOString())
+    'since=' + encodeURIComponent(since.toISOString()) +
+    '&until=' + encodeURIComponent(until.toISOString())
 
-  let body: StatsResponse
   try {
     const controller = new AbortController()
     const timer = setTimeout(function () { controller.abort() }, TIMEOUT_MS)
@@ -115,16 +112,51 @@ export async function collectCarematch(
     } finally {
       clearTimeout(timer)
     }
-    if (!res.ok) {
-      return unavailable('the stats endpoint returned HTTP ' + res.status)
-    }
-    body = (await res.json()) as StatsResponse
+    if (!res.ok) return 'the stats endpoint returned HTTP ' + res.status
+    return (await res.json()) as StatsResponse
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return unavailable(msg)
+    return e instanceof Error ? e.message : String(e)
   }
+}
+
+export async function collectCarematch(
+  closedSince: Date,
+  closedUntil: Date
+): Promise<BriefSection> {
+  const base = process.env.CAREMATCH_STATS_URL
+  const secret = process.env.VITA_STATS_SECRET
+
+  if (!base) return unavailable('CAREMATCH_STATS_URL is not configured')
+  if (!secret) return unavailable('VITA_STATS_SECRET is not configured')
+
+  // Three windows in parallel. The endpoint is cheap and read-only, so
+  // three calls cost less than adding a multi-window mode to CareMatch360
+  // and redeploying it.
+  const t = buildTrend(closedSince, closedUntil)
+  const settled = await Promise.all([
+    fetchWindow(base, secret, new Date(t.thisWeek.since), new Date(t.thisWeek.until)),
+    fetchWindow(base, secret, new Date(t.lastWeek.since), new Date(t.lastWeek.until)),
+    fetchWindow(base, secret, new Date(t.monthToDate.since), new Date(t.monthToDate.until)),
+  ])
+
+  if (typeof settled[0] === 'string') return unavailable(settled[0])
+  const body = settled[0] as StatsResponse
+  const prior = typeof settled[1] === 'string' ? null : (settled[1] as StatsResponse)
+  const mtd = typeof settled[2] === 'string' ? null : (settled[2] as StatsResponse)
 
   const warnings: string[] = []
+  if (typeof settled[1] === 'string' || typeof settled[2] === 'string') {
+    warnings.push('CareMatch360: comparison figures unavailable, so this week has no context')
+  }
+
+  /** "last week 4 - month to date 11", or null when we could not get them. */
+  const compare = function (pick: (r: StatsResponse) => number | null | undefined): string | null {
+    if (!prior || !mtd) return null
+    const a = pick(prior)
+    const b = pick(mtd)
+    if (typeof a !== 'number' || typeof b !== 'number') return null
+    return 'last week ' + a + ' \u00b7 month to date ' + b
+  }
   if (Array.isArray(body.warnings)) {
     for (let i = 0; i < body.warnings.length; i++) {
       warnings.push('CareMatch360: ' + body.warnings[i])
@@ -148,7 +180,10 @@ export async function collectCarematch(
     headline.push({
       label: 'New cases this week',
       value: typeof c.new_in_window === 'number' ? c.new_in_window : null,
-      hint: c.new_in_window === null ? 'not available' : null,
+      hint:
+        c.new_in_window === null
+          ? 'not available'
+          : compare(function (r) { return r.cases ? r.cases.new_in_window : null }),
     })
     headline.push({ label: 'Cases in play', value: live, hint: 'lead, open, matching or matched' })
     headline.push({ label: 'Assigned', value: assigned, hint: 'of ' + total + ' cases ever created' })
@@ -166,7 +201,10 @@ export async function collectCarematch(
     headline.push({
       label: 'New providers this week',
       value: typeof p.new_in_window === 'number' ? p.new_in_window : null,
-      hint: p.new_in_window === null ? 'not available' : null,
+      hint:
+        p.new_in_window === null
+          ? 'not available'
+          : compare(function (r) { return r.providers ? r.providers.new_in_window : null }),
     })
     headline.push({
       label: 'Provider pool',
