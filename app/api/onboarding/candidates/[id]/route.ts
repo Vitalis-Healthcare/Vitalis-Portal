@@ -160,7 +160,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const rawToken = crypto.randomBytes(32).toString('hex')
     const expires = new Date(Date.now() + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
     await svc.from('onb_candidates')
-      .update({ status: 'applying', access_token: hashToken(rawToken), token_expires_at: expires, updated_at: nowIso })
+      .update({
+        status: 'applying',
+        access_token: hashToken(rawToken),
+        token_expires_at: expires,
+        updated_at: nowIso,
+        // Reopening the application invalidates any prior acceptance: the
+        // coordinator approved the documents that WERE on file, not the ones
+        // about to arrive. She re-confirms once the new set lands.
+        documents_accepted_at: null,
+        documents_accepted_by: null,
+        documents_accepted_note: null,
+      })
       .eq('id', cand.id)
 
     const link = `${PORTAL_URL}/onboarding/application?token=${rawToken}`

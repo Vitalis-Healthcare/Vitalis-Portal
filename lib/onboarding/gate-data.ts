@@ -13,17 +13,19 @@ export async function loadGateInput(candidateId: string): Promise<GateInput | nu
   let candidateStatus: string | null = null
   let licenseWaivedAt: string | null = null
   let licenseWaiverReason: string | null = null
+  let documentsAcceptedAt: string | null = null
 
   try {
     const { data, error } = await svc
       .from('onb_candidates')
-      .select('id, status, license_waived_at, license_waiver_reason')
+      .select('id, status, license_waived_at, license_waiver_reason, documents_accepted_at')
       .eq('id', candidateId)
       .maybeSingle()
     if (error || !data) return null
     candidateStatus = data.status ?? null
     licenseWaivedAt = data.license_waived_at ?? null
     licenseWaiverReason = data.license_waiver_reason ?? null
+    documentsAcceptedAt = data.documents_accepted_at ?? null
   } catch {
     return null
   }
@@ -71,6 +73,7 @@ export async function loadGateInput(candidateId: string): Promise<GateInput | nu
     credentialType,
     licenseWaivedAt,
     licenseWaiverReason,
+    documentsAcceptedAt,
     docTypes,
     contractSignedAt,
   }

@@ -37,6 +37,8 @@ export interface GateInput {
   licenseWaiverReason: string | null
   /** doc_type values currently on file for this candidate. */
   docTypes: string[]
+  /** Set when the coordinator has signed off that the documents are adequate. */
+  documentsAcceptedAt?: string | null
   /** Set when a signed agreement exists. */
   contractSignedAt?: string | null
 }
@@ -131,6 +133,23 @@ export function evaluateContractGate(i: GateInput): GateResult {
         'The candidate can add it by reopening their application through Request documents, or you can upload it here yourself if they gave it to you on paper.',
       fixHref: credsHref,
       fixLabel: 'Upload on their behalf',
+    })
+  }
+
+  // ── The human half of the document check ─────────────────────────────────
+  // The three required uploads above are machine-checkable. Whether the file is
+  // actually adequate is a judgement, and judgements cannot be derived — so the
+  // gate reads an explicit sign-off rather than inferring satisfaction from the
+  // presence of files. Cleared automatically whenever Request documents reopens
+  // the application, so approval of one set never silently covers a later one.
+  if (!i.documentsAcceptedAt) {
+    blockers.push({
+      code: 'documents_not_accepted',
+      label: 'The documents have not been reviewed and accepted',
+      detail:
+        'Open the documents, check they are legible, current and belong to this person, then record your acceptance on the candidate page. This is the step that says a human looked, not just that files exist.',
+      fixHref: `/candidates/${i.candidateId}`,
+      fixLabel: 'Review the documents',
     })
   }
 
