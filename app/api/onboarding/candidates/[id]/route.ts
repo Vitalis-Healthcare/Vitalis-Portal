@@ -8,15 +8,21 @@
 //   - record_paper_application: documents-only attestation that a paper (or
 //                        prior AxisCare) application is on file (v0.6.36)
 //   - send_test:         email the competency-test link on any track (v0.6.36)
+//   - update_contact:    fix a mistyped name/email; an email change revokes any
+//                        previously emailed links and can re-invite (v0.6.37)
+// DELETE removes a mistaken candidate entirely (admin/supervisor, never a
+// converted one). Child rows cascade in the database; the Storage objects
+// behind their documents are removed here first, because a cascade cannot
+// reach the bucket.
 // Auth happens inside the handler (this repo has no middleware): getUser() +
 // role check via the service client.
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { ONB_DOCUMENT_TYPES, docTypeLabel } from '@/lib/onboarding/documents'
+import { DOCUMENTS_BUCKET, ONB_DOCUMENT_TYPES, docTypeLabel } from '@/lib/onboarding/documents'
 import { CANDIDATE_TRACKS, REFERENCE_SLOTS, normalizeTrack } from '@/lib/onboarding/application'
-import { sendOnboardingInvite } from '@/lib/onboarding/invite-email'
+import { sendOnboardingInvite, variantForTrack } from '@/lib/onboarding/invite-email'
 
 export const dynamic = 'force-dynamic'
 
@@ -116,7 +122,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, email, status, track, paper_application_at, converted_to_profile_id')
+    .select('id, first_name, last_name, email, status, track, paper_application_at, converted_to_profile_id')
     .eq('id', id)
     .single()
   if (!cand) return NextResponse.json({ error: 'Candidate not found.' }, { status: 404 })
@@ -124,6 +130,53 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}))
   const action = body.action
   const nowIso = new Date().toISOString()
+
+  if (action === 'update_contact') {
+    if (cand.status === 'converted' || cand.converted_to_profile_id) {
+      return NextResponse.json({ error: 'This candidate has been converted; their contact details now live on the portal account.' }, { status: 409 })
+    }
+    const first_name = (body.first_name || '').trim()
+    const last_name = (body.last_name || '').trim()
+    const email = (body.email || '').trim().toLowerCase()
+    if (!first_name || !last_name) return NextResponse.json({ error: 'First and last name are required.' }, { status: 400 })
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 })
+
+    const emailChanged = email !== (cand.email || '').toLowerCase()
+    const resend = emailChanged && body.resend === true
+    const update: Record<string, unknown> = { first_name, last_name, email, updated_at: nowIso }
+
+    let rawToken = ''
+    if (emailChanged) {
+      // Whatever link was emailed before went to the OLD address — possibly a
+      // stranger. Revoke it unconditionally. With resend we mint a fresh token
+      // for the corrected address; without, the token is cleared and the list
+      // action reads "Invite" again.
+      if (resend) {
+        rawToken = crypto.randomBytes(32).toString('hex')
+        update.access_token = hashToken(rawToken)
+        update.token_expires_at = new Date(Date.now() + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+      } else {
+        update.access_token = null
+        update.token_expires_at = null
+      }
+    }
+
+    const { error: upErr } = await svc.from('onb_candidates').update(update).eq('id', cand.id)
+    if (upErr) {
+      console.error('[candidate-review] update_contact failed:', upErr.message)
+      return NextResponse.json({ error: 'Could not save the changes. Please try again.' }, { status: 500 })
+    }
+
+    let emailed = false
+    if (resend && rawToken) {
+      const sent = await sendOnboardingInvite({
+        to: email, firstName: first_name, rawToken,
+        variant: variantForTrack(normalizeTrack(cand.track)),
+      })
+      emailed = sent.ok
+    }
+    return NextResponse.json({ success: true, first_name, last_name, email, emailChanged, emailed })
+  }
 
   if (action === 'set_track') {
     const next = String(body.track || '')
@@ -252,4 +305,55 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
+  // ── Admin/supervisor gate — deleting a person's record is not a coordinator action ──
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  const svc = createServiceClient()
+  const { data: profile } = await svc.from('profiles').select('role').eq('id', user.id).single()
+  const role = profile?.role
+  if (!(role === 'admin' || role === 'supervisor')) {
+    return NextResponse.json({ error: 'Only an administrator can delete a candidate.' }, { status: 403 })
+  }
+
+  const { data: cand } = await svc
+    .from('onb_candidates')
+    .select('id, first_name, last_name, status, converted_to_profile_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (!cand) return NextResponse.json({ error: 'Candidate not found.' }, { status: 404 })
+  if (cand.status === 'converted' || cand.converted_to_profile_id) {
+    return NextResponse.json({ error: 'This candidate was converted to a caregiver. Their record is part of the compliance file now — manage the account in User Management instead.' }, { status: 409 })
+  }
+
+  // The database cascades every child row (attempts, certificate, application,
+  // document rows, agreements, conversion requests). The FILES behind the
+  // document rows live in Storage, which no cascade can reach — remove them
+  // first, while the rows still tell us the paths.
+  const { data: docs } = await svc
+    .from('onb_documents')
+    .select('storage_path')
+    .eq('candidate_id', cand.id)
+  const paths = (Array.isArray(docs) ? docs : [])
+    .map((d) => d.storage_path)
+    .filter((v): v is string => typeof v === 'string' && v.length > 0)
+  if (paths.length > 0) {
+    const { error: rmErr } = await svc.storage.from(DOCUMENTS_BUCKET).remove(paths)
+    // Report and continue: an orphaned object in a private bucket is a lesser
+    // evil than a delete that half-fails and strands the record.
+    if (rmErr) console.error('[candidate-delete] storage cleanup failed:', rmErr.message)
+  }
+
+  const { error: delErr } = await svc.from('onb_candidates').delete().eq('id', cand.id)
+  if (delErr) {
+    console.error('[candidate-delete] delete failed:', delErr.message)
+    return NextResponse.json({ error: 'Could not delete the candidate. Please try again.' }, { status: 500 })
+  }
+  return NextResponse.json({ success: true })
 }
