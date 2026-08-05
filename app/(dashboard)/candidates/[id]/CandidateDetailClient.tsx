@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck, ShieldCheck, Send, Undo2 } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck, ShieldCheck, Send, Undo2, Trash2 } from 'lucide-react'
 import { docTypeLabel, type DocTypeDef } from '@/lib/onboarding/documents'
 import type { Blocker } from '@/lib/onboarding/gates'
 import { mapApplicationReferences } from '@/lib/onboarding/application-references'
@@ -182,6 +182,16 @@ export default function CandidateDetailClient({
   const [paperOpen, setPaperOpen] = useState(false)
   const [paperDraft, setPaperDraft] = useState('')
   const [testSending, setTestSending] = useState(false)
+  const [contactFirst, setContactFirst] = useState(candidate.first_name)
+  const [contactLast, setContactLast] = useState(candidate.last_name)
+  const [contactEmail, setContactEmail] = useState(candidate.email)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editFirst, setEditFirst] = useState(candidate.first_name)
+  const [editLast, setEditLast] = useState(candidate.last_name)
+  const [editEmail, setEditEmail] = useState(candidate.email)
+  const [editResend, setEditResend] = useState(true)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [acceptOpen, setAcceptOpen] = useState(false)
   const [acceptNote, setAcceptNote] = useState('')
   const [returnOpen, setReturnOpen] = useState(false)
@@ -199,6 +209,10 @@ export default function CandidateDetailClient({
   const testDone = !!attempt && (!!attempt.first_passed || !!attempt.mastery_reached)
   const canSendTest = !testDone && !convertedId && status !== 'withdrawn' && status !== 'converted'
   const canRecordPaper = track === 'documents_only' && !paperAt && !convertedId && status !== 'withdrawn'
+  const canEditContact = !convertedId && status !== 'converted'
+  const canDelete = (viewerRole === 'admin' || viewerRole === 'supervisor') && !convertedId && status !== 'converted'
+  const editEmailChanged = editEmail.trim().toLowerCase() !== contactEmail.trim().toLowerCase()
+  const deleteConfirmed = deleteConfirmText.trim().toLowerCase() === contactFirst.trim().toLowerCase()
 
   const canBeginReview = status === 'application_submitted'
   const canRequestDocs = status === 'application_submitted' || status === 'in_review'
@@ -208,6 +222,48 @@ export default function CandidateDetailClient({
   // decide. Both run the same gate, so neither is a shortcut past credentialing.
   const canConvert = isAdmin && !convertedId && (status === 'in_review' || status === 'axiscare_created')
   const canRequestApproval = !isAdmin && !convertedId && (status === 'in_review' || status === 'axiscare_created')
+
+  async function saveContact() {
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_contact',
+          first_name: editFirst.trim(), last_name: editLast.trim(), email: editEmail.trim(),
+          resend: editEmailChanged && editResend,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not save the changes.' }); return }
+      setContactFirst(data.first_name); setContactLast(data.last_name); setContactEmail(data.email)
+      setEditOpen(false)
+      setBanner(data.emailChanged
+        ? (data.emailed
+            ? { kind: 'ok', text: `Contact updated. The old emailed links no longer work; a fresh invite went to ${data.email}.` }
+            : { kind: 'ok', text: `Contact updated. The old emailed links no longer work — use Invite on the candidates list when you are ready to email ${data.email}.` })
+        : { kind: 'ok', text: 'Contact details updated.' })
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function deleteCandidate() {
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not delete the candidate.' }); setBusy(false); return }
+      router.push('/candidates')
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+      setBusy(false)
+    }
+  }
 
   async function changeTrack(next: string) {
     if (next === track) return
@@ -541,7 +597,7 @@ export default function CandidateDetailClient({
       <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 14, padding: '22px 24px', display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: 23, fontWeight: 800, color: C.navy, margin: 0 }}>{candidate.first_name} {candidate.last_name}</h1>
+            <h1 style={{ fontSize: 23, fontWeight: 800, color: C.navy, margin: 0 }}>{contactFirst} {contactLast}</h1>
             <Badge status={status} />
             <select
               value={track}
@@ -557,7 +613,17 @@ export default function CandidateDetailClient({
               <option value="documents_only">Documents only</option>
             </select>
           </div>
-          <div style={{ color: C.gray, fontSize: 14, marginTop: 6 }}>{candidate.email}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.gray, fontSize: 14, marginTop: 6 }}>
+            <span>{contactEmail}</span>
+            {canEditContact && (
+              <button
+                onClick={() => { setEditFirst(contactFirst); setEditLast(contactLast); setEditEmail(contactEmail); setEditResend(true); setEditOpen(true); setBanner(null) }}
+                title="Edit this candidate's name or email"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 7, color: C.teal, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                <Pencil size={11} /> Edit
+              </button>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 13 }}>
           <div><div style={{ color: C.faint, fontWeight: 700, fontSize: 11, textTransform: 'uppercase' }}>Invited</div><div style={{ color: C.navy }}>{fmtDate(candidate.invited_at)}</div></div>
@@ -763,7 +829,101 @@ export default function CandidateDetailClient({
             <UserCheck size={16} /> Convert to caregiver
           </button>
         ) : null}
+        {canDelete && (
+          <button onClick={() => { setDeleteConfirmText(''); setDeleteOpen(true); setBanner(null) }} disabled={busy}
+            title="Delete this candidate and everything attached to them. This cannot be undone."
+            style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: '#fff', border: '1px solid #E3C9C9', color: C.red, cursor: busy ? 'default' : 'pointer' }}>
+            <Trash2 size={15} /> Delete
+          </button>
+        )}
       </div>
+
+      {editOpen && (
+        <div onClick={() => !busy && setEditOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(16,30,48,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 440, boxShadow: '0 20px 50px rgba(16,30,48,0.25)' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #EFF2F5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: C.navy, margin: 0 }}>Edit candidate</h2>
+              <button onClick={() => !busy && setEditOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.faint }}><X size={20} /></button>
+            </div>
+            <div style={{ padding: '22px 24px' }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.gray, marginBottom: 6 }}>First name</label>
+                  <input value={editFirst} onChange={(e) => setEditFirst(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.gray, marginBottom: 6 }}>Last name</label>
+                  <input value={editLast} onChange={(e) => setEditLast(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, boxSizing: 'border-box' }} />
+                </div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.gray, marginBottom: 6 }}>Email</label>
+                <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} type="email"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, boxSizing: 'border-box' }} />
+              </div>
+              {editEmailChanged && (
+                <div style={{ background: '#FEF3E2', border: '1px solid #F4D9A8', borderRadius: 9, padding: '11px 14px', marginBottom: 4 }}>
+                  <div style={{ fontSize: 12.5, color: '#B26A00', lineHeight: 1.6, marginBottom: 8 }}>
+                    Changing the email revokes every link that was emailed before — whoever received them
+                    loses access the moment you save.
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: C.gray, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={editResend} onChange={(e) => setEditResend(e.target.checked)} style={{ marginTop: 2 }} />
+                    <span>Email a fresh invite to the new address now</span>
+                  </label>
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #EFF2F5', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => !busy && setEditOpen(false)}
+                style={{ padding: '10px 18px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 9, color: C.gray, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={saveContact} disabled={busy}
+                style={{ padding: '10px 22px', background: 'linear-gradient(135deg,#0E7C7B,#1A9B87)', border: 'none', borderRadius: 9, color: '#fff', fontSize: 14, fontWeight: 700, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1 }}>
+                {busy ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteOpen && (
+        <div onClick={() => !busy && setDeleteOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(16,30,48,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 460, boxShadow: '0 20px 50px rgba(16,30,48,0.25)' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #EFF2F5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: C.red, margin: 0 }}>Delete this candidate?</h2>
+              <button onClick={() => !busy && setDeleteOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.faint }}><X size={20} /></button>
+            </div>
+            <div style={{ padding: '22px 24px' }}>
+              <p style={{ fontSize: 13.5, color: C.gray, lineHeight: 1.7, margin: '0 0 12px' }}>
+                This permanently removes <strong>{contactFirst} {contactLast}</strong> and everything attached
+                to them — test attempt and certificate, application, uploaded documents and their files,
+                agreements, and approval history. <strong>It cannot be undone.</strong>
+              </p>
+              <p style={{ fontSize: 12.5, color: C.faint, lineHeight: 1.65, margin: '0 0 16px' }}>
+                For a candidate who simply stepped away, prefer leaving the record in place — delete is for
+                records created by mistake.
+              </p>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 6 }}>
+                Type the candidate&rsquo;s first name ({contactFirst}) to confirm
+              </label>
+              <input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #EFF2F5', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => !busy && setDeleteOpen(false)}
+                style={{ padding: '10px 18px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 9, color: C.gray, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={deleteCandidate} disabled={busy || !deleteConfirmed}
+                style={{ padding: '10px 22px', background: deleteConfirmed ? '#9B3B3B' : '#D8B9B9', border: 'none', borderRadius: 9, color: '#fff', fontSize: 14, fontWeight: 700, cursor: deleteConfirmed && !busy ? 'pointer' : 'not-allowed' }}>
+                {busy ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {paperOpen && canRecordPaper && (
         <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px 22px', marginTop: 16 }}>
