@@ -6,8 +6,9 @@
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
-  APPLICATION_EDITABLE_STATUSES,
   APPLICATION_SUBMITTED_STATUSES,
+  isApplicationEditable,
+  normalizeTrack,
   applicationRowToData,
   type ApplicationData,
 } from '@/lib/onboarding/application'
@@ -54,7 +55,7 @@ export default async function ApplicationPage({ searchParams }: { searchParams: 
   const svc = createServiceClient()
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, last_name, email, status, token_expires_at')
+    .select('id, first_name, last_name, email, status, track, token_expires_at')
     .eq('access_token', hashToken(token))
     .single()
 
@@ -65,8 +66,10 @@ export default async function ApplicationPage({ searchParams }: { searchParams: 
 
   const status: string = cand.status || ''
 
-  // Not yet eligible — they still need to pass the competency test first.
-  if (status === 'invited' || status === 'testing') {
+  // Not yet eligible — on the FULL track the competency test comes first. On
+  // the application-only and documents-only tracks nothing stands in front of
+  // the application, so these statuses fall through to the form.
+  if ((status === 'invited' || status === 'testing') && normalizeTrack(cand.track) === 'full') {
     return (
       <Notice
         title="Please complete your competency test first"
@@ -81,7 +84,7 @@ export default async function ApplicationPage({ searchParams }: { searchParams: 
     return <Notice title="This application is closed" body="If you believe this is a mistake, please contact the Vitalis office." />
   }
 
-  const editable = (APPLICATION_EDITABLE_STATUSES as readonly string[]).includes(status)
+  const editable = isApplicationEditable(status, cand.track)
   const submitted = (APPLICATION_SUBMITTED_STATUSES as readonly string[]).includes(status)
   // axiscare_created / converted: already advanced — treat as submitted/read-only.
   const readOnly = !editable

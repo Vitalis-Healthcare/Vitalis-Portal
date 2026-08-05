@@ -8,6 +8,36 @@ export const APPLICATION_EDITABLE_STATUSES = ['test_passed', 'applying'] as cons
 // Statuses where the candidate has finished and is awaiting / under staff review.
 export const APPLICATION_SUBMITTED_STATUSES = ['application_submitted', 'in_review'] as const
 
+// ── Invite tracks (v0.6.35) ─────────────────────────────────────────────────
+// 'full'             — today's flow: competency test first, then the application.
+// 'application_only' — the test is skipped or deferred; the invite links
+//                      straight to the application.
+// 'documents_only'   — a paper application is on file; the candidate only
+//                      uploads documents (candidate page lands in v0.6.36).
+export const CANDIDATE_TRACKS = ['full', 'application_only', 'documents_only'] as const
+export type CandidateTrack = (typeof CANDIDATE_TRACKS)[number]
+
+/** Coerce anything (null, an unknown string, a typo) to a valid track. */
+export function normalizeTrack(t: unknown): CandidateTrack {
+  return (CANDIDATE_TRACKS as readonly string[]).includes(String(t))
+    ? (t as CandidateTrack)
+    : 'full'
+}
+
+/**
+ * Whether the candidate may edit their application right now. On the full
+ * track the test comes first, so 'invited'/'testing' are not editable. On the
+ * other tracks nothing stands in front of the application, so a candidate who
+ * is still 'invited' — or 'testing' after a mid-test track switch — may write
+ * to it. Used by BOTH the public page and the save/submit route so the two can
+ * never disagree.
+ */
+export function isApplicationEditable(status: string | null, track: string | null): boolean {
+  const s = status || ''
+  if ((APPLICATION_EDITABLE_STATUSES as readonly string[]).includes(s)) return true
+  return normalizeTrack(track) !== 'full' && (s === 'invited' || s === 'testing')
+}
+
 // 'None' replaces the old 'UA' (unlicensed assistant) — clearer for applicants
 // who would not recognize the "UA" abbreviation.
 export const CREDENTIAL_TYPES = ['None', 'CNA', 'GNA', 'CMT', 'LPN', 'RN', 'PT', 'OT', 'ST'] as const
