@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const svc = createServiceClient()
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, last_name, email, token_expires_at')
+    .select('id, first_name, last_name, email, status, token_expires_at')
     .eq('access_token', hashToken(token))
     .single()
   if (!cand) return NextResponse.json({ error: 'invalid_token' }, { status: 404 })
@@ -75,10 +75,18 @@ export async function POST(req: NextRequest) {
     completed_at: passed ? nowIso : null,
   })
 
+  // Only candidates for whom the test is the CURRENT step advance/regress by
+  // it. A deferred test (sent to someone already applying or in review, on any
+  // track) records its facts without moving the pipeline backward.
+  const testIsCurrentStep = cand.status === 'invited' || cand.status === 'testing'
   await svc.from('onb_candidates')
     .update(passed
-      ? { status: 'test_passed', test_passed_at: nowIso, updated_at: nowIso }
-      : { status: 'testing', updated_at: nowIso })
+      ? (testIsCurrentStep
+          ? { status: 'test_passed', test_passed_at: nowIso, updated_at: nowIso }
+          : { test_passed_at: nowIso, updated_at: nowIso })
+      : (testIsCurrentStep
+          ? { status: 'testing', updated_at: nowIso }
+          : { updated_at: nowIso }))
     .eq('id', cand.id)
 
   if (passed) {

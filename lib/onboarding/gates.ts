@@ -11,6 +11,7 @@ import {
   CJIS_DOC_TYPE, MBON_DOC_TYPE, ONB_ON_BEHALF_DOCUMENT_TYPES,
   REQUIRED_CANDIDATE_DOC_TYPES,
 } from '@/lib/onboarding/staff-documents'
+import { normalizeTrack } from '@/lib/onboarding/application'
 
 /** Candidate statuses that mean the application is in and under review. */
 export const APPLICATION_IN_STATUSES = [
@@ -36,6 +37,10 @@ export interface Blocker {
 export interface GateInput {
   candidateId: string
   candidateStatus: string | null
+  /** onb_candidates.track — 'full' | 'application_only' | 'documents_only'. */
+  track: string | null
+  /** Set when a coordinator recorded that a paper application is on file. */
+  paperApplicationAt?: string | null
   /** onb_applications.credential_type — 'None', 'CNA', 'GNA', 'CMT', 'LPN', 'RN', … */
   credentialType: string | null
   licenseWaivedAt: string | null
@@ -77,15 +82,31 @@ export function evaluateContractGate(i: GateInput): GateResult {
   const has = (t: string) => i.docTypes.includes(t)
   const credsHref = `/candidates/${i.candidateId}/credentials`
 
-  if (!(APPLICATION_IN_STATUSES as readonly string[]).includes(i.candidateStatus || '')) {
-    blockers.push({
-      code: 'application_not_submitted',
-      label: 'The application has not been submitted',
-      detail:
-        'The candidate still has to finish and submit their application. Until then there is nothing to review, and no position or rate to put on an agreement.',
-      fixHref: `/candidates/${i.candidateId}`,
-      fixLabel: 'Open candidate',
-    })
+  // On the documents-only track a recorded paper application stands in for a
+  // submitted online one — that is the whole point of the track. Everything
+  // else in this gate (CJIS, license, required documents, acceptance) still
+  // applies in full to every track.
+  const paperOnFile = normalizeTrack(i.track) === 'documents_only' && !!i.paperApplicationAt
+  if (!paperOnFile && !(APPLICATION_IN_STATUSES as readonly string[]).includes(i.candidateStatus || '')) {
+    if (normalizeTrack(i.track) === 'documents_only') {
+      blockers.push({
+        code: 'paper_application_not_recorded',
+        label: 'The paper application has not been recorded on file',
+        detail:
+          'This candidate is on the documents-only track, so there is no online application to wait for. Record that their paper (or prior AxisCare) application is on file, and where it lives, on the candidate page.',
+        fixHref: `/candidates/${i.candidateId}`,
+        fixLabel: 'Open candidate',
+      })
+    } else {
+      blockers.push({
+        code: 'application_not_submitted',
+        label: 'The application has not been submitted',
+        detail:
+          'The candidate still has to finish and submit their application. Until then there is nothing to review, and no position or rate to put on an agreement.',
+        fixHref: `/candidates/${i.candidateId}`,
+        fixLabel: 'Open candidate',
+      })
+    }
   }
 
   if (!has(CJIS_DOC_TYPE)) {

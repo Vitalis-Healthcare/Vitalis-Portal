@@ -7,10 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
-  APPLICATION_EDITABLE_STATUSES,
-} from '@/lib/onboarding/application'
-import {
   DOCUMENTS_BUCKET, MAX_FILE_BYTES, isAcceptedMime, safeFileName, ONB_DOCUMENT_TYPES,
+  canUploadDocuments,
 } from '@/lib/onboarding/documents'
 
 export const dynamic = 'force-dynamic'
@@ -25,14 +23,14 @@ async function candidateForToken(svc: Svc, token: string) {
   if (!token) return { error: 'Missing token.', status: 400 as const }
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, status, token_expires_at')
+    .select('id, status, track, token_expires_at')
     .eq('access_token', hashToken(token))
     .single()
   if (!cand) return { error: 'invalid_token', status: 404 as const }
   if (cand.token_expires_at && new Date(cand.token_expires_at) < new Date()) {
     return { error: 'expired_token', status: 410 as const }
   }
-  if (!(APPLICATION_EDITABLE_STATUSES as readonly string[]).includes(cand.status || '')) {
+  if (!canUploadDocuments(cand.status || '', cand.track)) {
     return { error: 'not_editable', status: 409 as const }
   }
   return { cand }

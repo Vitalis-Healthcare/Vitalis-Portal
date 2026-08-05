@@ -25,7 +25,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
 
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, last_name, email, status, invited_at, created_at, test_passed_at, application_submitted_at, axiscare_pushed_at, axiscare_applicant_id, axiscare_login_sent_at, converted_to_profile_id, documents_accepted_at, documents_accepted_by, documents_accepted_note')
+    .select('id, first_name, last_name, email, status, track, invited_at, created_at, test_passed_at, application_submitted_at, axiscare_pushed_at, axiscare_applicant_id, axiscare_login_sent_at, converted_to_profile_id, documents_accepted_at, documents_accepted_by, documents_accepted_note, paper_application_at, paper_application_by, paper_application_note')
     .eq('id', id)
     .maybeSingle()
   if (!cand) notFound()
@@ -65,7 +65,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
 
   // Resolve the names behind the ids in one query rather than one per row.
   const actorIds = Array.from(new Set(
-    [pendingRequest?.requested_by, lastReturned?.decided_by, cand.documents_accepted_by]
+    [pendingRequest?.requested_by, lastReturned?.decided_by, cand.documents_accepted_by, cand.paper_application_by]
       .filter((v): v is string => typeof v === 'string' && v.length > 0),
   ))
   const actorNames: Record<string, string> = {}

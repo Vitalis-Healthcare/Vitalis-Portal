@@ -33,6 +33,7 @@ const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
 
 type Candidate = {
   id: string; first_name: string; last_name: string; email: string; status: string
+  track: string
   invited_at: string | null; created_at: string | null
   test_passed_at: string | null; application_submitted_at: string | null; axiscare_pushed_at: string | null
   axiscare_applicant_id: number | null
@@ -41,6 +42,9 @@ type Candidate = {
   documents_accepted_at: string | null
   documents_accepted_by: string | null
   documents_accepted_note: string | null
+  paper_application_at: string | null
+  paper_application_by: string | null
+  paper_application_note: string | null
 }
 type ConversionRequest = {
   id: string
@@ -172,6 +176,12 @@ export default function CandidateDetailClient({
   const [reqRefs, setReqRefs] = useState<number[]>([])
   const [docsAcceptedAt, setDocsAcceptedAt] = useState<string | null>(candidate.documents_accepted_at)
   const [docsAcceptedNote, setDocsAcceptedNote] = useState<string | null>(candidate.documents_accepted_note)
+  const [track, setTrack] = useState<string>(candidate.track || 'full')
+  const [paperAt, setPaperAt] = useState<string | null>(candidate.paper_application_at)
+  const [paperNote, setPaperNote] = useState<string | null>(candidate.paper_application_note)
+  const [paperOpen, setPaperOpen] = useState(false)
+  const [paperDraft, setPaperDraft] = useState('')
+  const [testSending, setTestSending] = useState(false)
   const [acceptOpen, setAcceptOpen] = useState(false)
   const [acceptNote, setAcceptNote] = useState('')
   const [returnOpen, setReturnOpen] = useState(false)
@@ -184,6 +194,12 @@ export default function CandidateDetailClient({
   // The three referees off the application, one entry per slot.
   const appRefs = mapApplicationReferences(a.applicant_references)
 
+  // The competency test can be (re)sent on any track until it is completed —
+  // deferred testing is the point of the application-only track.
+  const testDone = !!attempt && (!!attempt.first_passed || !!attempt.mastery_reached)
+  const canSendTest = !testDone && !convertedId && status !== 'withdrawn' && status !== 'converted'
+  const canRecordPaper = track === 'documents_only' && !paperAt && !convertedId && status !== 'withdrawn'
+
   const canBeginReview = status === 'application_submitted'
   const canRequestDocs = status === 'application_submitted' || status === 'in_review'
   const canPushAxiscare = !axiscareId && (status === 'application_submitted' || status === 'in_review')
@@ -192,6 +208,66 @@ export default function CandidateDetailClient({
   // decide. Both run the same gate, so neither is a shortcut past credentialing.
   const canConvert = isAdmin && !convertedId && (status === 'in_review' || status === 'axiscare_created')
   const canRequestApproval = !isAdmin && !convertedId && (status === 'in_review' || status === 'axiscare_created')
+
+  async function changeTrack(next: string) {
+    if (next === track) return
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_track', track: next }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not change the track.' }); return }
+      setTrack(data.track)
+      setBanner({ kind: 'ok', text: 'Onboarding track updated. Invite emails and candidate pages follow the new track from now on.' })
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function recordPaperApplication() {
+    setBusy(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'record_paper_application', note: paperDraft.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not record the paper application.' }); return }
+      setPaperAt(data.paper_application_at)
+      setPaperNote(data.note)
+      if (data.status) setStatus(data.status)
+      setPaperOpen(false); setPaperDraft('')
+      setBanner({ kind: 'ok', text: 'Paper application recorded. It now stands in for a submitted online application.' })
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function sendTest() {
+    setTestSending(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_test' }),
+      })
+      const data = await res.json()
+      setBanner(res.ok && data.emailed
+        ? { kind: 'ok', text: `Competency test link emailed to ${candidate.email}. It replaces any older emailed links.` }
+        : { kind: 'warn', text: data.error || 'Could not send the test link.' })
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally {
+      setTestSending(false)
+    }
+  }
 
   async function beginReview() {
     setBusy(true); setBanner(null)
@@ -467,6 +543,19 @@ export default function CandidateDetailClient({
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 23, fontWeight: 800, color: C.navy, margin: 0 }}>{candidate.first_name} {candidate.last_name}</h1>
             <Badge status={status} />
+            <select
+              value={track}
+              onChange={(e) => changeTrack(e.target.value)}
+              disabled={busy || !!convertedId}
+              title="Onboarding track. Switching changes which page the candidate's invite links open."
+              style={{
+                padding: '4px 8px', borderRadius: 999, border: `1px solid ${C.border}`,
+                background: '#FDF2E5', color: '#A05A17', fontSize: 12, fontWeight: 700, cursor: convertedId ? 'default' : 'pointer',
+              }}>
+              <option value="full">Full onboarding</option>
+              <option value="application_only">Application only</option>
+              <option value="documents_only">Documents only</option>
+            </select>
           </div>
           <div style={{ color: C.gray, fontSize: 14, marginTop: 6 }}>{candidate.email}</div>
         </div>
@@ -594,6 +683,28 @@ export default function CandidateDetailClient({
           }}>
           <Mail size={16} /> Request documents
         </button>
+        {canSendTest && (
+          <button onClick={sendTest} disabled={busy || testSending}
+            title="Email the competency-test link. It replaces any older emailed links for this candidate."
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+              background: '#fff', border: `1px solid ${C.border}`, color: C.teal,
+              cursor: busy || testSending ? 'default' : 'pointer', opacity: busy || testSending ? 0.6 : 1,
+            }}>
+            <Send size={16} /> {testSending ? 'Sending…' : 'Send test'}
+          </button>
+        )}
+        {canRecordPaper && (
+          <button onClick={() => { setPaperOpen((v) => !v); setBanner(null) }} disabled={busy}
+            title="Record that a paper (or prior AxisCare) application is on file — it stands in for a submitted online application"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+              background: '#fff', border: `1px solid ${C.border}`, color: C.navy,
+              cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1,
+            }}>
+            <FileText size={16} /> Record paper application
+          </button>
+        )}
         <Link href={`/candidates/${candidate.id}/credentials`}
           title="Upload the CJIS background check and MBON license verification"
           style={{
@@ -654,6 +765,29 @@ export default function CandidateDetailClient({
         ) : null}
       </div>
 
+      {paperOpen && canRecordPaper && (
+        <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px 22px', marginTop: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 5 }}>Record the paper application</div>
+          <div style={{ fontSize: 12.5, color: C.gray, lineHeight: 1.65, marginBottom: 10 }}>
+            Say where the application lives, so anyone reading this record later can find it. This stands in
+            for a submitted online application and moves the candidate to In review.
+          </div>
+          <textarea value={paperDraft} onChange={(e) => setPaperDraft(e.target.value)}
+            placeholder='e.g. "Paper application filed at the Silver Spring office, July 2026" or "Completed the AxisCare application in 2024 — applicant #1234"'
+            style={{ width: '100%', minHeight: 64, padding: '10px 12px', borderRadius: 9, border: `1px solid ${C.border}`, fontSize: 13.5, color: C.navy, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', marginBottom: 10 }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={recordPaperApplication} disabled={busy || paperDraft.trim().length < 5}
+              style={{ padding: '9px 20px', borderRadius: 8, border: 'none', color: '#fff', fontSize: 13.5, fontWeight: 700, background: paperDraft.trim().length >= 5 ? 'linear-gradient(135deg,#0E7C7B,#1A9B87)' : '#B9C4B4', cursor: paperDraft.trim().length >= 5 && !busy ? 'pointer' : 'not-allowed' }}>
+              {busy ? 'Saving…' : 'Record on file'}
+            </button>
+            <button onClick={() => { setPaperOpen(false); setPaperDraft('') }}
+              style={{ padding: '9px 18px', borderRadius: 8, background: '#fff', border: `1px solid ${C.border}`, color: C.gray, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Competency test */}
       <Card title="Competency test">
         <div style={{ fontSize: 14, color: C.navy }}>{testLine}</div>
@@ -663,7 +797,21 @@ export default function CandidateDetailClient({
       {/* Application */}
       {!hasApp ? (
         <Card title="Application">
-          <div style={{ fontSize: 14, color: C.faint }}>No application on file yet. The candidate has not started or saved their application.</div>
+          {paperAt ? (
+            <>
+              <div style={{ fontSize: 14, color: C.navy, fontWeight: 700 }}>
+                Paper application on file — recorded {fmtDate(paperAt)}{candidate.paper_application_by ? ` by ${who(candidate.paper_application_by)}` : ''}
+              </div>
+              {paperNote && <div style={{ fontSize: 13.5, color: C.gray, marginTop: 6, lineHeight: 1.65 }}>{paperNote}</div>}
+            </>
+          ) : track === 'documents_only' ? (
+            <div style={{ fontSize: 14, color: C.faint }}>
+              Documents-only track: there is no online application to wait for. Use &ldquo;Record paper
+              application&rdquo; above once the paper (or prior AxisCare) application is confirmed on file.
+            </div>
+          ) : (
+            <div style={{ fontSize: 14, color: C.faint }}>No application on file yet. The candidate has not started or saved their application.</div>
+          )}
         </Card>
       ) : (
         <>
