@@ -20,7 +20,7 @@ export default async function CandidatesPage() {
   // browser, where nothing used it. Do not reintroduce a wildcard here.
   const { data: rows } = await svc
     .from('onb_candidates')
-    .select('id, first_name, last_name, email, status, source, access_token, invited_at, created_at, test_passed_at, application_submitted_at, axiscare_pushed_at')
+    .select('id, first_name, last_name, email, status, track, source, access_token, invited_at, created_at, test_passed_at, application_submitted_at, axiscare_pushed_at')
     .order('created_at', { ascending: false })
 
   // A candidate pushed in from CareMatch360 has never been sent anything, so
@@ -32,6 +32,7 @@ export default async function CandidatesPage() {
     last_name: c.last_name,
     email: c.email,
     status: c.status,
+    track: c.track || 'full',
     source: c.source ?? null,
     invited_at: c.invited_at,
     created_at: c.created_at,

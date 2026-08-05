@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
-  APPLICATION_EDITABLE_STATUSES,
+  isApplicationEditable,
+  normalizeTrack,
   validateReferences,
   validateEmergencyContacts,
   type ApplicationData,
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
   const svc = createServiceClient()
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, email, status, token_expires_at')
+    .select('id, first_name, email, status, track, token_expires_at')
     .eq('access_token', hashToken(token))
     .single()
 
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
   }
 
   const status: string = cand.status || ''
-  if (!(APPLICATION_EDITABLE_STATUSES as readonly string[]).includes(status)) {
+  if (!isApplicationEditable(status, cand.track)) {
     return NextResponse.json({ error: 'not_editable' }, { status: 409 })
   }
 
@@ -142,7 +143,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, submitted: true, emailed })
   }
 
-  if (status === 'test_passed') {
+  // First save advances the candidate to 'applying'. On the full track that
+  // is only ever from 'test_passed'; on the other tracks the application is
+  // the front door, so 'invited'/'testing' advance too.
+  const advances = status === 'test_passed'
+    || (normalizeTrack(cand.track) !== 'full' && (status === 'invited' || status === 'testing'))
+  if (advances) {
     await svc.from('onb_candidates').update({ status: 'applying', updated_at: nowIso }).eq('id', cand.id)
   }
   return NextResponse.json({ success: true, submitted: false })

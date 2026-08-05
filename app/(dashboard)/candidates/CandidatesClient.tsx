@@ -11,6 +11,8 @@ type Candidate = {
   last_name: string
   email: string
   status: string
+  /** 'full' | 'application_only' | 'documents_only' — see lib/onboarding/application.ts */
+  track: string
   invited_at: string
   created_at: string
   test_passed_at: string | null
@@ -35,6 +37,17 @@ const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   withdrawn:             { label: 'Withdrawn',          bg: '#F4EBEB', fg: '#9B3B3B' },
 }
 
+const TRACK_META: Record<string, { label: string; title: string }> = {
+  application_only: {
+    label: 'Application only',
+    title: 'Invited straight to the application. The competency test was skipped and can be sent later.',
+  },
+  documents_only: {
+    label: 'Documents only',
+    title: 'A paper application is on file. This candidate only uploads documents.',
+  },
+}
+
 function StatusBadge({ status }: { status: string }) {
   const m = STATUS_META[status] || { label: status, bg: '#EDF0F2', fg: '#4A6070' }
   return (
@@ -43,6 +56,20 @@ function StatusBadge({ status }: { status: string }) {
       background: m.bg, color: m.fg, fontSize: 12, fontWeight: 700,
       whiteSpace: 'nowrap',
     }}>{m.label}</span>
+  )
+}
+
+function TrackBadge({ track }: { track: string }) {
+  const m = TRACK_META[track]
+  if (!m) return null // 'full' (or anything unknown) gets no badge — it is the default flow.
+  return (
+    <span
+      title={m.title}
+      style={{
+        display: 'inline-block', marginLeft: 8, padding: '2px 8px', borderRadius: 999,
+        background: '#FDF2E5', color: '#A05A17', fontSize: 11, fontWeight: 700,
+        verticalAlign: 'middle', whiteSpace: 'nowrap',
+      }}>{m.label}</span>
   )
 }
 
@@ -57,12 +84,13 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
   const [email, setEmail] = useState('')
+  const [track, setTrack] = useState<'full' | 'application_only'>('full')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [banner, setBanner] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null)
   const [resendingId, setResendingId] = useState<string | null>(null)
 
-  const resetForm = () => { setFirst(''); setLast(''); setEmail(''); setError('') }
+  const resetForm = () => { setFirst(''); setLast(''); setEmail(''); setTrack('full'); setError('') }
 
   async function submit() {
     setError('')
@@ -73,7 +101,7 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
       const res = await fetch('/api/onboarding/candidates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', first_name: first.trim(), last_name: last.trim(), email: email.trim() }),
+        body: JSON.stringify({ action: 'create', first_name: first.trim(), last_name: last.trim(), email: email.trim(), track }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Could not add candidate.'); setSaving(false); return }
@@ -111,6 +139,39 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
 
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: '#4A6070', marginBottom: 6 }
   const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #D1D9E0', fontSize: 14, boxSizing: 'border-box' }
+
+  /** What the invite button on a row does depends on the candidate's track. */
+  const inviteTitle = (c: Candidate) => {
+    const noun = c.track === 'application_only' ? 'application invite' : 'test invite'
+    return c.invited ? `Resend the ${noun}` : `Send the ${noun}`
+  }
+
+  const trackOption = (
+    value: 'full' | 'application_only',
+    title: string,
+    detail: string,
+  ) => (
+    <label
+      key={value}
+      style={{
+        display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px',
+        border: `1px solid ${track === value ? '#0E7C7B' : '#D1D9E0'}`,
+        background: track === value ? '#F0FAF9' : '#fff',
+        borderRadius: 10, cursor: 'pointer',
+      }}>
+      <input
+        type="radio"
+        name="track"
+        checked={track === value}
+        onChange={() => setTrack(value)}
+        style={{ marginTop: 3 }}
+      />
+      <span>
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1A2E44' }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 12, color: '#8FA0B0', lineHeight: 1.5, marginTop: 2 }}>{detail}</span>
+      </span>
+    </label>
+  )
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 1040, margin: '0 auto' }}>
@@ -189,6 +250,7 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
                           verticalAlign: 'middle', whiteSpace: 'nowrap',
                         }}>CareMatch360</span>
                     )}
+                    <TrackBadge track={c.track} />
                   </td>
                   <td style={{ padding: '14px 18px', color: '#4A6070' }}>{c.email}</td>
                   <td style={{ padding: '14px 18px' }}><StatusBadge status={c.status} /></td>
@@ -199,7 +261,7 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
                     <button
                       onClick={() => resend(c.id)}
                       disabled={resendingId === c.id}
-                      title={c.invited ? 'Resend the test invite' : 'Send the test invite'}
+                      title={inviteTitle(c)}
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px',
                         background: '#fff', border: '1px solid #D1D9E0', borderRadius: 8,
@@ -236,13 +298,24 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
                   <input value={last} onChange={(e) => setLast(e.target.value)} style={inputStyle} placeholder="Doe" />
                 </div>
               </div>
-              <div style={{ marginBottom: 4 }}>
+              <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle}>Email</label>
                 <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" style={inputStyle} placeholder="jane@example.com" />
               </div>
+              <div style={{ marginBottom: 4 }}>
+                <label style={labelStyle}>Onboarding track</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {trackOption('full', 'Full onboarding',
+                    'Competency test first, then the application. This is the standard flow.')}
+                  {trackOption('application_only', 'Application only',
+                    'Skip the test. The invite links straight to the caregiver application. The test can still be sent later.')}
+                </div>
+              </div>
               <p style={{ fontSize: 12, color: '#8FA0B0', margin: '10px 0 0', lineHeight: 1.6 }}>
                 <Mail size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
-                We will email a secure link inviting them to take the competency test. No password needed.
+                {track === 'application_only'
+                  ? 'We will email a secure link inviting them to complete the caregiver application. No password needed.'
+                  : 'We will email a secure link inviting them to take the competency test. No password needed.'}
               </p>
               {error && <div style={{ marginTop: 14, padding: '10px 14px', background: '#F4EBEB', color: '#9B3B3B', borderRadius: 8, fontSize: 13 }}>{error}</div>}
             </div>
