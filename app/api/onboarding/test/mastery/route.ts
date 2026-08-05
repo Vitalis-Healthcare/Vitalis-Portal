@@ -16,7 +16,7 @@ function hashToken(raw: string) {
 
 async function finish(
   svc: ReturnType<typeof createServiceClient>,
-  cand: { id: string; first_name: string; last_name: string; email: string },
+  cand: { id: string; first_name: string; last_name: string; email: string; status: string | null },
   attemptId: string,
   scoreInfo: { score: number | null; total: number | null },
   token: string,
@@ -24,7 +24,14 @@ async function finish(
 ) {
   const nowIso = new Date().toISOString()
   await svc.from('onb_attempts').update({ mastery_reached: true, completed_at: nowIso, ...extraAttemptUpdate }).eq('id', attemptId)
-  await svc.from('onb_candidates').update({ status: 'test_passed', test_passed_at: nowIso, updated_at: nowIso }).eq('id', cand.id)
+  // Same rule as the first-attempt route: a deferred test records its result
+  // without moving a candidate who is already past the testing step.
+  const testIsCurrentStep = cand.status === 'invited' || cand.status === 'testing'
+  await svc.from('onb_candidates')
+    .update(testIsCurrentStep
+      ? { status: 'test_passed', test_passed_at: nowIso, updated_at: nowIso }
+      : { test_passed_at: nowIso, updated_at: nowIso })
+    .eq('id', cand.id)
   const cert = await issueCertificateIfNeeded(svc, {
     candidateId: cand.id,
     name: `${cand.first_name} ${cand.last_name}`.trim(),
@@ -49,7 +56,7 @@ export async function POST(req: NextRequest) {
   const svc = createServiceClient()
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, last_name, email, token_expires_at')
+    .select('id, first_name, last_name, email, status, token_expires_at')
     .eq('access_token', hashToken(token))
     .single()
   if (!cand) return NextResponse.json({ error: 'invalid_token' }, { status: 404 })

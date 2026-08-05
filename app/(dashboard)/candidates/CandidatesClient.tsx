@@ -84,7 +84,7 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
   const [email, setEmail] = useState('')
-  const [track, setTrack] = useState<'full' | 'application_only'>('full')
+  const [track, setTrack] = useState<'full' | 'application_only' | 'documents_only'>('full')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [banner, setBanner] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null)
@@ -142,12 +142,14 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
 
   /** What the invite button on a row does depends on the candidate's track. */
   const inviteTitle = (c: Candidate) => {
-    const noun = c.track === 'application_only' ? 'application invite' : 'test invite'
+    const noun = c.track === 'application_only' ? 'application invite'
+      : c.track === 'documents_only' ? 'documents invite'
+      : 'test invite'
     return c.invited ? `Resend the ${noun}` : `Send the ${noun}`
   }
 
   const trackOption = (
-    value: 'full' | 'application_only',
+    value: 'full' | 'application_only' | 'documents_only',
     title: string,
     detail: string,
   ) => (
@@ -309,12 +311,16 @@ export default function CandidatesClient({ candidates }: { candidates: Candidate
                     'Competency test first, then the application. This is the standard flow.')}
                   {trackOption('application_only', 'Application only',
                     'Skip the test. The invite links straight to the caregiver application. The test can still be sent later.')}
+                  {trackOption('documents_only', 'Documents only',
+                    'A paper or prior AxisCare application is on file. The invite links to a documents upload page only.')}
                 </div>
               </div>
               <p style={{ fontSize: 12, color: '#8FA0B0', margin: '10px 0 0', lineHeight: 1.6 }}>
                 <Mail size={12} style={{ verticalAlign: '-1px', marginRight: 4 }} />
                 {track === 'application_only'
                   ? 'We will email a secure link inviting them to complete the caregiver application. No password needed.'
+                  : track === 'documents_only'
+                  ? 'We will email a secure link inviting them to upload their documents. No password needed.'
                   : 'We will email a secure link inviting them to take the competency test. No password needed.'}
               </p>
               {error && <div style={{ marginTop: 14, padding: '10px 14px', background: '#F4EBEB', color: '#9B3B3B', borderRadius: 8, fontSize: 13 }}>{error}</div>}

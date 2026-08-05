@@ -3,6 +3,7 @@
 // All document types are OPTIONAL — staff can send the application back with a
 // request for any that are missing (see staff side, v0.6.3-b).
 import { createServiceClient } from '@/lib/supabase/service'
+import { isApplicationEditable, normalizeTrack } from '@/lib/onboarding/application'
 
 type Svc = ReturnType<typeof createServiceClient>
 
@@ -29,6 +30,20 @@ export const ONB_DOCUMENT_TYPES: DocTypeDef[] = [
   { key: 'resume',          label: 'Résumé' },
   { key: 'other',           label: 'Other supporting document' },
 ]
+
+/**
+ * Whether the candidate may upload/remove documents right now (v0.6.36).
+ * Mirrors isApplicationEditable, with one widening: a DOCUMENTS-ONLY candidate
+ * may keep uploading while under review — for them there is no application to
+ * reopen, so "request documents" has nothing to send them back to. The window
+ * closes once they reach awaiting_approval or beyond.
+ */
+export function canUploadDocuments(status: string | null, track: string | null): boolean {
+  if (isApplicationEditable(status, track)) return true
+  const s = status || ''
+  return normalizeTrack(track) === 'documents_only'
+    && (s === 'application_submitted' || s === 'in_review')
+}
 
 export function docTypeLabel(key: string): string {
   return ONB_DOCUMENT_TYPES.find((d) => d.key === key)?.label || key

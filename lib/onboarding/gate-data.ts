@@ -11,6 +11,8 @@ export async function loadGateInput(candidateId: string): Promise<GateInput | nu
   const svc = createServiceClient()
 
   let candidateStatus: string | null = null
+  let track: string | null = null
+  let paperApplicationAt: string | null = null
   let licenseWaivedAt: string | null = null
   let licenseWaiverReason: string | null = null
   let documentsAcceptedAt: string | null = null
@@ -18,11 +20,13 @@ export async function loadGateInput(candidateId: string): Promise<GateInput | nu
   try {
     const { data, error } = await svc
       .from('onb_candidates')
-      .select('id, status, license_waived_at, license_waiver_reason, documents_accepted_at')
+      .select('id, status, track, paper_application_at, license_waived_at, license_waiver_reason, documents_accepted_at')
       .eq('id', candidateId)
       .maybeSingle()
     if (error || !data) return null
     candidateStatus = data.status ?? null
+    track = data.track ?? null
+    paperApplicationAt = data.paper_application_at ?? null
     licenseWaivedAt = data.license_waived_at ?? null
     licenseWaiverReason = data.license_waiver_reason ?? null
     documentsAcceptedAt = data.documents_accepted_at ?? null
@@ -70,6 +74,8 @@ export async function loadGateInput(candidateId: string): Promise<GateInput | nu
   return {
     candidateId,
     candidateStatus,
+    track,
+    paperApplicationAt,
     credentialType,
     licenseWaivedAt,
     licenseWaiverReason,

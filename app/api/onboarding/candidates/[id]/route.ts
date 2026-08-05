@@ -4,6 +4,10 @@
 //   - request_documents: (application_submitted | in_review) -> applying, mints a
 //                        fresh token, and emails the candidate a link back to the
 //                        application form to add the requested documents.
+//   - set_track:         switch the onboarding track (v0.6.36)
+//   - record_paper_application: documents-only attestation that a paper (or
+//                        prior AxisCare) application is on file (v0.6.36)
+//   - send_test:         email the competency-test link on any track (v0.6.36)
 // Auth happens inside the handler (this repo has no middleware): getUser() +
 // role check via the service client.
 import { NextRequest, NextResponse } from 'next/server'
@@ -11,7 +15,8 @@ import crypto from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { ONB_DOCUMENT_TYPES, docTypeLabel } from '@/lib/onboarding/documents'
-import { REFERENCE_SLOTS } from '@/lib/onboarding/application'
+import { CANDIDATE_TRACKS, REFERENCE_SLOTS, normalizeTrack } from '@/lib/onboarding/application'
+import { sendOnboardingInvite } from '@/lib/onboarding/invite-email'
 
 export const dynamic = 'force-dynamic'
 
@@ -111,7 +116,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: cand } = await svc
     .from('onb_candidates')
-    .select('id, first_name, email, status')
+    .select('id, first_name, email, status, track, paper_application_at, converted_to_profile_id')
     .eq('id', id)
     .single()
   if (!cand) return NextResponse.json({ error: 'Candidate not found.' }, { status: 404 })
@@ -119,6 +124,72 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}))
   const action = body.action
   const nowIso = new Date().toISOString()
+
+  if (action === 'set_track') {
+    const next = String(body.track || '')
+    if (!(CANDIDATE_TRACKS as readonly string[]).includes(next)) {
+      return NextResponse.json({ error: 'That onboarding track is not recognized.' }, { status: 400 })
+    }
+    if (cand.status === 'converted' || cand.converted_to_profile_id) {
+      return NextResponse.json({ error: 'This candidate has already been converted; the track no longer applies.' }, { status: 409 })
+    }
+    await svc.from('onb_candidates').update({ track: next, updated_at: nowIso }).eq('id', cand.id)
+    return NextResponse.json({ success: true, track: next })
+  }
+
+  if (action === 'record_paper_application') {
+    if (normalizeTrack(cand.track) !== 'documents_only') {
+      return NextResponse.json({ error: 'A paper application is only recorded on the documents-only track. Switch the track first.' }, { status: 409 })
+    }
+    if (cand.paper_application_at) {
+      return NextResponse.json({ error: 'A paper application is already recorded for this candidate.' }, { status: 409 })
+    }
+    const note = typeof body.note === 'string' ? body.note.trim().slice(0, 1000) : ''
+    if (note.length < 5) {
+      return NextResponse.json({ error: 'Please say where the application lives — e.g. "paper application at the office" or "AxisCare applicant #1234".' }, { status: 400 })
+    }
+    // The attestation stands in for a submitted online application, so a
+    // candidate still at the front of the pipeline moves to in_review. A
+    // candidate already past that point is never moved backward.
+    const advance = ['invited', 'testing', 'test_passed', 'applying', 'application_submitted'].includes(cand.status || '')
+    await svc.from('onb_candidates')
+      .update({
+        paper_application_at: nowIso,
+        paper_application_by: user.id,
+        paper_application_note: note,
+        ...(advance ? { status: 'in_review' } : {}),
+        updated_at: nowIso,
+      })
+      .eq('id', cand.id)
+    return NextResponse.json({ success: true, status: advance ? 'in_review' : cand.status, paper_application_at: nowIso, note })
+  }
+
+  if (action === 'send_test') {
+    if (cand.status === 'converted' || cand.converted_to_profile_id) {
+      return NextResponse.json({ error: 'This candidate has already been converted.' }, { status: 409 })
+    }
+    if (cand.status === 'withdrawn') {
+      return NextResponse.json({ error: 'This candidate has withdrawn.' }, { status: 409 })
+    }
+    const { data: attempt } = await svc
+      .from('onb_attempts')
+      .select('first_passed, mastery_reached')
+      .eq('candidate_id', cand.id)
+      .limit(1)
+      .maybeSingle()
+    if (attempt && (attempt.first_passed || attempt.mastery_reached)) {
+      return NextResponse.json({ error: 'This candidate has already completed the competency test.' }, { status: 409 })
+    }
+    // Same mechanics as a resend: mint a fresh token (older emailed links stop
+    // working; the new token opens every candidate page, not just the test).
+    const rawToken = crypto.randomBytes(32).toString('hex')
+    const expires = new Date(Date.now() + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    await svc.from('onb_candidates')
+      .update({ access_token: hashToken(rawToken), token_expires_at: expires, updated_at: nowIso })
+      .eq('id', cand.id)
+    const sent = await sendOnboardingInvite({ to: cand.email, firstName: cand.first_name, rawToken, variant: 'test' })
+    return NextResponse.json({ success: true, emailed: sent.ok, error: sent.error })
+  }
 
   if (action === 'begin_review') {
     if (cand.status !== 'application_submitted') {

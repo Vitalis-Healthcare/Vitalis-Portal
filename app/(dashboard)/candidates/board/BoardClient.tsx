@@ -166,6 +166,18 @@ export default function BoardClient({
                             background: '#EEF2FF', color: '#3F4E9B', fontSize: 9.5, fontWeight: 700, verticalAlign: 'middle',
                           }}>CareMatch360</span>
                         )}
+                        {r.track === 'application_only' && (
+                          <span title="Invited straight to the application; the test was skipped or will be sent later." style={{
+                            display: 'inline-block', marginLeft: 6, padding: '1px 6px', borderRadius: 999,
+                            background: '#FDF2E5', color: '#A05A17', fontSize: 9.5, fontWeight: 700, verticalAlign: 'middle',
+                          }}>App only</span>
+                        )}
+                        {r.track === 'documents_only' && (
+                          <span title="Paper application on file; this candidate only uploads documents." style={{
+                            display: 'inline-block', marginLeft: 6, padding: '1px 6px', borderRadius: 999,
+                            background: '#FDF2E5', color: '#A05A17', fontSize: 9.5, fontWeight: 700, verticalAlign: 'middle',
+                          }}>Docs only</span>
+                        )}
                         <div style={{ fontSize: 11, color: C.faint, marginTop: 1 }}>
                           {OWNER_LABEL[r.owner]}
                           {r.lastMovementAt && !r.isComplete && !r.isClosed

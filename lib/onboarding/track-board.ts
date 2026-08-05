@@ -51,6 +51,7 @@ export interface TrackRow {
   email: string
   status: string
   source: string | null
+  track: string
   invited: boolean
   milestones: Milestone[]
   owner: Owner
@@ -71,6 +72,8 @@ export interface TrackRowInput {
     email: string | null
     status: string | null
     source: string | null
+    paper_application_at: string | null
+    track: string | null
     access_token: string | null
     invited_at: string | null
     created_at: string | null
@@ -293,6 +296,7 @@ export function buildTrackRow(input: TrackRowInput, now: Date = new Date()): Tra
     email: c.email || '',
     status,
     source: c.source ?? null,
+    track: c.track || 'full',
     invited,
     milestones,
     owner,
@@ -364,6 +368,8 @@ function toGateInput(input: TrackRowInput): GateInput {
   return {
     candidateId: input.candidate.id,
     candidateStatus: input.candidate.status ?? null,
+    track: input.candidate.track ?? null,
+    paperApplicationAt: input.candidate.paper_application_at ?? null,
     credentialType: input.application?.credential_type ?? null,
     licenseWaivedAt: input.candidate.license_waived_at ?? null,
     licenseWaiverReason: null,
@@ -386,7 +392,7 @@ export async function loadTrackBoard(): Promise<TrackRow[]> {
   try {
     const { data } = await svc
       .from('onb_candidates')
-      .select('id, first_name, last_name, email, status, source, access_token, invited_at, created_at, test_passed_at, application_submitted_at, documents_accepted_at, license_waived_at, axiscare_pushed_at, converted_to_profile_id')
+      .select('id, first_name, last_name, email, status, source, track, paper_application_at, access_token, invited_at, created_at, test_passed_at, application_submitted_at, documents_accepted_at, license_waived_at, axiscare_pushed_at, converted_to_profile_id')
       .order('created_at', { ascending: false })
     candidates = Array.isArray(data) ? (data as TrackRowInput['candidate'][]) : []
   } catch {
