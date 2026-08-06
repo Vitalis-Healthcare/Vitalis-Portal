@@ -276,8 +276,8 @@ export default function LeadReportsClient({ facts }: { facts: LeadReportFacts })
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 4 }}>
           <Stat value={String(o.won)} label="Won" tone={WON} />
           <Stat value={String(o.lost)} label="Lost" tone={LOST} />
-          <Stat value={money(o.weeklyRevenueWon)} label="Weekly revenue won" sub="Hours \u00D7 rate on won leads" tone={WON} />
-          <Stat value={money(o.weeklyRevenueLost)} label="Weekly revenue lost" sub="Hours \u00D7 rate on lost leads" tone={LOST} />
+          <Stat value={money(o.weeklyRevenueWon)} label="Weekly revenue won" sub="Hours × rate on won leads" tone={WON} />
+          <Stat value={money(o.weeklyRevenueLost)} label="Weekly revenue lost" sub="Hours × rate on lost leads" tone={LOST} />
           <Stat
             value={o.medianDaysToWin === null ? '—' : `${o.medianDaysToWin} days`}
             label="Median time to win"
