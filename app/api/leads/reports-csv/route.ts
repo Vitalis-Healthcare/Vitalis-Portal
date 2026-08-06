@@ -78,8 +78,9 @@ export async function GET(request: Request) {
     const facts = buildLeadReport(input)
     name = 'source-performance'
     csv = toCsv(
-      ['Source', 'Created in window', 'Closed in window', 'Won', 'Lost', 'Win rate %', 'Weekly revenue won'],
-      facts.sources.map(s => [s.label, s.created, s.closed, s.won, s.lost, s.winRate ?? '', Math.round(s.weeklyRevenueWon)]),
+      ['Source', 'Created in window', 'Closed in window', 'Won', 'Lost', 'Win rate %', 'Weekly revenue won', 'Weekly revenue lost'],
+      facts.sources.map(s => [s.label, s.created, s.closed, s.won, s.lost, s.winRate ?? '',
+        Math.round(s.weeklyRevenueWon), Math.round(s.weeklyRevenueLost)]),
     )
   } else if (section === 'losses') {
     const facts = buildLeadReport(input)
