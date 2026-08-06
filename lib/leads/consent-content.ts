@@ -9,14 +9,20 @@
 // signed snapshot records the version it was signed under.
 //
 // Rulings (Okezie, 6 Aug 2026):
-//   • The agreement's own termination language (14-day notice) stands
-//     unchanged. The reassurance copy is written to be CONSISTENT with
-//     it: end anytime, we just ask for enough notice.
+//   • The agreement's own termination language now reads "at least 3
+//     days' notice" (changed 6 Aug 2026). The reassurance copy remains
+//     CONSISTENT with it: end anytime, we just ask for enough notice.
 //   • Private Pay shows the staff-entered agreed rate on the form.
 //   • The Vitalis representative signs at Prepare time (typed name).
 // ═════════════════════════════════════════════════════════════════════════
 
-export const AGREEMENT_VERSION = '2025-03'
+// Version history:
+//   2025-03 — the original paper form, transcribed verbatim.
+//   2026-08 — termination notice 14 days → at least 3 days; private-pay
+//             billing cycle weekly → biweekly. (Okezie, 6 Aug 2026. The
+//             7-day payment window, the one-week refundable deposit, and
+//             the one-week visit-cancellation notice are UNCHANGED.)
+export const AGREEMENT_VERSION = '2026-08'
 
 export const AGENCY = {
   name: 'Vitalis HealthCare Services LLC',
@@ -78,7 +84,7 @@ export const AGREEMENT_SECTIONS_AFTER_DIRECTIVES: { title: string; text: string 
 
 export const COMPLAINT_SECTION = {
   title: 'Notification of Complaint Procedure and Hotline Number',
-  text: 'I will receive information on the Agency\u2019s complaint resolution procedure and the State Hotline number to call. Should I be dissatisfied with service, I can terminate this consent with a 14-day notice to the Agency.',
+  text: 'I will receive information on the Agency\u2019s complaint resolution procedure and the State Hotline number to call. Should I be dissatisfied with service, I can terminate this consent with at least 3 days\u2019 notice to the Agency.',
 }
 
 /** Advance-directive checklist, verbatim options. */
@@ -123,7 +129,7 @@ export const TERMS_BULLETS: string[] = [
   'If you currently are approved on MD Medicaid Waiver program, all applicable services will be billed through your local health department or governing agency as soon we are approved to bill MD Medicaid Waiver.',
   'If you currently have your own private insurance, your insurance information will be collected and verified at the start of care. All applicable services (under your member eligibility) will be sent to your insurance company for re-imbursement.',
   'Vitalis Healthcare will require a refundable deposit equal to one week of agreed number of hours of services to be provided by the agency. This refundable deposit will be applied to your final invoice or refunded if all invoices have been paid. Only the Agency Administrator can waive the refundable deposit in writing.',
-  'As a private pay client, the billing cycle is weekly, and the acceptable payment should be in the form of a check or money order or online payment using bank ACH transfer or any of the common debit or credit cards. Payment on the invoice is due 7 days from the date of invoice.',
+  'As a private pay client, the billing cycle is biweekly, and the acceptable payment should be in the form of a check or money order or online payment using bank ACH transfer or any of the common debit or credit cards. Payment on the invoice is due 7 days from the date of invoice.',
   'The Client is liable for all payments. Any modification to the billing cycle will be communicated in writing by the Agency Administrator.',
   'All approved Client payor information, including those with power of attorney to make payment on behalf of client\u2019s estate will be kept in the client file.',
   'You will be billed only for services which you have received. You are required to give the Agency a one-week notice in writing to cancel scheduled visits. For cancellation notices received in less than one week, there will be billed a minimum of 2 hours or 50% of the scheduled time (whichever is higher) (\u201cthe Late Cancellation Rate\u201d). This Late Cancellation Rate can only be waived with a written letter from the Agency Administrator.',
@@ -160,6 +166,62 @@ export interface ConsentPrefill {
   billing_method: BillingMethodKey
   private_pay_rate: string | null   // display string, e.g. "$34.00/hour"
   insurance_projected: string | null // e.g. "80% of charges after deductible met"
+}
+
+// ── v0.6.47: client-completable identity fields ──────────────────────────
+// Staff often don't have the full legal name, DOB, or exact address at the
+// point of sending. Those fields are PREFILLED where known and EDITABLE by
+// the client on the signing page; what the client submits is what prints on
+// the signed agreement, and is recorded separately (lead_consents.client_details)
+// so the staff-entered original is never lost.
+//
+// NOT client-editable — these are the business terms staff negotiated:
+// billing_method, private_pay_rate, insurance_projected, start_of_care.
+
+export const CLIENT_EDITABLE_FIELDS = [
+  'client_name', 'dob', 'address', 'city', 'state', 'zip', 'ltc_insurer', 'ltc_claim',
+] as const
+
+export type ClientEditableField = (typeof CLIENT_EDITABLE_FIELDS)[number]
+
+export type ClientDetails = Partial<Record<ClientEditableField, string | null>>
+
+export const CLIENT_FIELD_LABELS: Record<ClientEditableField, string> = {
+  client_name: 'full name',
+  dob: 'date of birth',
+  address: 'address',
+  city: 'city',
+  state: 'state',
+  zip: 'ZIP code',
+  ltc_insurer: 'long term care insurer',
+  ltc_claim: 'claim number',
+}
+
+/** The agreement prints the client's own answers over the staff prefill. */
+export function mergeClientDetails(prefill: ConsentPrefill, details: ClientDetails | null | undefined): ConsentPrefill {
+  if (!details) return prefill
+  const merged: ConsentPrefill = { ...prefill }
+  for (const f of CLIENT_EDITABLE_FIELDS) {
+    const v = details[f]
+    if (typeof v === 'string' && v.trim()) {
+      // client_name is non-nullable on ConsentPrefill; the rest are nullable.
+      if (f === 'client_name') merged.client_name = v.trim()
+      else merged[f] = v.trim()
+    }
+  }
+  return merged
+}
+
+/** Which client-editable fields the client actually changed, for the timeline. */
+export function changedClientFields(prefill: ConsentPrefill, details: ClientDetails | null | undefined): ClientEditableField[] {
+  if (!details) return []
+  const out: ClientEditableField[] = []
+  for (const f of CLIENT_EDITABLE_FIELDS) {
+    const submitted = (details[f] ?? '').toString().trim()
+    const original = ((prefill as unknown as Record<string, unknown>)[f] ?? '').toString().trim()
+    if (submitted && submitted !== original) out.push(f)
+  }
+  return out
 }
 
 export function isValidBillingMethod(k: string): k is BillingMethodKey {
