@@ -166,6 +166,13 @@ interface LeadEmail {
   created_at: string
 }
 
+// v0.6.46 — the latest consent record for the milestone panel.
+interface ConsentInfo {
+  id: string; status: string; agreement_version: string
+  created_at: string; viewed_at?: string | null; signed_at?: string | null
+  signer_name?: string | null; rep_name?: string | null
+}
+
 interface Props {
   lead: Lead; activities: Activity[]; staff: { id: string; full_name: string }[]
   stages: Stage[]
@@ -173,13 +180,14 @@ interface Props {
   referralSources: { id: string; name: string; organization?: string | null }[]
   currentUserId: string; currentUserName: string; currentUserEmail: string; isAdmin: boolean
   leadEmails: LeadEmail[]
+  latestConsent: ConsentInfo | null
   assessmentClient: AssessmentClientInfo | null
   assessment: AssessmentRow | null
   nurses: { id: string; full_name: string }[]
   linkableClients: { id: string; full_name: string }[]
 }
 
-export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, stages, serviceTypes, referralSources, currentUserId, currentUserName, currentUserEmail, isAdmin, assessmentClient, assessment, nurses, linkableClients, leadEmails: initialLeadEmails }: Props) {
+export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, stages, serviceTypes, referralSources, currentUserId, currentUserName, currentUserEmail, isAdmin, assessmentClient, assessment, nurses, linkableClients, leadEmails: initialLeadEmails, latestConsent: initialConsent }: Props) {
   const ACTIVE_CARE_TYPES = serviceTypes.length > 0 ? serviceTypes.map(s => s.label) : CARE_TYPES
   const router = useRouter()
   const [lead, setLead] = useState(initialLead)
@@ -194,6 +202,16 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [emailSending, setEmailSending] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
   const [emailForm, setEmailForm] = useState({ template_key: '', to: '', subject: '', body: '', follow_up: '' })
+  // ── v0.6.46: consent Prepare & Send ──
+  const [latestConsent, setLatestConsent] = useState(initialConsent)
+  const [consentOpen, setConsentOpen] = useState(false)
+  const [consentSending, setConsentSending] = useState(false)
+  const [consentError, setConsentError] = useState<string | null>(null)
+  const [consentForm, setConsentForm] = useState({
+    to: '', client_name: '', dob: '', address: '', city: '', state: '', zip: '',
+    start_of_care: '', ltc_insurer: '', ltc_claim: '',
+    billing_method: 'medicaid_waiver', private_pay_rate: '', insurance_projected: '',
+  })
   const [timelineFilter, setTimelineFilter] = useState('all')
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [deletingActivityId, setDeletingActivityId] = useState<string | null>(null)
@@ -611,6 +629,62 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     return { label: 'Sent', color: '#4A6070', bg: '#EFF2F5', title: 'Handed to Resend \u2014 delivery status arrives via webhook (Ship 5c)' }
   }
 
+  // ── v0.6.46: consent handlers ──
+  function openConsentPrepare() {
+    setConsentError(null)
+    setConsentForm({
+      to: lead.email || '',
+      client_name: lead.client_name || lead.full_name || '',
+      dob: lead.date_of_birth || '',
+      address: lead.address || '', city: lead.city || '',
+      state: lead.state || 'MD', zip: lead.zip || '',
+      start_of_care: lead.expected_start_date || lead.expected_close_date || '',
+      ltc_insurer: '', ltc_claim: '',
+      billing_method: 'medicaid_waiver',
+      private_pay_rate: lead.hourly_rate ? `$${Number(lead.hourly_rate).toFixed(2)}/hour` : '',
+      insurance_projected: '',
+    })
+    setConsentOpen(true)
+  }
+  async function handleSendConsent() {
+    setConsentSending(true); setConsentError(null)
+    try {
+      const res = await fetch('/api/leads/consent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: lead.id, to: consentForm.to,
+          prefill: {
+            client_name: consentForm.client_name, dob: consentForm.dob || null,
+            address: consentForm.address || null, city: consentForm.city || null,
+            state: consentForm.state || null, zip: consentForm.zip || null,
+            start_of_care: consentForm.start_of_care || null,
+            ltc_insurer: consentForm.ltc_insurer || null, ltc_claim: consentForm.ltc_claim || null,
+            billing_method: consentForm.billing_method,
+            private_pay_rate: consentForm.private_pay_rate || null,
+            insurance_projected: consentForm.insurance_projected || null,
+          },
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setConsentError(data.error || `Send failed (HTTP ${res.status})`); return }
+      const prevConsent = lead.consent_status || 'not_started'
+      setLead(prev => ({ ...prev, consent_status: 'sent' }))
+      if (data.consent) setLatestConsent({ id: data.consent.id, status: 'sent', agreement_version: '', created_at: data.consent.created_at })
+      if (prevConsent !== 'sent') pushLocalActivity(`Consent milestone: ${prettyKey(prevConsent)} → ${prettyKey('sent')}`)
+      if (data.email) setLeadEmails(prev => [data.email, ...prev])
+      if (data.activity_id) {
+        setActivities(prev => [{
+          id: data.activity_id, lead_id: lead.id, created_at: new Date().toISOString(),
+          activity_type: 'email', content: `Email sent: Your Vitalis Service Agreement is ready to sign`,
+          author: { full_name: currentUserName },
+        }, ...prev])
+      }
+      setConsentOpen(false)
+    } finally {
+      setConsentSending(false)
+    }
+  }
+
   // ── Timeline: filter, then group by day ──────────────────────────────
   const visibleActivities = activities.filter(a => {
     if (timelineFilter === 'all') return true
@@ -996,7 +1070,23 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                 )
               })}
             </div>
-            <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 6 }}>Tracked manually for now — the in-app consent sender is a coming update.</div>
+            {(lead.consent_status || '') !== 'signed' && !isArchived && (
+              <button onClick={openConsentPrepare} disabled={saving}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '7px 14px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                <Send size={12}/> {latestConsent && (latestConsent.status === 'sent' || latestConsent.status === 'viewed') ? 'Re-send Agreement' : 'Prepare & Send Agreement'}
+              </button>
+            )}
+            <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 6 }}>
+              {latestConsent
+                ? latestConsent.status === 'signed'
+                  ? `Signed by ${latestConsent.signer_name || 'the client'} on ${fmtStamp(latestConsent.signed_at)}.`
+                  : latestConsent.status === 'viewed'
+                    ? `Sent ${fmtStamp(latestConsent.created_at)} · viewed by the recipient ${fmtStamp(latestConsent.viewed_at)}. Re-sending replaces the link.`
+                    : latestConsent.status === 'sent'
+                      ? `Sent ${fmtStamp(latestConsent.created_at)} — not opened yet. Re-sending replaces the link.`
+                      : 'The previous link was replaced.'
+                : 'Sends the Service Agreement for e-signature — the milestone advances by itself as the client opens and signs.'}
+            </div>
           </div>
 
           {/* Assessment — LIVE (v0.6.42) */}
@@ -1404,6 +1494,112 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           )}
         </div>
       </div>
+
+      {/* ── Prepare & Send Agreement Modal (v0.6.46) ── */}
+      {consentOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,46,68,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 640, maxHeight: '92vh', overflowY: 'auto', padding: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2E44', margin: 0 }}>Prepare &amp; Send the Service Agreement</h3>
+              <button onClick={() => setConsentOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
+            </div>
+            <div style={{ fontSize: 12, color: '#4A6070', background: '#EFF6F4', border: '1px solid #D1E7E2', borderRadius: 8, padding: '8px 12px', marginBottom: 14 }}>
+              Review the details below — they print on the agreement exactly as entered. You sign for Vitalis as <strong>{currentUserName}</strong> when this sends, so the client opens an already-executed document.{latestConsent && (latestConsent.status === 'sent' || latestConsent.status === 'viewed') ? ' Sending again replaces the previous link — the old one stops working.' : ''}
+            </div>
+            {consentError && (
+              <div style={{ fontSize: 12.5, color: '#B91C1C', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '9px 12px', marginBottom: 12, fontWeight: 600 }}>{consentError}</div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Send to (email)</label>
+                <input type="email" value={consentForm.to} onChange={e => setConsentForm(f => ({ ...f, to: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Client name (on the agreement)</label>
+                <input value={consentForm.client_name} onChange={e => setConsentForm(f => ({ ...f, client_name: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Date of birth</label>
+                <input type="date" value={consentForm.dob} onChange={e => setConsentForm(f => ({ ...f, dob: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Address</label>
+                <input value={consentForm.address} onChange={e => setConsentForm(f => ({ ...f, address: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>City</label>
+                <input value={consentForm.city} onChange={e => setConsentForm(f => ({ ...f, city: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>State</label>
+                  <input value={consentForm.state} onChange={e => setConsentForm(f => ({ ...f, state: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Zip</label>
+                  <input value={consentForm.zip} onChange={e => setConsentForm(f => ({ ...f, zip: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Start of care date</label>
+                <input type="date" value={consentForm.start_of_care} onChange={e => setConsentForm(f => ({ ...f, start_of_care: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>LTC insurer (optional)</label>
+                  <input value={consentForm.ltc_insurer} onChange={e => setConsentForm(f => ({ ...f, ltc_insurer: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Claim # (optional)</label>
+                  <input value={consentForm.ltc_claim} onChange={e => setConsentForm(f => ({ ...f, ltc_claim: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Billed as</label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[{ k: 'medicaid_waiver', l: 'Medicaid Waiver' }, { k: 'insurance', l: 'Insurance' }, { k: 'private_pay', l: 'Private Pay' }].map(b => (
+                  <button key={b.k} type="button" onClick={() => setConsentForm(f => ({ ...f, billing_method: b.k }))}
+                    style={{ padding: '6px 12px', borderRadius: 20, border: `1.5px solid ${consentForm.billing_method === b.k ? '#0B6B5C' : '#E2E8F0'}`, background: consentForm.billing_method === b.k ? '#EFF6F4' : '#fff', color: consentForm.billing_method === b.k ? '#0B6B5C' : '#4A6070', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    {b.l}
+                  </button>
+                ))}
+              </div>
+              {consentForm.billing_method === 'private_pay' && (
+                <div style={{ marginTop: 10 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Agreed rate (prints on the agreement)</label>
+                  <input value={consentForm.private_pay_rate} onChange={e => setConsentForm(f => ({ ...f, private_pay_rate: e.target.value }))} placeholder="e.g., $34.00/hour"
+                    style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+                </div>
+              )}
+              {consentForm.billing_method === 'insurance' && (
+                <div style={{ marginTop: 10 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Projected coverage, if known (optional)</label>
+                  <input value={consentForm.insurance_projected} onChange={e => setConsentForm(f => ({ ...f, insurance_projected: e.target.value }))} placeholder="e.g., 80% of charges after deductible met"
+                    style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConsentOpen(false)} style={{ padding: '9px 16px', background: '#EFF2F5', color: '#4A6070', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleSendConsent} disabled={consentSending || !consentForm.to || !consentForm.client_name.trim() || (consentForm.billing_method === 'private_pay' && !consentForm.private_pay_rate.trim())}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: consentSending ? 'wait' : 'pointer', opacity: consentSending || !consentForm.to || !consentForm.client_name.trim() || (consentForm.billing_method === 'private_pay' && !consentForm.private_pay_rate.trim()) ? 0.6 : 1 }}>
+                <Send size={13}/> {consentSending ? 'Sending…' : 'Sign & Send Agreement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Send Email Modal (v0.6.45) ── */}
       {emailOpen && (
