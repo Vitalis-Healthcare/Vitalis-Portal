@@ -39,7 +39,30 @@ export default async function CandidateCredentialsPage(
   const gateInput = await loadGateInput(id)
   const gate = gateInput
     ? evaluateContractGate(gateInput)
-    : { ok: false, blockers: [] }
+    : { ok: false, blockers: [], warnings: [] }
+
+  // The full attestation chain, newest first. A coordinator about to extend
+  // needs to see how many times this has already been extended, and why.
+  const { data: attRows } = await svc
+    .from('onb_fingerprint_attestations')
+    .select('id, sent_at, expected_by, note, extension_reason, created_at, created_by, cleared_at, superseded_at')
+    .eq('candidate_id', id)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  const attestations = Array.isArray(attRows) ? attRows : []
+  const live = attestations.find((a) => !a.cleared_at && !a.superseded_at) || null
+
+  // Resolve who recorded each one, in a single query.
+  const actorIds = Array.from(new Set(
+    attestations.map((a) => a.created_by).filter((v): v is string => typeof v === 'string' && v.length > 0),
+  ))
+  const actorNames: Record<string, string> = {}
+  if (actorIds.length > 0) {
+    const { data: actors } = await svc.from('profiles').select('id, full_name').in('id', actorIds)
+    for (const a of Array.isArray(actors) ? actors : []) {
+      if (a?.id) actorNames[a.id] = a.full_name || ''
+    }
+  }
 
   return (
     <CredentialGateClient
@@ -53,6 +76,10 @@ export default async function CandidateCredentialsPage(
       }}
       credentialType={gateInput?.credentialType ?? null}
       blockers={gate.blockers}
+      warnings={gate.warnings || []}
+      attestations={attestations}
+      liveAttestation={live}
+      actorNames={actorNames}
       gateOk={gate.ok}
     />
   )

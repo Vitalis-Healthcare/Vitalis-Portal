@@ -18,7 +18,7 @@ import {
 } from '@/lib/onboarding/documents'
 import {
   ONB_CREDENTIAL_PAGE_TYPES, isStaffDocType, isOnBehalfDocType,
-  isStaffUploadableDocType,
+  isStaffUploadableDocType, CJIS_DOC_TYPE,
 } from '@/lib/onboarding/staff-documents'
 
 /** YYYY-MM-DD or null. Anything else is rejected rather than coerced. */
@@ -173,6 +173,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await svc.storage.from(DOCUMENTS_BUCKET).remove([storagePath])
     console.error('[staff-documents] insert failed:', insErr?.message)
     return NextResponse.json({ error: 'Upload failed. Please try again.' }, { status: 500 })
+  }
+
+  // The arriving document closes any open "results pending" attestation. Doing
+  // this here rather than asking a coordinator to tick something is the whole
+  // reason the attestation cannot rot: the thing that resolves it is the thing
+  // we were waiting for. Best-effort — a failure here must not fail the upload,
+  // and the overdue sweep would catch a stale row anyway.
+  if (docType === CJIS_DOC_TYPE) {
+    try {
+      await svc
+        .from('onb_fingerprint_attestations')
+        .update({ cleared_at: new Date().toISOString(), cleared_by: g.userId })
+        .eq('candidate_id', id)
+        .is('cleared_at', null)
+        .is('superseded_at', null)
+    } catch (e) {
+      console.error('[staff-documents] could not clear the fingerprint attestation:', e)
+    }
   }
 
   return NextResponse.json({ success: true, document: inserted })

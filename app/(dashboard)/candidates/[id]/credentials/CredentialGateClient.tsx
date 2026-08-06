@@ -11,6 +11,9 @@ import {
 } from '@/lib/onboarding/staff-documents'
 import { isLicensedCredential, type Blocker } from '@/lib/onboarding/gates'
 import { ACCEPTED_ACCEPT_ATTR } from '@/lib/onboarding/documents'
+import {
+  FINGERPRINT_WINDOW_DAYS, defaultExpectedBy, fingerprintStatus, todayISO,
+} from '@/lib/onboarding/fingerprint'
 
 const TEAL = '#0E7C7B'
 const NAVY = '#1A2E44'
@@ -24,6 +27,18 @@ type Candidate = {
   status: string | null
   license_waived_at: string | null
   license_waiver_reason: string | null
+}
+
+export type Attestation = {
+  id: string
+  sent_at: string
+  expected_by: string
+  note: string | null
+  extension_reason: string | null
+  created_at: string
+  created_by: string | null
+  cleared_at: string | null
+  superseded_at: string | null
 }
 
 type Doc = {
@@ -53,11 +68,19 @@ export default function CredentialGateClient({
   candidate,
   credentialType,
   blockers,
+  warnings = [],
+  attestations = [],
+  liveAttestation = null,
+  actorNames = {},
   gateOk,
 }: {
   candidate: Candidate
   credentialType: string | null
   blockers: Blocker[]
+  warnings?: Blocker[]
+  attestations?: Attestation[]
+  liveAttestation?: Attestation | null
+  actorNames?: Record<string, string>
   gateOk: boolean
 }) {
   const router = useRouter()
@@ -69,6 +92,20 @@ export default function CredentialGateClient({
   const [dateEdits, setDateEdits] = useState<Record<string, { issued: string; expires: string }>>({})
   const [waiverOpen, setWaiverOpen] = useState(false)
   const [waiverReason, setWaiverReason] = useState('')
+
+  // Fingerprinting attestation form. sentAt defaults to today because the
+  // overwhelmingly common case is a coordinator recording it the same day.
+  const [fpOpen, setFpOpen] = useState(false)
+  const [fpSentAt, setFpSentAt] = useState(todayISO())
+  const [fpExpectedBy, setFpExpectedBy] = useState(defaultExpectedBy(todayISO()))
+  const [fpNote, setFpNote] = useState('')
+  const [fpReason, setFpReason] = useState('')
+  const fpStatus = fingerprintStatus(
+    liveAttestation
+      ? { sentAt: liveAttestation.sent_at, expectedBy: liveAttestation.expected_by }
+      : null,
+  )
+  const cjisOnFile = docs.some((d) => d.doc_type === CJIS_DOC_TYPE)
 
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({})
   const licensed = isLicensedCredential(credentialType)
@@ -102,6 +139,30 @@ export default function CredentialGateClient({
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || 'Upload failed.')
       await load()
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const recordFingerprint = async () => {
+    setBusy('fingerprint'); setError(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/fingerprint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sent_at: fpSentAt,
+          expected_by: fpExpectedBy,
+          note: fpNote,
+          extension_reason: fpReason,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'Could not record the attestation.')
+      setFpOpen(false); setFpNote(''); setFpReason('')
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -227,6 +288,146 @@ export default function CredentialGateClient({
           </ul>
         )}
       </div>
+
+      {/* ── Fingerprinting attestation ──────────────────────────────────────
+          Shown only while the CJIS record is genuinely absent. Once the
+          document lands the attestation is cleared automatically and this
+          whole panel disappears, which is the point: the thing we were waiting
+          for is the thing that closes it. */}
+      {!cjisOnFile && (
+        <div style={{
+          background: fpStatus.state === 'overdue' ? '#FEF2F2' : fpStatus.state === 'pending' ? '#FFFBEB' : '#F8FAFC',
+          border: `1px solid ${fpStatus.state === 'overdue' ? '#FECACA' : fpStatus.state === 'pending' ? '#FDE68A' : LINE}`,
+          borderRadius: 12, padding: '16px 20px', marginBottom: 24,
+        }}>
+          <div style={{
+            fontSize: 14, fontWeight: 700, marginBottom: 8,
+            color: fpStatus.state === 'overdue' ? '#B91C1C' : fpStatus.state === 'pending' ? '#92400E' : NAVY,
+          }}>
+            {fpStatus.state === 'overdue'
+              ? `CJIS results overdue by ${fpStatus.daysOverdue} day${fpStatus.daysOverdue === 1 ? '' : 's'}`
+              : fpStatus.state === 'pending'
+                ? `Fingerprinting form sent — results pending, due ${liveAttestation?.expected_by}`
+                : 'Waiting on fingerprinting?'}
+          </div>
+
+          {fpStatus.state === 'none' && (
+            <p style={{ fontSize: 13, color: MUTED, margin: '0 0 12px', lineHeight: 1.7 }}>
+              If you have sent this candidate the fingerprinting form and are waiting on the CJIS
+              record to come back, record it here. That keeps the agreement and conversion moving
+              for {FINGERPRINT_WINDOW_DAYS} days. After that the gate closes again and the
+              overdue chase begins — so this defers the requirement, it does not remove it.
+            </p>
+          )}
+
+          {fpStatus.state === 'pending' && liveAttestation && (
+            <p style={{ fontSize: 13, color: '#92400E', margin: '0 0 12px', lineHeight: 1.7 }}>
+              Form sent {fmtDate(liveAttestation.sent_at)}
+              {liveAttestation.created_by && actorNames[liveAttestation.created_by]
+                ? ` by ${actorNames[liveAttestation.created_by]}` : ''}
+              {liveAttestation.note ? ` — ${liveAttestation.note}` : ''}.
+              {' '}Upload the CJIS record here as soon as it arrives and this closes itself.
+            </p>
+          )}
+
+          {fpStatus.state === 'overdue' && liveAttestation && (
+            <p style={{ fontSize: 13, color: '#B91C1C', margin: '0 0 12px', lineHeight: 1.7 }}>
+              Results were expected by {fmtDate(liveAttestation.expected_by)} and have not arrived.
+              This candidate is blocked again until the record is uploaded. Chase the result — and
+              if it is genuinely still coming, extend below and say why. Extensions are recorded.
+            </p>
+          )}
+
+          {warnings.map((w) => (
+            <div key={w.code} style={{ fontSize: 12.5, color: '#92400E', lineHeight: 1.7, margin: '0 0 12px' }}>
+              {w.detail}
+            </div>
+          ))}
+
+          {!fpOpen ? (
+            <button onClick={() => { setFpOpen(true); setError(null) }}
+              style={{
+                padding: '9px 16px', borderRadius: 8, border: `1px solid ${LINE}`, background: '#fff',
+                color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              }}>
+              {fpStatus.state === 'none' ? 'Record fingerprinting sent' : 'Extend the expected date'}
+            </button>
+          ) : (
+            <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 10, padding: '14px 16px' }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: MUTED, marginBottom: 5 }}>
+                Date the fingerprinting form was sent
+              </label>
+              <input type="date" value={fpSentAt} max={todayISO()}
+                onChange={(e) => {
+                  setFpSentAt(e.target.value)
+                  // Keep the expected date in step unless it has been edited
+                  // away from the standard window.
+                  setFpExpectedBy(defaultExpectedBy(e.target.value))
+                }}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: `1px solid ${LINE}`, fontSize: 13.5, marginBottom: 12, boxSizing: 'border-box' }} />
+
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: MUTED, marginBottom: 5 }}>
+                Results expected by <span style={{ fontWeight: 400 }}>(defaults to {FINGERPRINT_WINDOW_DAYS} days)</span>
+              </label>
+              <input type="date" value={fpExpectedBy} min={fpSentAt}
+                onChange={(e) => setFpExpectedBy(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: `1px solid ${LINE}`, fontSize: 13.5, marginBottom: 12, boxSizing: 'border-box' }} />
+
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: MUTED, marginBottom: 5 }}>
+                Note <span style={{ fontWeight: 400 }}>(which site, receipt or tracking number)</span>
+              </label>
+              <textarea value={fpNote} onChange={(e) => setFpNote(e.target.value)} rows={2}
+                placeholder="e.g. Live Scan at Wheaton, receipt #48221"
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: `1px solid ${LINE}`, fontSize: 13.5, marginBottom: 12, boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical' }} />
+
+              {liveAttestation && (
+                <>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#B91C1C', marginBottom: 5 }}>
+                    Why is this being extended? <span style={{ fontWeight: 400 }}>(required — recorded and reviewed)</span>
+                  </label>
+                  <textarea value={fpReason} onChange={(e) => setFpReason(e.target.value)} rows={2}
+                    placeholder="e.g. CJIS confirmed a backlog; candidate's receipt verified"
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid #FECACA', fontSize: 13.5, marginBottom: 12, boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical' }} />
+                </>
+              )}
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={recordFingerprint}
+                  disabled={busy === 'fingerprint' || !fpSentAt || !fpExpectedBy || (!!liveAttestation && !fpReason.trim())}
+                  style={{
+                    padding: '9px 18px', borderRadius: 8, border: 'none',
+                    background: (busy === 'fingerprint' || (!!liveAttestation && !fpReason.trim())) ? '#E2E8F0' : TEAL,
+                    color: (busy === 'fingerprint' || (!!liveAttestation && !fpReason.trim())) ? '#94A3B8' : '#fff',
+                    fontSize: 13, fontWeight: 700,
+                    cursor: busy === 'fingerprint' ? 'default' : 'pointer',
+                  }}>
+                  {busy === 'fingerprint' ? 'Saving…' : liveAttestation ? 'Record the extension' : 'Record it'}
+                </button>
+                <button onClick={() => { setFpOpen(false); setFpReason('') }}
+                  style={{ padding: '9px 18px', borderRadius: 8, border: `1px solid ${LINE}`, background: '#fff', color: MUTED, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {attestations.length > 1 && (
+            <div style={{ marginTop: 14, borderTop: `1px solid ${LINE}`, paddingTop: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: MUTED, marginBottom: 6 }}>
+                Earlier attestations ({attestations.length - 1})
+              </div>
+              {attestations.filter((a) => a.id !== liveAttestation?.id).map((a) => (
+                <div key={a.id} style={{ fontSize: 12, color: MUTED, lineHeight: 1.7, marginBottom: 4 }}>
+                  Sent {fmtDate(a.sent_at)}, expected {fmtDate(a.expected_by)}
+                  {a.created_by && actorNames[a.created_by] ? ` · ${actorNames[a.created_by]}` : ''}
+                  {a.cleared_at ? ' · cleared' : a.superseded_at ? ' · extended' : ''}
+                  {a.extension_reason ? ` — ${a.extension_reason}` : ''}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div style={{
