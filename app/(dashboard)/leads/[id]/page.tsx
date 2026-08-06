@@ -27,6 +27,15 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     .eq('lead_id', id)
     .order('created_at', { ascending: false })
 
+  // ── v0.6.46: the latest consent record (milestone status + resend) ───
+  const { data: consentRows } = await svc
+    .from('lead_consents')
+    .select('id, status, agreement_version, created_at, viewed_at, signed_at, signer_name, rep_name')
+    .eq('lead_id', id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  const latestConsent = consentRows?.[0] || null
+
   // ── v0.6.45: outbound emails for this lead (timeline badges) ─────────
   const { data: leadEmails } = await svc
     .from('lead_emails')
@@ -135,6 +144,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       currentUserName={profile?.full_name || ''}
       currentUserEmail={user.email || ''}
       leadEmails={leadEmails || []}
+      latestConsent={latestConsent}
       isAdmin={profile?.role === 'admin'}
       assessmentClient={assessmentClient}
       assessment={assessment}
