@@ -25,6 +25,22 @@
 //     as invited_at in July. First-response is measured only for leads
 //     created on or after RESPONSE_TIME_FROM, and the excluded count is
 //     reported so the gap is visible rather than silent.
+//
+//  4. AN OUTCOME DATE IS won_date OR lost_date. NOTHING ELSE. (v0.6.53 —
+//     this corrected a real bug.) Those columns are written only when a
+//     lead TRANSITIONS through the status buttons, so the leads closed by
+//     the 5 August migration carry none. v0.6.52 fell back to updated_at,
+//     which dated all twenty of them to the migration and made them appear
+//     inside every window — 30 days and 90 days returned identical
+//     outcomes. Worse, updated_at moves on ANY edit, so a lead won in June
+//     would jump into August the moment someone fixed its phone number.
+//     A denominator that shifts when an unrelated field is edited is not a
+//     denominator. There is now no fallback: an undated closure is counted,
+//     named, and EXCLUDED from every bounded window — never dated by guess.
+//
+//  5. CANCELLED IS NOT AN OUTCOME. It has no date column at all and, in
+//     practice, every cancelled lead is also archived. It is reported as a
+//     standing count and kept out of the win-rate denominator entirely.
 // ═════════════════════════════════════════════════════════════════════════
 
 import {
@@ -166,15 +182,25 @@ function inRange(day: string | null, r: ReportRange): boolean {
   return day >= r.from && day <= r.to
 }
 
-/** When a lead reached its outcome. Won and lost carry real dates.
- *  Cancelled has no date column of its own, so updated_at stands in — the
- *  page says so rather than pretending otherwise. */
+/** When a lead reached its outcome — the real recorded date, or nothing.
+ *  There is deliberately NO fallback: see ruling 4 in the header. Cancelled
+ *  leads never have a date and are not an outcome (ruling 5). */
 export function outcomeDay(l: ReportLead): string | null {
   const s = (l.status || '').toLowerCase()
-  if (s === 'won') return dayOf(l.won_date) || dayOf(l.updated_at)
-  if (s === 'lost') return dayOf(l.lost_date) || dayOf(l.updated_at)
-  if (s === 'cancelled') return dayOf(l.updated_at)
+  if (s === 'won') return dayOf(l.won_date)
+  if (s === 'lost') return dayOf(l.lost_date)
   return null
+}
+
+/** A won or lost lead with no recorded outcome date. These exist because
+ *  the 5 August migration set status directly in SQL; the route that writes
+ *  the dates only runs on a status TRANSITION. They are real closures and
+ *  must be counted somewhere — just never inside a bounded window. */
+export function isUndatedClosure(l: ReportLead): boolean {
+  const s = (l.status || '').toLowerCase()
+  if (s === 'won') return !l.won_date
+  if (s === 'lost') return !l.lost_date
+  return false
 }
 
 function weeklyRevenue(l: ReportLead): number {
@@ -252,11 +278,13 @@ export interface LeadReportFacts {
     closed: number
     won: number
     lost: number
-    cancelled: number
-    winRate: number | null              // won ÷ (won+lost+cancelled)
-    winRateExCancelled: number | null   // won ÷ (won+lost)
+    winRate: number | null              // won ÷ (won + lost)
     weeklyRevenueWon: number
     medianDaysToWin: number | null
+    timedWins: number                   // wins that had a real won_date
+    undatedExcluded: number             // undated closures kept OUT of this window
+    undatedIncluded: boolean            // true only on All time
+    cancelledAllTime: number
   }
   losses: LossRow[]
   sources: SourceRow[]
@@ -303,15 +331,31 @@ export function buildLeadReport(input: ReportInput): LeadReportFacts {
   const createdCohort = live.filter(l => inRange(dayOf(l.created_at), range))
 
   // ── Closed cohort — the win-rate denominator ───────────────────────────
-  const closedCohort = live.filter(l => isClosedStatus(l.status) && inRange(outcomeDay(l), range))
+  // Won and lost only (ruling 5). A bounded window takes leads whose
+  // recorded outcome date falls inside it. "All time" has no boundary to
+  // fail, so it takes every closure including the undated ones — otherwise
+  // twenty real closures would be invisible on every view of the page.
+  const closedLive = live.filter(l => {
+    const s = (l.status || '').toLowerCase()
+    return s === 'won' || s === 'lost'
+  })
+  const undatedAll = closedLive.filter(isUndatedClosure)
+  const isAllTime = range.key === 'all'
+
+  const closedCohort = isAllTime
+    ? closedLive
+    : closedLive.filter(l => !isUndatedClosure(l) && inRange(outcomeDay(l), range))
+
   const won = closedCohort.filter(l => (l.status || '') === 'won')
   const lost = closedCohort.filter(l => (l.status || '') === 'lost')
-  const cancelled = closedCohort.filter(l => (l.status || '') === 'cancelled')
+  const cancelledAllTime = live.filter(l => (l.status || '') === 'cancelled').length
 
+  // Only leads with a REAL won_date can be timed. An undated closure has no
+  // duration, and inventing one would be the same bug in a new place.
   const daysToWin: number[] = []
   for (const l of won) {
     const start = dayOf(l.created_at)
-    const end = outcomeDay(l)
+    const end = dayOf(l.won_date)
     if (!start || !end || end < start) continue
     const ms = new Date(end + 'T12:00:00Z').getTime() - new Date(start + 'T12:00:00Z').getTime()
     daysToWin.push(Math.round(ms / 86400000))
@@ -422,11 +466,13 @@ export function buildLeadReport(input: ReportInput): LeadReportFacts {
       closed: closedCohort.length,
       won: won.length,
       lost: lost.length,
-      cancelled: cancelled.length,
       winRate: pct(won.length, closedCohort.length),
-      winRateExCancelled: pct(won.length, won.length + lost.length),
       weeklyRevenueWon: won.reduce((s, l) => s + weeklyRevenue(l), 0),
       medianDaysToWin: median(daysToWin),
+      timedWins: daysToWin.length,
+      undatedExcluded: isAllTime ? 0 : undatedAll.length,
+      undatedIncluded: isAllTime,
+      cancelledAllTime,
     },
     losses,
     sources,
@@ -497,6 +543,7 @@ export interface LeadDetailRow {
   client_record_linked: string
   first_response_hours: number | null
   counted_as: string
+  outcome_date_recorded: string
 }
 
 export function buildLeadRows(input: ReportInput): LeadDetailRow[] {
@@ -505,11 +552,17 @@ export function buildLeadRows(input: ReportInput): LeadDetailRow[] {
   const live = leads.filter(l => !l.archived_at)
 
   const rows: LeadDetailRow[] = []
+  const isAllTime = range.key === 'all'
   for (const l of live) {
     const createdDay = dayOf(l.created_at)
     const outDay = outcomeDay(l)
+    const closedStatus = isClosedStatus(l.status)
     const createdIn = inRange(createdDay, range)
-    const closedIn = isClosedStatus(l.status) && inRange(outDay, range)
+    // Same rule as the fact block: bounded windows take dated closures only;
+    // All time takes every closure, undated included.
+    const closedIn = closedStatus && (
+      isAllTime ? true : (!isUndatedClosure(l) && inRange(outDay, range))
+    )
     if (!createdIn && !closedIn) continue
 
     let firstHours: number | null = null
@@ -542,9 +595,39 @@ export function buildLeadRows(input: ReportInput): LeadDetailRow[] {
       first_response_hours: firstHours,
       counted_as: createdIn && closedIn ? 'created and closed'
         : createdIn ? 'created' : 'closed',
+      outcome_date_recorded: closedStatus ? (isUndatedClosure(l) ? 'no' : 'yes') : '',
     })
   }
 
   rows.sort((a, b) => (b.created_day || '').localeCompare(a.created_day || ''))
   return rows
+}
+
+export interface UndatedClosureRow {
+  id: string
+  name: string
+  status: string
+  source: string
+  owner: string
+  created_day: string
+  weekly_revenue: number
+  client_record_linked: string
+}
+
+/** The closures with no recorded outcome date, listed so they can be seen
+ *  and fixed rather than quietly dropped from every window. */
+export function buildUndatedClosures(leads: ReportLead[]): UndatedClosureRow[] {
+  return leads
+    .filter(l => !l.archived_at && isUndatedClosure(l))
+    .map(l => ({
+      id: l.id,
+      name: l.full_name || l.client_name || 'Unnamed lead',
+      status: l.status || '',
+      source: l.source ? sourceLabel(l.source) : '',
+      owner: nameOf(l.assignee),
+      created_day: dayOf(l.created_at) || '',
+      weekly_revenue: weeklyRevenue(l),
+      client_record_linked: l.assessment_client_id ? 'yes' : 'no',
+    }))
+    .sort((a, b) => (b.created_day || '').localeCompare(a.created_day || ''))
 }
