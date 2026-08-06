@@ -59,6 +59,15 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
     .order('requested_at', { ascending: false })
     .limit(5)
 
+  // Application reminders already sent. A coordinator about to chase someone
+  // needs to see how hard we have chased them already.
+  const { data: reminderRows } = await svc
+    .from('onb_application_reminders')
+    .select('id, reminder_number, kind, sent_at')
+    .eq('candidate_id', cand.id)
+    .order('sent_at', { ascending: false })
+    .limit(10)
+
   const requests = Array.isArray(reqRows) ? reqRows : []
   const pendingRequest = requests.find((r) => r.status === 'pending') || null
   const lastReturned = requests.find((r) => r.status === 'returned') || null
@@ -86,6 +95,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
       application={appRow || null}
       documents={docRows || []}
       attempt={attempt || null}
+      reminders={Array.isArray(reminderRows) ? reminderRows : []}
       docTypes={ONB_DOCUMENT_TYPES}
     />
   )
