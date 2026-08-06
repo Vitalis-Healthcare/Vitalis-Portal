@@ -17,7 +17,15 @@ import { createServiceClient } from '@/lib/supabase/service'
 
 export const dynamic = 'force-dynamic'
 
-const PUSHABLE_STATUSES = ['application_submitted', 'in_review']
+// The push is the LAST step of onboarding, not an early one. Until v0.6.59
+// this list was ['application_submitted', 'in_review'] — the exact inverse of
+// the documented sequence — so a coordinator could create the AxisCare
+// applicant while the credentialing gate was still open, and could NOT push a
+// candidate who had properly been converted. Vita cannot enforce an onboarding
+// process it lets you walk around, so the only pushable status is 'converted'.
+// Absolute by decision (Okezie, 6 Aug 2026): no admin override, because an
+// override is how the gate gets quietly defeated again.
+const PUSHABLE_STATUSES = ['converted']
 
 function nonEmpty(v: unknown): string | null {
   if (typeof v !== 'string') return null
@@ -207,7 +215,20 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ already: true, axiscare_applicant_id: cand.axiscare_applicant_id })
   }
   if (!PUSHABLE_STATUSES.includes(cand.status || '')) {
-    return NextResponse.json({ error: 'Push to AxisCare is available once the application is submitted or in review.' }, { status: 409 })
+    // Structured like the convert route's refusal so the caller can render the
+    // reason and a way to act on it, rather than a dead "could not push"
+    // (pitfall #42 — a gate that refuses without explaining reads as broken).
+    return NextResponse.json({
+      error: 'Push to AxisCare is available only after this candidate has been converted to a caregiver in Vita.',
+      code: 'not_converted',
+      blockers: [{
+        code: 'not_converted',
+        label: 'This candidate has not been converted to a caregiver yet',
+        detail: 'AxisCare is the last step of onboarding. Finish credentialing, get the agreement signed, and convert the candidate to a caregiver in Vita first — then push them to AxisCare.',
+        fixHref: `/candidates/${cand.id}`,
+        fixLabel: 'Open candidate',
+      }],
+    }, { status: 409 })
   }
 
   const { data: app } = await svc
@@ -297,9 +318,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // Persist the link first (the applicant exists regardless of the note outcome).
+  // Deliberately does NOT write status. The only pushable status is now
+  // 'converted', so setting 'axiscare_created' here would move a caregiver
+  // BACKWARD out of the terminal status. The value stays in the vocabulary and
+  // every read path still handles it, for rows written before v0.6.59.
   const nowIso = new Date().toISOString()
   await svc.from('onb_candidates')
-    .update({ axiscare_applicant_id: applicantId, axiscare_pushed_at: nowIso, status: 'axiscare_created', updated_at: nowIso })
+    .update({ axiscare_applicant_id: applicantId, axiscare_pushed_at: nowIso, updated_at: nowIso })
     .eq('id', cand.id)
 
   // Best-effort "Pushed from Vita" note with all the non-structured data.
