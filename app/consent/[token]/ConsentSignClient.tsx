@@ -16,7 +16,7 @@ import {
   AGENCY, INTRO_TEXT, AGREEMENT_SECTIONS, AGREEMENT_SECTIONS_AFTER_DIRECTIVES,
   COMPLAINT_SECTION, DIRECTIVE_OPTIONS, BILLING_METHODS, TERMS_INTRO,
   TERMS_BULLETS, REASSURANCE_TITLE, REASSURANCE_BODY, ESIGN_NOTE,
-  type ConsentPrefill,
+  type ConsentPrefill, type ClientDetails,
 } from '@/lib/leads/consent-content'
 import { fmtDateOnly } from '@/lib/leads/consent-render'
 
@@ -31,8 +31,16 @@ interface Props {
 const SEC: React.CSSProperties = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 20, fontWeight: 700, color: '#2D5A1B', margin: '26px 0 8px' }
 const P: React.CSSProperties = { margin: '0 0 14px', fontSize: 14.5, lineHeight: 1.65, color: '#2A2A26' }
 const LBL: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 700, color: '#55554E', marginBottom: 5 }
+const FIELD: React.CSSProperties = { width: '100%', padding: '11px 13px', border: '1px solid #C9C7BB', borderRadius: 6, fontSize: 15, fontFamily: 'inherit', boxSizing: 'border-box', background: '#FFF' }
 
 export default function ConsentSignClient({ token, prefill: p, repName, repSignedAt, agreementVersion }: Props) {
+  // ── v0.6.47: the client completes/corrects their own details ──
+  const [details, setDetails] = useState({
+    client_name: p.client_name || '', dob: p.dob || '',
+    address: p.address || '', city: p.city || '', state: p.state || '', zip: p.zip || '',
+    ltc_insurer: p.ltc_insurer || '', ltc_claim: p.ltc_claim || '',
+  })
+  const setD = (k: keyof typeof details, v: string) => setDetails(d => ({ ...d, [k]: v }))
   const [directives, setDirectives] = useState<string[]>([])
   const [acknowledged, setAcknowledged] = useState(false)
   const [signerName, setSignerName] = useState('')
@@ -80,6 +88,7 @@ export default function ConsentSignClient({ token, prefill: p, repName, repSigne
   }
 
   const canSign = acknowledged && signerName.trim().length > 1 &&
+    details.client_name.trim().length > 1 &&
     (sigMode === 'typed' ? signerName.trim().length > 1 : hasDrawn) && !submitting
 
   async function handleSign() {
@@ -94,6 +103,7 @@ export default function ConsentSignClient({ token, prefill: p, repName, repSigne
           signer_name: signerName.trim(), signer_role: signerRole,
           signature_kind: sigMode, signature_data,
           directives, acknowledged,
+          client_details: details as ClientDetails,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -112,7 +122,7 @@ export default function ConsentSignClient({ token, prefill: p, repName, repSigne
         <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 26, fontWeight: 600, color: '#2D5A1B', marginBottom: 10 }}>Thank you — you&rsquo;re all set.</div>
         <p style={{ fontSize: 14.5, color: '#55554E', lineHeight: 1.65 }}>
           The agreement is signed, and a copy is on its way to your email for your records.
-          We&rsquo;re looking forward to caring for {p.client_name}.
+          We&rsquo;re looking forward to caring for {details.client_name.trim() || p.client_name}.
         </p>
         <p style={{ fontSize: 13, color: '#8A8A80', marginTop: 14 }}>Questions any time: {AGENCY.phoneDisplay}</p>
       </div>
@@ -130,22 +140,56 @@ export default function ConsentSignClient({ token, prefill: p, repName, repSigne
       <div style={{ padding: '26px 24px 40px' }}>
         {/* Title */}
         <div style={{ textAlign: 'center', marginBottom: 6 }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: '#A8863F', fontWeight: 700 }}>For {p.client_name}</div>
+          <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: '#A8863F', fontWeight: 700 }}>For {details.client_name.trim() || p.client_name}</div>
           <h1 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 29, fontWeight: 600, color: '#2D5A1B', margin: '8px 0 8px', lineHeight: 1.2 }}>Home Care Service Agreement<br />&amp; Consent Form</h1>
           <p style={{ color: '#55554E', fontSize: 14, margin: '0 auto', maxWidth: 540, lineHeight: 1.6 }}>Please review this agreement carefully. It describes the services Vitalis will provide, your rights and responsibilities, and how billing works. Signing takes about five minutes.</p>
         </div>
 
-        {/* Client card */}
+        {/* Client card — v0.6.47: the client completes/corrects these */}
         <div style={{ background: '#F6F8F2', border: '1px solid #DCE5D2', borderRadius: 8, padding: '18px 20px', margin: '18px 0 22px' }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: '#2D5A1B', fontWeight: 700, marginBottom: 10 }}>Client information</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 28px', fontSize: 14 }}>
-            <div><span style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', color: '#8A8A80' }}>Client name</span>{p.client_name}</div>
-            <div><span style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', color: '#8A8A80' }}>Date of birth</span>{fmtDateOnly(p.dob)}</div>
-            <div style={{ flexBasis: '100%' }}><span style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', color: '#8A8A80' }}>Address</span>{[p.address, p.city, p.state, p.zip].filter(Boolean).join(', ') || '—'}</div>
-            <div><span style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', color: '#8A8A80' }}>Start of care date</span>{fmtDateOnly(p.start_of_care)}</div>
-            <div><span style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', color: '#8A8A80' }}>LTC insurer / claim #</span>{[p.ltc_insurer, p.ltc_claim].filter(Boolean).join(' / ') || '—'}</div>
+          <div style={{ fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: '#2D5A1B', fontWeight: 700, marginBottom: 4 }}>Client information</div>
+          <div style={{ fontSize: 13, color: '#55554E', lineHeight: 1.6, marginBottom: 14 }}>
+            Please check these details and fill in anything that&rsquo;s missing — what you enter here is what appears on your signed agreement.
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A8A80', marginTop: 10 }}>Prepared by Vitalis HealthCare. If anything above is incorrect, please call {AGENCY.phoneDisplay} before signing.</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+            <div style={{ flex: '1 1 100%' }}>
+              <label style={LBL}>Client&rsquo;s full legal name <span style={{ color: '#B45309' }}>*</span></label>
+              <input value={details.client_name} onChange={e => setD('client_name', e.target.value)} placeholder="First, middle, and last name"
+                style={FIELD} />
+            </div>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={LBL}>Date of birth</label>
+              <input type="date" value={details.dob} onChange={e => setD('dob', e.target.value)} style={FIELD} />
+            </div>
+            <div style={{ flex: '1 1 100%' }}>
+              <label style={LBL}>Home address (where care will be provided)</label>
+              <input value={details.address} onChange={e => setD('address', e.target.value)} placeholder="Street address" style={FIELD} />
+            </div>
+            <div style={{ flex: '2 1 200px' }}>
+              <label style={LBL}>City</label>
+              <input value={details.city} onChange={e => setD('city', e.target.value)} style={FIELD} />
+            </div>
+            <div style={{ flex: '1 1 80px' }}>
+              <label style={LBL}>State</label>
+              <input value={details.state} onChange={e => setD('state', e.target.value)} style={FIELD} />
+            </div>
+            <div style={{ flex: '1 1 110px' }}>
+              <label style={LBL}>ZIP</label>
+              <input value={details.zip} onChange={e => setD('zip', e.target.value)} style={FIELD} />
+            </div>
+            <div style={{ flex: '1 1 220px' }}>
+              <label style={LBL}>Long term care insurer <span style={{ color: '#8A8A80', fontWeight: 400 }}>(if any)</span></label>
+              <input value={details.ltc_insurer} onChange={e => setD('ltc_insurer', e.target.value)} style={FIELD} />
+            </div>
+            <div style={{ flex: '1 1 180px' }}>
+              <label style={LBL}>Claim number <span style={{ color: '#8A8A80', fontWeight: 400 }}>(if any)</span></label>
+              <input value={details.ltc_claim} onChange={e => setD('ltc_claim', e.target.value)} style={FIELD} />
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid #DCE5D2', marginTop: 14, paddingTop: 12, display: 'flex', flexWrap: 'wrap', gap: '6px 28px', fontSize: 13.5 }}>
+            <div><span style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', color: '#8A8A80' }}>Start of care date</span>{fmtDateOnly(p.start_of_care)}</div>
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A8A80', marginTop: 8 }}>The start of care date was set with your Vitalis coordinator. If it needs to change, call {AGENCY.phoneDisplay} — no need to delay signing.</div>
         </div>
 
         <p style={P}>{INTRO_TEXT}</p>
@@ -207,6 +251,11 @@ export default function ConsentSignClient({ token, prefill: p, repName, repSigne
           I have read and understand all of the above.
         </label>
 
+        {!details.client_name.trim() && (
+          <div style={{ fontSize: 13, color: '#92400E', background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: 8, padding: '10px 14px', margin: '10px 0', fontWeight: 600 }}>
+            Please enter the client&rsquo;s full legal name in the Client information section above before signing.
+          </div>
+        )}
         {error && (
           <div style={{ fontSize: 13, color: '#B91C1C', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 14px', margin: '10px 0', fontWeight: 600 }}>{error}</div>
         )}

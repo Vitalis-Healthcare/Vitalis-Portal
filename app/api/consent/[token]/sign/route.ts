@@ -11,7 +11,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { renderSignedSnapshot } from '@/lib/leads/consent-render'
-import { isValidDirectiveKey, type ConsentPrefill } from '@/lib/leads/consent-content'
+import {
+  isValidDirectiveKey, mergeClientDetails, changedClientFields,
+  CLIENT_EDITABLE_FIELDS, CLIENT_FIELD_LABELS,
+  type ConsentPrefill, type ClientDetails, type ClientEditableField,
+} from '@/lib/leads/consent-content'
 import { prettyKey } from '@/lib/leads/model'
 import { TEAM_EMAIL } from '@/lib/leads/outbound'
 
@@ -72,6 +76,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       return NextResponse.json({ error: 'The drawn signature is too large — please clear and sign again' }, { status: 400 })
     }
   }
+  // ── v0.6.47: the client's own details (they complete/correct these) ──
+  const rawDetails = (body.client_details && typeof body.client_details === 'object') ? body.client_details : {}
+  const client_details: ClientDetails = {}
+  for (const f of CLIENT_EDITABLE_FIELDS) {
+    const v = rawDetails[f]
+    if (typeof v === 'string' && v.trim()) client_details[f] = v.trim().slice(0, 200)
+  }
+  if (!client_details.client_name || client_details.client_name.length < 2) {
+    return NextResponse.json({ error: 'Please enter the client\u2019s full legal name before signing' }, { status: 400 })
+  }
+
   const directives: string[] = Array.isArray(rawDirectives)
     ? rawDirectives.filter((d): d is string => typeof d === 'string' && isValidDirectiveKey(d))
     : []
@@ -88,7 +103,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   if (consent.status === 'void') return NextResponse.json({ error: 'This link was replaced by a newer one — please open the most recent email from us' }, { status: 409 })
 
   const signedAtIso = new Date().toISOString()
-  const prefill = consent.prefill as ConsentPrefill
+  const staffPrefill = consent.prefill as ConsentPrefill
+  const changed = changedClientFields(staffPrefill, client_details)
+  // What the client entered is what prints; the staff original stays in `prefill`.
+  const prefill = mergeClientDetails(staffPrefill, client_details)
 
   const signed_html = renderSignedSnapshot({
     prefill, directives,
@@ -107,7 +125,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       status: 'signed', signed_at: signedAtIso,
       signer_name, signer_role, signature_kind,
       signature_data: signature_kind === 'typed' ? signer_name : signature_data,
-      directives, signed_html,
+      directives, signed_html, client_details,
     })
     .eq('id', consent.id)
     .in('status', ['sent', 'viewed'])
@@ -118,7 +136,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   }
 
   // ── 2. Mirror to the lead (consent_status + the standard log lines) ──
-  const { data: lead } = await svc.from('leads').select('consent_status').eq('id', consent.lead_id).maybeSingle()
+  const { data: lead } = await svc.from('leads')
+    .select('consent_status, client_name, date_of_birth, address, city, state, zip')
+    .eq('id', consent.lead_id).maybeSingle()
   const prevConsent = lead?.consent_status || 'not_started'
   await svc.from('leads').update({ consent_status: 'signed', updated_at: signedAtIso }).eq('id', consent.lead_id)
   try {
@@ -132,7 +152,43 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       lead_id: consent.lead_id, created_by: null, activity_type: 'note',
       content: `Service Agreement signed by ${signer_name} (${signer_role === 'representative' ? 'client\u2019s representative' : 'client'})`,
     })
+    if (changed.length) {
+      const names = changed.map((f: ClientEditableField) => CLIENT_FIELD_LABELS[f]).join(', ')
+      await svc.from('lead_activities').insert({
+        lead_id: consent.lead_id, created_by: null, activity_type: 'note',
+        content: `Client completed their details on the agreement: ${names}`,
+      })
+    }
   } catch (err) { console.error('[consent/sign] timeline insert failed:', err) }
+
+  // ── 2b. Write back to BLANK lead fields only (v0.6.47 ruling) ─────
+  // Never overwrite something staff already entered — a gap the client
+  // filled is worth capturing; a disagreement is a conversation, not an
+  // automatic edit. Silent-fail: this must never disturb the signature.
+  if (lead) {
+    const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === ''
+    const writeBack: Record<string, string> = {}
+    const pairs: [string, string | null | undefined][] = [
+      ['client_name', client_details.client_name],
+      ['date_of_birth', client_details.dob],
+      ['address', client_details.address],
+      ['city', client_details.city],
+      ['state', client_details.state],
+      ['zip', client_details.zip],
+    ]
+    for (const [col, val] of pairs) {
+      if (val && blank((lead as Record<string, unknown>)[col])) writeBack[col] = val
+    }
+    if (Object.keys(writeBack).length) {
+      try {
+        await svc.from('leads').update(writeBack).eq('id', consent.lead_id)
+        await svc.from('lead_activities').insert({
+          lead_id: consent.lead_id, created_by: null, activity_type: 'note',
+          content: `Lead record updated from the signed agreement (blank fields only): ${Object.keys(writeBack).join(', ')}`,
+        })
+      } catch (err) { console.error('[consent/sign] lead write-back failed:', err) }
+    }
+  }
 
   // ── 3. Email the signed copy (SOFT-FAIL) ─────────────────────────────
   try {
