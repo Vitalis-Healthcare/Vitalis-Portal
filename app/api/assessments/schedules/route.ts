@@ -1,4 +1,5 @@
-// app/api/assessments/schedules/route.ts — admin only
+// app/api/assessments/schedules/route.ts — admin/supervisor (widened v0.6.42;
+// audit trail: created_by on the schedule row + the nurse assignment email)
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
@@ -17,8 +18,8 @@ export async function POST(request: Request) {
     const db = createServiceClient()
     const { data: profile } = await db
       .from('profiles').select('role').eq('id', user.id).single()
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 })
+    if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Forbidden — admin or supervisor only' }, { status: 403 })
     }
 
     const body = await request.json()

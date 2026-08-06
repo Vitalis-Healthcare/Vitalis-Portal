@@ -1,19 +1,21 @@
 'use client'
 // ═════════════════════════════════════════════════════════════════════════
-// Lead Workspace (v0.6.41) — the Ship 3 redesign.
+// Lead Workspace (v0.6.42) — Ship 4a: the Assessment milestone goes live.
 //
 // Layout, top to bottom:
 //   Header      — identity + chips, contact links, TWO primary buttons
 //                 (Log Activity, Edit); everything else behind "⋯ More".
 //   Journey     — stage stepper + status controls (unchanged behavior).
 //   Next Action — the Ship 2 panel (unchanged behavior).
-//   Milestones  — NEW: Consent (interactive) · Assessment (Ship 4 slot) ·
-//                 Conversion readiness (computed now, activates in Ship 4).
+//   Milestones  — Consent (interactive) · Assessment (NOW LIVE: schedule a
+//                 nurse assessment from the lead, wired into the Assessments
+//                 module, with duplicate prevention and status echo) ·
+//                 Conversion readiness (computed; the Convert button is 4b).
 //   Body        — timeline (day-grouped, filterable, slim status lines)
 //                 beside a three-card rail (Numbers / People / Details).
 //
-// Behavior is Ship 1+2 verbatim: same routes, same guards, same handlers.
-// This ship rearranges the furniture; it does not move the walls.
+// Behavior from Ships 1–3 is preserved verbatim: same routes, same guards,
+// same handlers. This ship adds the assessment slot; it moves nothing else.
 // ═════════════════════════════════════════════════════════════════════════
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -54,6 +56,15 @@ const TIMELINE_FILTERS = [
 
 const CARE_TYPES = ['Personal Care', 'Companion Care', 'Skilled Nursing', 'Respite Care', 'Overnight', 'Live-In']
 
+// v0.6.42 — cadence options mirror the assessments module.
+const CADENCE_OPTIONS = [
+  { value: '120', label: '120 days (standard)' },
+  { value: '90',  label: '90 days' },
+  { value: '60',  label: '60 days' },
+  { value: '30',  label: '30 days' },
+  { value: '365', label: '365 days (annual)' },
+]
+
 function fmtMoney(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
@@ -88,6 +99,7 @@ interface Lead {
   next_action_type?: string | null; next_action_due?: string | null; next_action_note?: string | null
   consent_status?: string | null
   legacy_status?: string | null; archived_at?: string | null
+  assessment_client_id?: string | null
   relationship?: string
   care_types?: string[]; condition_notes?: string; preferred_schedule?: string
   estimated_hours_week?: number; hourly_rate?: number
@@ -104,13 +116,25 @@ interface Activity {
   author?: any
 }
 interface Stage { key: string; label: string; color: string; bg_color: string; order_index: number }
+
+// v0.6.42 — assessment context from the server page.
+interface AssessmentClientInfo { id: string; full_name: string; status: string }
+interface AssessmentRow {
+  id: string; status: string; scheduled_date: string | null
+  completed_date: string | null; is_initial: boolean; nurse_name: string | null
+}
+
 interface Props {
   lead: Lead; activities: Activity[]; staff: { id: string; full_name: string }[]
   stages: Stage[]
   currentUserId: string; currentUserName: string; isAdmin: boolean
+  assessmentClient: AssessmentClientInfo | null
+  assessment: AssessmentRow | null
+  nurses: { id: string; full_name: string }[]
+  linkableClients: { id: string; full_name: string }[]
 }
 
-export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, stages, currentUserId, currentUserName, isAdmin }: Props) {
+export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, stages, currentUserId, currentUserName, isAdmin, assessmentClient, assessment, nurses, linkableClients }: Props) {
   const router = useRouter()
   const [lead, setLead] = useState(initialLead)
   const [activities, setActivities] = useState(initialActivities)
@@ -149,6 +173,22 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [syncing, setSyncing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string>('')
+
+  // ── v0.6.42: assessment milestone state ──
+  // Local copies win over props after a successful schedule, because
+  // useState(initialProp) does not re-seed on router.refresh().
+  const [acLocal, setAcLocal] = useState<AssessmentClientInfo | null>(assessmentClient)
+  const [asmtLocal, setAsmtLocal] = useState<AssessmentRow | null>(assessment)
+  const [schedOpen, setSchedOpen] = useState(false)
+  const [schedForm, setSchedForm] = useState({
+    mode: 'create' as 'create' | 'link',
+    existing_client_id: '',
+    nurse_id: '',
+    first_due_date: '',
+    cadence_days: '120',
+    is_initial: true,
+  })
+  const setS = (k: string, v: any) => setSchedForm(f => ({ ...f, [k]: v }))
 
   const handleSyncToCarematch = async () => {
     setMoreOpen(false)
@@ -302,6 +342,44 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     if (ok) pushLocalActivity(`Consent milestone: ${prettyKey(prev)} → ${prettyKey(newConsent)}`)
   }
 
+  // ── v0.6.42: schedule an assessment from the lead ────────────────────
+  const handleScheduleAssessment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!schedForm.nurse_id || !schedForm.first_due_date) { alert('A nurse and a first due date are required.'); return }
+    if (!acLocal && schedForm.mode === 'link' && !schedForm.existing_client_id) { alert('Choose the existing client record to link.'); return }
+    setSaving(true)
+    const res = await fetch('/api/leads/assessment', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lead_id: lead.id,
+        existing_client_id: !acLocal && schedForm.mode === 'link' ? schedForm.existing_client_id : null,
+        nurse_id: schedForm.nurse_id,
+        first_due_date: schedForm.first_due_date,
+        cadence_days: parseInt(schedForm.cadence_days, 10),
+        is_initial: schedForm.is_initial,
+      }),
+    })
+    const d = await res.json().catch(() => ({}))
+    if (res.ok) {
+      if (d.client) setAcLocal(d.client)
+      if (d.assessment) setAsmtLocal(d.assessment)
+      setLead(l => ({ ...l, assessment_client_id: d.client?.id || l.assessment_client_id }))
+      pushLocalActivity(`Assessment scheduled for ${d.assessment?.scheduled_date || schedForm.first_due_date} with ${d.assessment?.nurse_name || 'nurse'}`)
+      setSchedOpen(false)
+      router.refresh()
+    } else if (res.status === 409 && d.assessment) {
+      // Duplicate prevention: an assessment is already open — show it.
+      if (d.client) setAcLocal(d.client)
+      setAsmtLocal(d.assessment)
+      setLead(l => ({ ...l, assessment_client_id: d.client?.id || l.assessment_client_id }))
+      alert(d.error || 'An assessment is already open for this client.')
+      setSchedOpen(false)
+    } else {
+      alert(d.error || 'Failed to schedule the assessment')
+    }
+    setSaving(false)
+  }
+
   const handleLogActivity = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!actForm.content.trim()) return
@@ -438,7 +516,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     else dayGroups.push({ label, items: [a] })
   }
 
-  // ── Conversion readiness (computed now; the Convert button is Ship 4) ─
+  // ── Conversion readiness (computed; the Convert button is Ship 4b) ───
   const readiness = [
     { label: 'Contact info', ok: !!(lead.phone || lead.email) },
     { label: 'Hours & rate', ok: !!(lead.estimated_hours_week && lead.hourly_rate) },
@@ -447,6 +525,25 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     { label: 'Consent signed', ok: (lead.consent_status || '') === 'signed' },
   ]
   const readyCount = readiness.filter(r => r.ok).length
+
+  // ── v0.6.42: assessment milestone derived view ───────────────────────
+  const asmtIsOpen = !!asmtLocal && ['scheduled', 'overdue'].includes(asmtLocal.status)
+  const asmtIsOverdue = asmtIsOpen && (asmtLocal!.status === 'overdue' || (!!asmtLocal!.scheduled_date && asmtLocal!.scheduled_date < today))
+  const asmtIsCompleted = !!asmtLocal && asmtLocal.status === 'completed'
+  const clientDischarged = acLocal?.status === 'discharged'
+  const asmtBadge = asmtIsOpen
+    ? (asmtIsOverdue
+        ? { label: 'Overdue', bg: '#FEE2E2', color: '#DC2626' }
+        : { label: 'Scheduled', bg: '#D1FAE5', color: '#065F46' })
+    : asmtIsCompleted
+      ? { label: 'Completed', bg: '#EDE9FE', color: '#7C3AED' }
+      : acLocal
+        ? { label: 'None open', bg: '#EFF2F5', color: '#8FA0B0' }
+        : { label: 'Not scheduled', bg: '#EFF2F5', color: '#8FA0B0' }
+  const openSchedModal = () => {
+    setSchedForm({ mode: 'create', existing_client_id: '', nurse_id: nurses.length === 1 ? nurses[0].id : '', first_due_date: '', cadence_days: '120', is_initial: !asmtLocal })
+    setSchedOpen(true)
+  }
 
   return (
     <div style={{ maxWidth: 1080, margin: '0 auto' }}>
@@ -739,7 +836,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
         )}
       </div>
 
-      {/* ── Intake Milestones (NEW): Consent · Assessment · Conversion ── */}
+      {/* ── Intake Milestones: Consent · Assessment (LIVE v0.6.42) · Conversion ── */}
       <div style={{ ...card, marginBottom: 12 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 12 }}>Intake Milestones</div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -764,18 +861,43 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
             <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 6 }}>Tracked manually for now — the in-app consent sender is a coming update.</div>
           </div>
 
-          {/* Assessment — Ship 4 slot */}
+          {/* Assessment — LIVE (v0.6.42) */}
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 800, color: '#1A2E44' }}>📋 Assessment</span>
-              <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: '#EFF2F5', color: '#8FA0B0' }}>Not requested</span>
+              <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: asmtBadge.bg, color: asmtBadge.color }}>{asmtBadge.label}</span>
             </div>
-            <div style={{ fontSize: 12, color: '#8FA0B0', lineHeight: 1.5 }}>
-              Scheduling an assessment and assigning a nurse from this lead arrives in the next update, wired into the Assessments module.
+            {asmtLocal ? (
+              <div style={{ fontSize: 12.5, color: '#1A2E44', fontWeight: 600, marginBottom: 4 }}>
+                {asmtIsCompleted
+                  ? <>Completed {fmtDate(asmtLocal.completed_date)}{asmtLocal.nurse_name ? ` · ${asmtLocal.nurse_name}` : ''}</>
+                  : <>{asmtIsOverdue ? '⚠️ ' : ''}{fmtDate(asmtLocal.scheduled_date)}{asmtLocal.nurse_name ? ` · ${asmtLocal.nurse_name}` : ''}{asmtLocal.is_initial ? ' · Initial' : ''}</>
+                }
+              </div>
+            ) : acLocal ? (
+              <div style={{ fontSize: 12, color: '#8FA0B0', marginBottom: 4 }}>Linked to client record — no assessment on the books yet.</div>
+            ) : (
+              <div style={{ fontSize: 12, color: '#8FA0B0', marginBottom: 4 }}>Schedule a nurse assessment — the client record is created or linked in the same step.</div>
+            )}
+            {clientDischarged && (
+              <div style={{ fontSize: 11, color: '#B45309', marginBottom: 4 }}>⚠️ The linked client record is discharged.</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {!asmtIsOpen && !clientDischarged && (
+                <button onClick={openSchedModal} disabled={saving || isArchived}
+                  style={{ padding: '6px 12px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: saving || isArchived ? 'default' : 'pointer', opacity: isArchived ? 0.5 : 1 }}>
+                  📋 {asmtLocal ? 'Schedule Next Assessment' : 'Schedule Assessment'}
+                </button>
+              )}
+              {acLocal && (
+                <Link href={`/assessments/clients/${acLocal.id}`} style={{ fontSize: 12, fontWeight: 700, color: '#457B9D', textDecoration: 'none' }}>
+                  View in Assessments →
+                </Link>
+              )}
             </div>
           </div>
 
-          {/* Conversion — readiness computed now, button in Ship 4 */}
+          {/* Conversion — readiness computed now, button in Ship 4b */}
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 800, color: '#1A2E44' }}>🎯 Conversion</span>
@@ -1136,6 +1258,91 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                   {saving ? 'Saving…' : editingActivity ? '💾 Save Changes' : '📝 Log Activity'}
                 </button>
                 <button type="button" onClick={() => { setLogOpen(false); setMarkDone(false); setEditingActivity(null); setActForm({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' }) }} style={{ padding: '11px 18px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Schedule Assessment Modal (v0.6.42) ── */}
+      {schedOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}
+          onClick={e => { if (e.target === e.currentTarget) setSchedOpen(false) }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #EFF2F5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2E44', margin: 0 }}>📋 Schedule Assessment</h3>
+              <button onClick={() => setSchedOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
+            </div>
+            <form onSubmit={handleScheduleAssessment} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Client record */}
+              <div>
+                <label style={lbl}>Client Record</label>
+                {acLocal ? (
+                  <div style={{ fontSize: 13, color: '#1A2E44', fontWeight: 600, padding: '8px 11px', background: '#F0FDF9', border: '1.5px solid #0B6B5C', borderRadius: 7 }}>
+                    ✓ Linked: {acLocal.full_name}
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                      <button type="button" onClick={() => setS('mode', 'create')}
+                        style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: `1.5px solid ${schedForm.mode === 'create' ? '#0B6B5C' : '#E2E8F0'}`, background: schedForm.mode === 'create' ? '#D1FAE5' : '#fff', color: schedForm.mode === 'create' ? '#0B6B5C' : '#8FA0B0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        Create new client
+                      </button>
+                      <button type="button" onClick={() => setS('mode', 'link')}
+                        style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: `1.5px solid ${schedForm.mode === 'link' ? '#457B9D' : '#E2E8F0'}`, background: schedForm.mode === 'link' ? '#EBF4FF' : '#fff', color: schedForm.mode === 'link' ? '#457B9D' : '#8FA0B0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        Link existing client
+                      </button>
+                    </div>
+                    {schedForm.mode === 'create' ? (
+                      <div style={{ fontSize: 12, color: '#4A6070', lineHeight: 1.5 }}>
+                        A client record will be created for <strong>{lead.client_name || lead.full_name}</strong>. Address, phone, and date of birth copy over from this lead automatically — no re-entry.
+                      </div>
+                    ) : (
+                      <select value={schedForm.existing_client_id} onChange={e => setS('existing_client_id', e.target.value)} style={inp}>
+                        <option value="">— Choose an existing client record —</option>
+                        {linkableClients.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                      </select>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Nurse */}
+              <div>
+                <label style={lbl}>Assigned Nurse <span style={{ color: '#E63946' }}>*</span></label>
+                <select value={schedForm.nurse_id} onChange={e => setS('nurse_id', e.target.value)} style={inp}>
+                  <option value="">— Choose a nurse —</option>
+                  {nurses.map(n => <option key={n.id} value={n.id}>{n.full_name}</option>)}
+                </select>
+                <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 4 }}>The nurse receives the standard assignment email.</div>
+              </div>
+
+              {/* Date + cadence */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={lbl}>First Due Date <span style={{ color: '#E63946' }}>*</span></label>
+                  <input type="date" value={schedForm.first_due_date} min={today} onChange={e => setS('first_due_date', e.target.value)} style={inp}/>
+                </div>
+                <div>
+                  <label style={lbl}>Cadence</label>
+                  <select value={schedForm.cadence_days} onChange={e => setS('cadence_days', e.target.value)} style={inp}>
+                    {CADENCE_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Initial flag */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#1A2E44', cursor: 'pointer' }}>
+                <input type="checkbox" checked={schedForm.is_initial} onChange={e => setS('is_initial', e.target.checked)}/>
+                This is the initial assessment
+              </label>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="submit" disabled={saving} style={{ flex: 1, padding: '11px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                  {saving ? 'Scheduling…' : '📋 Schedule Assessment'}
+                </button>
+                <button type="button" onClick={() => setSchedOpen(false)} style={{ padding: '11px 18px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
               </div>
             </form>
           </div>
