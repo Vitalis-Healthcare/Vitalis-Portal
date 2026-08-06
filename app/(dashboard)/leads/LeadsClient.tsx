@@ -6,7 +6,7 @@ import { Plus, X, ChevronRight, Search } from 'lucide-react'
 import {
   LEAD_STATUSES, statusMeta, calcRevenue, effectiveProbability,
   PROBABILITY_OPTIONS, lostReasonLabel,
-  MIN_HOURS_WEEK, MIN_HOURLY_RATE, isBelowFloor,
+  MIN_HOURS_WEEK, MIN_HOURLY_RATE, MIN_WEEKLY_REVENUE, isBelowFloor,
   NEXT_ACTION_TYPES, nextActionLabel, attentionDate,
 } from '@/lib/leads/model'
 
@@ -259,7 +259,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
     const h = parseFloat(form.estimated_hours_week)
     const r = parseFloat(form.hourly_rate)
     if (isBelowFloor(h, r)) {
-      if (!confirm(`This is below the Vitalis minimum (${MIN_HOURS_WEEK}h/week at $${MIN_HOURLY_RATE.toFixed(2)}/hr). The lead will be flagged as below-minimum. Continue anyway?`)) return
+      if (!confirm(`This is below the Vitalis minimum (${MIN_HOURS_WEEK}h/week, or $${MIN_WEEKLY_REVENUE}/week in revenue). The lead will be flagged as below-minimum. Continue anyway?`)) return
     }
     setSaving(true)
     const payload = {
@@ -491,7 +491,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                               </span>
                             )}
                             {belowFloor && (
-                              <span title={`Below the Vitalis minimum (${MIN_HOURS_WEEK}h @ $${MIN_HOURLY_RATE.toFixed(2)})`} style={{ fontSize: 10, fontWeight: 700, color: '#B45309', background: '#FEF3C7', padding: '1px 7px', borderRadius: 10 }}>
+                              <span title={`Below the Vitalis minimum (${MIN_HOURS_WEEK}h/week or $${MIN_WEEKLY_REVENUE}/week)`} style={{ fontSize: 10, fontWeight: 700, color: '#B45309', background: '#FEF3C7', padding: '1px 7px', borderRadius: 10 }}>
                                 ⬇ Below min
                               </span>
                             )}
@@ -758,13 +758,13 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                 <div>
                   <label style={lbl}>Est. Hours / Week <span style={{ color: '#E63946' }}>*</span></label>
                   <input type="number" value={form.estimated_hours_week} onChange={e => set('estimated_hours_week', e.target.value)} required min="1" max="168" step="0.5" style={inp}/>
-                  <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 3 }}>floor: {MIN_HOURS_WEEK}h/week (4h shifts × 3)</div>
+                  <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 3 }}>floor: {MIN_HOURS_WEEK}h/week or ${MIN_WEEKLY_REVENUE}/week</div>
                 </div>
 
                 <div>
                   <label style={lbl}>Hourly Rate ($) <span style={{ color: '#E63946' }}>*</span></label>
                   <input type="number" value={form.hourly_rate} onChange={e => set('hourly_rate', e.target.value)} required min="1" step="0.25" style={inp}/>
-                  <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 3 }}>floor: ${MIN_HOURLY_RATE.toFixed(2)}/hr</div>
+                  <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 3 }}>default: ${MIN_HOURLY_RATE.toFixed(2)}/hr</div>
                 </div>
 
                 {/* Revenue preview */}

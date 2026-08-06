@@ -40,6 +40,22 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     .eq('is_active', true)
     .order('order_index')
 
+  // ── v0.6.44: the edit form gets the same vocabulary as Add New Lead ──
+  // Live service types (the ten chips) and referral sources for linking.
+  // Before this ship the edit form carried its own stale six-item list
+  // and had no source/referral/relationship fields at all.
+  const { data: serviceTypes } = await svc
+    .from('lead_service_types')
+    .select('label')
+    .eq('is_active', true)
+    .order('order_index')
+
+  const { data: referralSources } = await svc
+    .from('referral_sources')
+    .select('id, name, organization')
+    .eq('is_active', true)
+    .order('name')
+
   // ── v0.6.42: assessment context for the Intake Milestones panel ──────
   // If the lead is linked to a client record, surface the most relevant
   // assessment: the earliest OPEN one (scheduled/overdue) wins; otherwise
@@ -106,6 +122,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       activities={activities || []}
       staff={staff || []}
       stages={stages || []}
+      serviceTypes={serviceTypes || []}
+      referralSources={referralSources || []}
       currentUserId={user.id}
       currentUserName={profile?.full_name || ''}
       isAdmin={profile?.role === 'admin'}
