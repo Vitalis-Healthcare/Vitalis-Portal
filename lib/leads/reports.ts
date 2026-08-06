@@ -165,6 +165,20 @@ export interface ReportInput {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
+/** The care recipient's name. client_name is the person receiving care;
+ *  full_name is whoever made the inquiry, who is often a daughter, a social
+ *  worker or a discharge planner. Every other surface in this module — the
+ *  conversion RPC, the assessment modal, the email templates — resolves the
+ *  recipient as client_name || full_name. v0.6.52 had it backwards here,
+ *  which is why one lead read "N/A" on the reports page while carrying a
+ *  perfectly good client name. (Corrected v0.6.56.) */
+export function recipientName(l: { client_name?: string | null; full_name?: string | null }): string {
+  const c = (l.client_name || '').trim()
+  if (c) return c
+  const f = (l.full_name || '').trim()
+  return f || 'Unnamed lead'
+}
+
 export function nameOf(v: any): string {
   if (!v) return ''
   if (Array.isArray(v)) return v[0]?.full_name || ''
@@ -442,7 +456,7 @@ export function buildLeadReport(input: ReportInput): LeadReportFacts {
     responseHours.push(hours)
     offenders.push({
       id: l.id,
-      name: l.full_name || l.client_name || 'Unnamed lead',
+      name: recipientName(l),
       hours: Math.round(hours * 10) / 10,
       owner: nameOf(l.assignee) || 'Unassigned',
     })
@@ -585,7 +599,7 @@ export const KNOWN_SOURCE_KEYS = LEAD_SOURCES.map(s => s.key)
 export interface LeadDetailRow {
   id: string
   name: string
-  care_recipient: string
+  inquirer: string
   source: string
   status: string
   stage: string
@@ -635,8 +649,8 @@ export function buildLeadRows(input: ReportInput): LeadDetailRow[] {
 
     rows.push({
       id: l.id,
-      name: l.full_name || '',
-      care_recipient: l.client_name || '',
+      name: recipientName(l),
+      inquirer: l.full_name || '',
       source: l.source ? sourceLabel(l.source) : '',
       status: l.status || '',
       stage: l.stage || '',
@@ -681,7 +695,7 @@ export function buildUndatedClosures(leads: ReportLead[]): UndatedClosureRow[] {
     .filter(l => !l.archived_at && isUndatedClosure(l))
     .map(l => ({
       id: l.id,
-      name: l.full_name || l.client_name || 'Unnamed lead',
+      name: recipientName(l),
       status: l.status || '',
       source: l.source ? sourceLabel(l.source) : '',
       owner: nameOf(l.assignee),

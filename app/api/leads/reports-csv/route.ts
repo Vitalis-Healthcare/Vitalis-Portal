@@ -110,14 +110,14 @@ export async function GET(request: Request) {
     const rows = buildLeadRows(input)
     csv = toCsv(
       [
-        'Lead', 'Care recipient', 'Source', 'Status', 'Stage', 'Owner',
+        'Client', 'Inquirer', 'Source', 'Status', 'Stage', 'Owner',
         'Created', 'Outcome date', 'Lost reason code', 'Lost reason note',
         'Hours per week', 'Hourly rate', 'Weekly revenue', 'Below minimum',
         'Close probability %', 'Consent status', 'Client record linked',
         'First response (hours)', 'Counted as', 'Outcome date recorded',
       ],
       rows.map(r => [
-        r.name, r.care_recipient, r.source, r.status, r.stage, r.owner,
+        r.name, r.inquirer, r.source, r.status, r.stage, r.owner,
         r.created_day, r.outcome_day, r.lost_reason_code, r.lost_reason,
         r.hours_week ?? '', r.hourly_rate ?? '', Math.round(r.weekly_revenue), r.below_minimum,
         r.close_probability ?? '', r.consent_status, r.client_record_linked,

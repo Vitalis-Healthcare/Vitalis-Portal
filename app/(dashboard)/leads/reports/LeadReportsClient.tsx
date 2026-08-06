@@ -180,7 +180,6 @@ export default function LeadReportsClient({ facts }: { facts: LeadReportFacts })
   const r = facts.response
   const a = facts.agreements
   const h = facts.hygiene
-  const net = o.weeklyRevenueWon - o.weeklyRevenueLost
 
   return (
     <div style={{ padding: '24px 28px 40px', maxWidth: 1180, margin: '0 auto' }}>
@@ -275,14 +274,10 @@ export default function LeadReportsClient({ facts }: { facts: LeadReportFacts })
         }
       >
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 4 }}>
-          <Stat value={String(o.won)} label="Won" sub={money(o.weeklyRevenueWon) + ' per week'} tone={WON} />
-          <Stat value={String(o.lost)} label="Lost" sub={money(o.weeklyRevenueLost) + ' per week'} tone={LOST} />
-          <Stat
-            value={money(net)}
-            label="Net weekly revenue"
-            sub="Won minus lost"
-            tone={net >= 0 ? WON : LOST}
-          />
+          <Stat value={String(o.won)} label="Won" tone={WON} />
+          <Stat value={String(o.lost)} label="Lost" tone={LOST} />
+          <Stat value={money(o.weeklyRevenueWon)} label="Weekly revenue won" sub="Hours \u00D7 rate on won leads" tone={WON} />
+          <Stat value={money(o.weeklyRevenueLost)} label="Weekly revenue lost" sub="Hours \u00D7 rate on lost leads" tone={LOST} />
           <Stat
             value={o.medianDaysToWin === null ? '—' : `${o.medianDaysToWin} days`}
             label="Median time to win"
