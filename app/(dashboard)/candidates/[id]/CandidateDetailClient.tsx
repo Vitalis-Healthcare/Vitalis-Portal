@@ -6,10 +6,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck, ShieldCheck, Send, Undo2, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, AlertTriangle, X, ClipboardCheck, Mail, Building2, Pencil, UserCheck, ShieldCheck, Send, Undo2, Trash2, BellRing } from 'lucide-react'
 import { docTypeLabel, type DocTypeDef } from '@/lib/onboarding/documents'
 import type { Blocker } from '@/lib/onboarding/gates'
 import { mapApplicationReferences } from '@/lib/onboarding/application-references'
+import { isAwaitingApplication } from '@/lib/onboarding/reminders'
 
 const C = {
   navy: '#1A2E44', teal: '#0A5C5B', tealBtn: '#0E7C7B', tealSoft: '#E6F4F4',
@@ -65,6 +66,15 @@ type Attempt = {
   first_score: number | null; first_total: number | null
   first_passed: boolean | null; mastery_reached: boolean | null; completed_at: string | null
 } | null
+
+// reminder_number 0 with kind 'manual' is a coordinator nudge; 1 and 2 are the
+// automatic cadence and are capped by a unique index in the database.
+type ReminderRow = {
+  id: string
+  reminder_number: number
+  kind: string
+  sent_at: string
+}
 
 function fmtDate(s: string | null | undefined) {
   if (!s) return '—'
@@ -147,7 +157,7 @@ function availDays(v: unknown): string {
 }
 
 export default function CandidateDetailClient({
-  candidate, application, documents, attempt, docTypes,
+  candidate, application, documents, attempt, docTypes, reminders = [],
   viewerRole = 'staff', pendingRequest = null, lastReturned = null, actorNames = {},
 }: {
   candidate: Candidate
@@ -155,6 +165,7 @@ export default function CandidateDetailClient({
   documents: DocRow[]
   attempt: Attempt
   docTypes: DocTypeDef[]
+  reminders?: ReminderRow[]
   viewerRole?: string
   pendingRequest?: ConversionRequest | null
   lastReturned?: ConversionRequest | null
@@ -182,6 +193,9 @@ export default function CandidateDetailClient({
   const [paperOpen, setPaperOpen] = useState(false)
   const [paperDraft, setPaperDraft] = useState('')
   const [testSending, setTestSending] = useState(false)
+  const [reminderSending, setReminderSending] = useState(false)
+  const [reminderCount, setReminderCount] = useState(reminders.length)
+  const [lastReminderAt, setLastReminderAt] = useState<string | null>(reminders[0]?.sent_at || null)
   const [contactFirst, setContactFirst] = useState(candidate.first_name)
   const [contactLast, setContactLast] = useState(candidate.last_name)
   const [contactEmail, setContactEmail] = useState(candidate.email)
@@ -208,6 +222,9 @@ export default function CandidateDetailClient({
   // deferred testing is the point of the application-only track.
   const testDone = !!attempt && (!!attempt.first_passed || !!attempt.mastery_reached)
   const canSendTest = !testDone && !convertedId && status !== 'withdrawn' && status !== 'converted'
+  // Exactly the arbiter the route and the scheduler use — page and server can
+  // never disagree about who is waiting on an application.
+  const canSendReminder = isAwaitingApplication(status, track) && !convertedId
   const canRecordPaper = track === 'documents_only' && !paperAt && !convertedId && status !== 'withdrawn'
   const canEditContact = !convertedId && status !== 'converted'
   const canDelete = (viewerRole === 'admin' || viewerRole === 'supervisor') && !convertedId && status !== 'converted'
@@ -307,6 +324,23 @@ export default function CandidateDetailClient({
       setBanner({ kind: 'warn', text: 'Network error — please try again.' })
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function sendReminder() {
+    setReminderSending(true); setBanner(null)
+    try {
+      const res = await fetch(`/api/onboarding/candidates/${candidate.id}/reminder`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not send the reminder.' }); return }
+      setReminderCount((n) => n + 1)
+      setLastReminderAt(data.sent_at as string)
+      setBanner({ kind: 'ok', text: `Application reminder emailed to ${data.email}. It carries a fresh link and a way for them to tell us they are not interested.` })
+      router.refresh()
+    } catch {
+      setBanner({ kind: 'warn', text: 'Network error — please try again.' })
+    } finally {
+      setReminderSending(false)
     }
   }
 
@@ -761,6 +795,22 @@ export default function CandidateDetailClient({
           }}>
           <Mail size={16} /> Request documents
         </button>
+        {canSendReminder && (
+          <button onClick={sendReminder} disabled={busy || reminderSending}
+            title={reminderCount > 0
+              ? `${reminderCount} reminder${reminderCount === 1 ? '' : 's'} already sent — most recently ${fmtDate(lastReminderAt)}. Sending another emails a fresh link.`
+              : 'Email a nudge to finish the application, with a fresh link and a way to tell us they are not interested.'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+              background: '#fff', border: `1px solid ${C.border}`, color: C.teal,
+              cursor: busy || reminderSending ? 'default' : 'pointer', opacity: busy || reminderSending ? 0.6 : 1,
+            }}>
+            <BellRing size={16} />
+            {reminderSending
+              ? 'Sending…'
+              : reminderCount > 0 ? `Remind again (${reminderCount} sent)` : 'Send application reminder'}
+          </button>
+        )}
         {canSendTest && (
           <button onClick={sendTest} disabled={busy || testSending}
             title="Email the competency-test link. It replaces any older emailed links for this candidate."
