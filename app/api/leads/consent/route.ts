@@ -65,8 +65,10 @@ export async function POST(req: NextRequest) {
 
   // ── Prefill validation ───────────────────────────────────────────────
   const pf = body.prefill || {}
+  // v0.6.48: the client name is OPTIONAL here. Staff frequently don't have
+  // the full legal name at first contact; the client supplies it on the
+  // signing page, where it IS required before a signature is accepted.
   const client_name = (pf.client_name || '').trim()
-  if (!client_name) return NextResponse.json({ error: 'Client name is required on the agreement' }, { status: 400 })
   const billing_method = String(pf.billing_method || '')
   if (!isValidBillingMethod(billing_method)) {
     return NextResponse.json({ error: 'Choose a billing method for the agreement' }, { status: 400 })

@@ -1504,7 +1504,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               <button onClick={() => setConsentOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
             </div>
             <div style={{ fontSize: 12, color: '#4A6070', background: '#EFF6F4', border: '1px solid #D1E7E2', borderRadius: 8, padding: '8px 12px', marginBottom: 14 }}>
-              Review the details below — they print on the agreement exactly as entered. You sign for Vitalis as <strong>{currentUserName}</strong> when this sends, so the client opens an already-executed document.{latestConsent && (latestConsent.status === 'sent' || latestConsent.status === 'viewed') ? ' Sending again replaces the previous link — the old one stops working.' : ''}
+              Fill in what you know — anything you leave blank, the client completes on the signing page, and their answers print on the agreement. You sign for Vitalis as <strong>{currentUserName}</strong> when this sends, so the client opens an already-executed document.{latestConsent && (latestConsent.status === 'sent' || latestConsent.status === 'viewed') ? ' Sending again replaces the previous link — the old one stops working.' : ''}
             </div>
             {consentError && (
               <div style={{ fontSize: 12.5, color: '#B91C1C', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '9px 12px', marginBottom: 12, fontWeight: 600 }}>{consentError}</div>
@@ -1517,7 +1517,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Client name (on the agreement)</label>
-                <input value={consentForm.client_name} onChange={e => setConsentForm(f => ({ ...f, client_name: e.target.value }))}
+                <input value={consentForm.client_name} onChange={e => setConsentForm(f => ({ ...f, client_name: e.target.value }))} placeholder="Leave blank if you don’t have it"
                   style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
               </div>
               <div>
@@ -1592,8 +1592,8 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button onClick={() => setConsentOpen(false)} style={{ padding: '9px 16px', background: '#EFF2F5', color: '#4A6070', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleSendConsent} disabled={consentSending || !consentForm.to || !consentForm.client_name.trim() || (consentForm.billing_method === 'private_pay' && !consentForm.private_pay_rate.trim())}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: consentSending ? 'wait' : 'pointer', opacity: consentSending || !consentForm.to || !consentForm.client_name.trim() || (consentForm.billing_method === 'private_pay' && !consentForm.private_pay_rate.trim()) ? 0.6 : 1 }}>
+              <button onClick={handleSendConsent} disabled={consentSending || !consentForm.to || (consentForm.billing_method === 'private_pay' && !consentForm.private_pay_rate.trim())}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: consentSending ? 'wait' : 'pointer', opacity: consentSending || !consentForm.to || (consentForm.billing_method === 'private_pay' && !consentForm.private_pay_rate.trim()) ? 0.6 : 1 }}>
                 <Send size={13}/> {consentSending ? 'Sending…' : 'Sign & Send Agreement'}
               </button>
             </div>
