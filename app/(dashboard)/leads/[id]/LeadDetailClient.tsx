@@ -1,21 +1,22 @@
 'use client'
 // ═════════════════════════════════════════════════════════════════════════
-// Lead Workspace (v0.6.42) — Ship 4a: the Assessment milestone goes live.
+// Lead Workspace (v0.6.43) — Ship 4b: the Conversion milestone goes live.
 //
 // Layout, top to bottom:
 //   Header      — identity + chips, contact links, TWO primary buttons
 //                 (Log Activity, Edit); everything else behind "⋯ More".
 //   Journey     — stage stepper + status controls (unchanged behavior).
 //   Next Action — the Ship 2 panel (unchanged behavior).
-//   Milestones  — Consent (interactive) · Assessment (NOW LIVE: schedule a
-//                 nurse assessment from the lead, wired into the Assessments
-//                 module, with duplicate prevention and status echo) ·
-//                 Conversion readiness (computed; the Convert button is 4b).
+//   Milestones  — Consent (interactive) · Assessment (live since 4a) ·
+//                 Conversion (NOW LIVE: convert to client, atomic via the
+//                 convert_lead_to_client RPC; 5/5 ready converts clean,
+//                 fewer demands a logged override reason; payer picker
+//                 from the canonical lib/payers list).
 //   Body        — timeline (day-grouped, filterable, slim status lines)
 //                 beside a three-card rail (Numbers / People / Details).
 //
-// Behavior from Ships 1–3 is preserved verbatim: same routes, same guards,
-// same handlers. This ship adds the assessment slot; it moves nothing else.
+// Behavior from Ships 1–4a is preserved verbatim: same routes, same guards,
+// same handlers. This ship adds the conversion slot; it moves nothing else.
 // ═════════════════════════════════════════════════════════════════════════
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -28,6 +29,7 @@ import {
   NEXT_ACTION_TYPES, nextActionLabel,
   CONSENT_STATUSES, consentMeta,
 } from '@/lib/leads/model'
+import { PAYER_TYPES } from '@/lib/payers'
 
 const ACTIVITY_TYPES = [
   { key: 'call',        label: 'Phone Call',   icon: '📞' },
@@ -189,6 +191,10 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     is_initial: true,
   })
   const setS = (k: string, v: any) => setSchedForm(f => ({ ...f, [k]: v }))
+
+  // ── v0.6.43: convert-to-client state ──
+  const [convOpen, setConvOpen] = useState(false)
+  const [convForm, setConvForm] = useState({ payer_type: '', override_reason: '' })
 
   const handleSyncToCarematch = async () => {
     setMoreOpen(false)
@@ -525,6 +531,30 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     { label: 'Consent signed', ok: (lead.consent_status || '') === 'signed' },
   ]
   const readyCount = readiness.filter(r => r.ok).length
+  const unmetItems = readiness.filter(r => !r.ok).map(r => r.label)
+
+  // ── v0.6.43: convert the lead to a client (atomic server-side RPC) ───
+  const handleConvert = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!convForm.payer_type) { alert('Choose the payer.'); return }
+    if (unmetItems.length > 0 && !convForm.override_reason.trim()) { alert('Converting with unmet readiness items requires a reason.'); return }
+    setSaving(true)
+    const res = await fetch('/api/leads/convert', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lead_id: lead.id, payer_type: convForm.payer_type, override_reason: convForm.override_reason }),
+    })
+    const d = await res.json().catch(() => ({}))
+    if (res.ok) {
+      if (d.lead) setLead(d.lead)
+      if (d.client) setAcLocal(d.client)
+      pushLocalActivity(d.timeline_content || `Converted to client · Payer: ${convForm.payer_type}`)
+      setConvOpen(false)
+      router.refresh()
+    } else {
+      alert(d.error || 'Failed to convert the lead')
+    }
+    setSaving(false)
+  }
 
   // ── v0.6.42: assessment milestone derived view ───────────────────────
   const asmtIsOpen = !!asmtLocal && ['scheduled', 'overdue'].includes(asmtLocal.status)
@@ -897,21 +927,44 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
             </div>
           </div>
 
-          {/* Conversion — readiness computed now, button in Ship 4b */}
+          {/* Conversion — LIVE (v0.6.43) */}
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 800, color: '#1A2E44' }}>🎯 Conversion</span>
-              <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: readyCount === readiness.length ? '#A7F3D0' : '#EFF2F5', color: readyCount === readiness.length ? '#065F46' : '#8FA0B0' }}>
-                {readyCount}/{readiness.length} ready
-              </span>
+              {lead.status === 'won' ? (
+                <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: '#A7F3D0', color: '#065F46' }}>Converted</span>
+              ) : (
+                <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: readyCount === readiness.length ? '#A7F3D0' : '#EFF2F5', color: readyCount === readiness.length ? '#065F46' : '#8FA0B0' }}>
+                  {readyCount}/{readiness.length} ready
+                </span>
+              )}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {readiness.map(r => (
-                <div key={r.label} style={{ fontSize: 12, color: r.ok ? '#065F46' : '#8FA0B0' }}>
-                  {r.ok ? '✓' : '○'} {r.label}
+            {lead.status === 'won' ? (
+              <>
+                <div style={{ fontSize: 12.5, color: '#065F46', fontWeight: 600, marginBottom: 6 }}>
+                  ✓ Converted{lead.won_date ? ` on ${fmtDate(lead.won_date)}` : ''}
                 </div>
-              ))}
-            </div>
+                {acLocal && (
+                  <Link href={`/assessments/clients/${acLocal.id}`} style={{ fontSize: 12, fontWeight: 700, color: '#457B9D', textDecoration: 'none' }}>
+                    Client record: {acLocal.full_name} →
+                  </Link>
+                )}
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
+                  {readiness.map(r => (
+                    <div key={r.label} style={{ fontSize: 12, color: r.ok ? '#065F46' : '#8FA0B0' }}>
+                      {r.ok ? '✓' : '○'} {r.label}
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => { setConvForm({ payer_type: '', override_reason: '' }); setConvOpen(true) }} disabled={saving || isArchived}
+                  style={{ padding: '6px 12px', background: readyCount === readiness.length ? '#0B6B5C' : '#fff', color: readyCount === readiness.length ? '#fff' : '#B45309', border: readyCount === readiness.length ? 'none' : '1.5px solid #F59E0B', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: saving || isArchived ? 'default' : 'pointer', opacity: isArchived ? 0.5 : 1 }}>
+                  🎯 {readyCount === readiness.length ? 'Convert to Client' : 'Convert with Override…'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1343,6 +1396,54 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                   {saving ? 'Scheduling…' : '📋 Schedule Assessment'}
                 </button>
                 <button type="button" onClick={() => setSchedOpen(false)} style={{ padding: '11px 18px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Convert to Client Modal (v0.6.43) ── */}
+      {convOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}
+          onClick={e => { if (e.target === e.currentTarget) setConvOpen(false) }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #EFF2F5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2E44', margin: 0 }}>🎯 Convert to Client</h3>
+              <button onClick={() => setConvOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
+            </div>
+            <form onSubmit={handleConvert} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={lbl}>Client Record</label>
+                {acLocal ? (
+                  <div style={{ fontSize: 13, color: '#1A2E44', fontWeight: 600, padding: '8px 11px', background: '#F0FDF9', border: '1.5px solid #0B6B5C', borderRadius: 7 }}>
+                    ✓ Reusing linked record: {acLocal.full_name}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: '#4A6070', lineHeight: 1.5 }}>
+                    A client record will be created for <strong>{lead.client_name || lead.full_name}</strong> — address, phone, and date of birth copy over from this lead automatically.
+                  </div>
+                )}
+              </div>
+              <div>
+                <label style={lbl}>Payer <span style={{ color: '#E63946' }}>*</span></label>
+                <select value={convForm.payer_type} onChange={e => setConvForm(f => ({ ...f, payer_type: e.target.value }))} style={inp}>
+                  <option value="">— Choose the payer —</option>
+                  {PAYER_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              {unmetItems.length > 0 && (
+                <div style={{ background: '#FFFBEB', border: '1px solid #F59E0B', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#92400E', marginBottom: 6 }}>⚠️ Converting with unmet readiness items:</div>
+                  <div style={{ fontSize: 12, color: '#B45309', marginBottom: 8 }}>{unmetItems.join(' · ')}</div>
+                  <label style={lbl}>Override reason <span style={{ color: '#E63946' }}>*</span></label>
+                  <textarea value={convForm.override_reason} onChange={e => setConvForm(f => ({ ...f, override_reason: e.target.value }))} rows={3} placeholder="Why is this lead converting anyway? Logged to the timeline verbatim." style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }}/>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="submit" disabled={saving} style={{ flex: 1, padding: '11px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                  {saving ? 'Converting\u2026' : '🎯 Convert to Client'}
+                </button>
+                <button type="button" onClick={() => setConvOpen(false)} style={{ padding: '11px 18px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
               </div>
             </form>
           </div>
