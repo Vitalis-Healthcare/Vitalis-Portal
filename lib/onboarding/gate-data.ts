@@ -71,6 +71,31 @@ export async function loadGateInput(candidateId: string): Promise<GateInput | nu
     contractSignedAt = null
   }
 
+  // The live fingerprinting attestation, if one is open. "Live" = not cleared
+  // by the arriving document and not superseded by an extension; the database
+  // guarantees there is at most one.
+  let fingerprintSentAt: string | null = null
+  let fingerprintExpectedBy: string | null = null
+  try {
+    const { data } = await svc
+      .from('onb_fingerprint_attestations')
+      .select('sent_at, expected_by')
+      .eq('candidate_id', candidateId)
+      .is('cleared_at', null)
+      .is('superseded_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    if (Array.isArray(data) && data.length > 0) {
+      fingerprintSentAt = data[0].sent_at ?? null
+      fingerprintExpectedBy = data[0].expected_by ?? null
+    }
+  } catch {
+    // No attestation is the safe failure: the CJIS document is required
+    // outright, which is where this gate stood before v0.6.61.
+    fingerprintSentAt = null
+    fingerprintExpectedBy = null
+  }
+
   return {
     candidateId,
     candidateStatus,
@@ -82,5 +107,7 @@ export async function loadGateInput(candidateId: string): Promise<GateInput | nu
     documentsAcceptedAt,
     docTypes,
     contractSignedAt,
+    fingerprintSentAt,
+    fingerprintExpectedBy,
   }
 }

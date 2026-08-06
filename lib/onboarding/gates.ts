@@ -12,6 +12,7 @@ import {
   REQUIRED_CANDIDATE_DOC_TYPES,
 } from '@/lib/onboarding/staff-documents'
 import { normalizeTrack } from '@/lib/onboarding/application'
+import { fingerprintStatus, fingerprintLabel, todayISO } from '@/lib/onboarding/fingerprint'
 
 /** Candidate statuses that mean the application is in and under review. */
 export const APPLICATION_IN_STATUSES = [
@@ -51,11 +52,24 @@ export interface GateInput {
   documentsAcceptedAt?: string | null
   /** Set when a signed agreement exists. */
   contractSignedAt?: string | null
+  /** Live fingerprinting attestation, if one is open. 'YYYY-MM-DD'. */
+  fingerprintSentAt?: string | null
+  fingerprintExpectedBy?: string | null
+  /** 'YYYY-MM-DD'. Injected only by tests; production reads the real clock. */
+  today?: string
 }
 
 export interface GateResult {
   ok: boolean
   blockers: Blocker[]
+  /**
+   * Things that are NOT blocking but that somebody has to keep looking at —
+   * today, only a live fingerprinting attestation. Optional so the six existing
+   * call sites keep compiling and keep behaving exactly as before; `ok` is
+   * still decided by blockers alone. A warning must never close a gate, or the
+   * distinction stops meaning anything.
+   */
+  warnings?: Blocker[]
 }
 
 /**
@@ -79,6 +93,7 @@ export function isWaiverContradictory(i: GateInput): boolean {
  */
 export function evaluateContractGate(i: GateInput): GateResult {
   const blockers: Blocker[] = []
+  const warnings: Blocker[] = []
   const has = (t: string) => i.docTypes.includes(t)
   const credsHref = `/candidates/${i.candidateId}/credentials`
 
@@ -109,15 +124,45 @@ export function evaluateContractGate(i: GateInput): GateResult {
     }
   }
 
+  // ── CJIS, and the one thing that may stand in for it ─────────────────────
+  // Softened v0.6.61. Fingerprinting is a physical trip and the record follows
+  // days later; freezing a ready candidate for that window helps nobody. A
+  // recorded attestation that the form went out opens the gate — but only
+  // until the expected date. After that the gate shuts HARDER than before,
+  // because we have now relied on a promise nobody kept.
   if (!has(CJIS_DOC_TYPE)) {
-    blockers.push({
-      code: 'cjis_missing',
-      label: 'CJIS background check is not on file',
-      detail:
-        'You need to obtain the criminal history record and upload it yourself. This is required for every caregiver and cannot be waived.',
-      fixHref: credsHref,
-      fixLabel: 'Upload background check',
-    })
+    const fp = fingerprintStatus(
+      { sentAt: i.fingerprintSentAt ?? null, expectedBy: i.fingerprintExpectedBy ?? null },
+      i.today || todayISO(),
+    )
+    if (fp.state === 'pending') {
+      warnings.push({
+        code: 'cjis_results_pending',
+        label: fingerprintLabel(fp, i.fingerprintExpectedBy ?? null),
+        detail:
+          'The fingerprinting form has been sent and the results are not back yet. This candidate may proceed meanwhile, but the CJIS record must be uploaded as soon as it arrives — the moment the expected date passes, this stops being a note and becomes a block.',
+        fixHref: credsHref,
+        fixLabel: 'Open credentials',
+      })
+    } else if (fp.state === 'overdue') {
+      blockers.push({
+        code: 'cjis_attestation_overdue',
+        label: fingerprintLabel(fp, i.fingerprintExpectedBy ?? null),
+        detail:
+          'The fingerprinting form was sent and the results were expected by now. Chase the result and upload the CJIS record. If there is a genuine reason it is late, extend the attestation on the credentials page and say why — extensions are recorded and reviewed.',
+        fixHref: credsHref,
+        fixLabel: 'Chase or extend',
+      })
+    } else {
+      blockers.push({
+        code: 'cjis_missing',
+        label: 'CJIS background check is not on file',
+        detail:
+          'Upload the criminal history record. If the candidate has been sent for fingerprinting and you are waiting on the result, record that on the credentials page instead — that keeps things moving for a bounded period without losing the requirement.',
+        fixHref: credsHref,
+        fixLabel: 'Upload or record fingerprinting',
+      })
+    }
   }
 
   if (isWaiverContradictory(i)) {
@@ -179,7 +224,7 @@ export function evaluateContractGate(i: GateInput): GateResult {
     })
   }
 
-  return { ok: blockers.length === 0, blockers }
+  return { ok: blockers.length === 0, blockers, warnings }
 }
 
 /**
@@ -202,7 +247,9 @@ export function evaluateConvertGate(i: GateInput): GateResult {
     })
   }
 
-  return { ok: blockers.length === 0, blockers }
+  // Warnings ride along unchanged: a pending attestation is just as worth
+  // seeing on the convert screen as on the agreement screen.
+  return { ok: blockers.length === 0, blockers, warnings: contract.warnings || [] }
 }
 
 /** Compact one-line summary, for logs and API error messages. */
