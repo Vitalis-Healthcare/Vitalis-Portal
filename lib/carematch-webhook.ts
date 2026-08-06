@@ -8,6 +8,7 @@
 // ═════════════════════════════════════════════════════════════════════════
 
 import { createHmac } from 'node:crypto'
+import { legacyWireStatus } from '@/lib/leads/model'
 
 export type CarematchEventType =
   | 'lead.created'
@@ -61,7 +62,10 @@ function serializeLead(lead: any): SerializedLead {
     state:                lead.state ?? null,
     zip:                  lead.zip ?? null,
     date_of_birth:        lead.date_of_birth ?? null,
-    status:               lead.status,
+    // ── v0.6.38: stage/status split. CareMatch360 was built against the
+    // pre-split vocabulary, so the WIRE keeps speaking it. Translation
+    // lives in lib/leads/model.ts (legacyWireStatus) — never inline here.
+    status:               legacyWireStatus(lead),
     source:               lead.source ?? null,
     relationship:         lead.relationship ?? null,
     care_types:           lead.care_types ?? null,
@@ -137,18 +141,27 @@ export function detectEventType(
   prev: any,
   next: any,
 ): CarematchEventType | null {
-  const prevStatus = prev?.status
-  const nextStatus = next?.status
+  // ── v0.6.38: stage/status split. `status` is now the five-value
+  // operational vocabulary (ongoing/standby/won/lost/cancelled) and the
+  // journey lives in `stage`. Event mapping:
+  //   → won                  lead.won
+  //   → lost                 lead.lost
+  //   → standby | cancelled  lead.cancelled  (matches the old cold/on_hold)
+  //   any other status flip, or a stage move: lead.updated
+  const prevStatus = (prev?.status || '').toLowerCase()
+  const nextStatus = (next?.status || '').toLowerCase()
 
   if (prevStatus !== nextStatus) {
-    if (nextStatus === 'won')                      return 'lead.won'
-    if (nextStatus === 'lost')                     return 'lead.lost'
-    if (nextStatus === 'cold' || nextStatus === 'on_hold') return 'lead.cancelled'
-    // Any other status change is just an update
+    if (nextStatus === 'won')  return 'lead.won'
+    if (nextStatus === 'lost') return 'lead.lost'
+    if (nextStatus === 'standby' || nextStatus === 'cancelled') return 'lead.cancelled'
     return 'lead.updated'
   }
 
-  // Same status — check if any fields CareMatch360 actually uses changed.
+  // Journey moved while the lead stayed alive — CareMatch360 hears an update.
+  if ((prev?.stage || null) !== (next?.stage || null)) return 'lead.updated'
+
+  // Same stage and status — check if any fields CareMatch360 actually uses changed.
   const fieldsThatMatter = [
     'full_name', 'client_name', 'phone', 'email',
     'address', 'city', 'state', 'zip', 'date_of_birth',

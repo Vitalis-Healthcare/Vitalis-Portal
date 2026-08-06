@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
 
   const svc = createServiceClient()
   const { data: profile } = await svc.from('profiles').select('role').eq('id', user.id).single()
-  // Only admin can hard-delete leads (not supervisor)
+  // Only admin can archive/restore/hard-delete leads (not supervisor)
   if (profile?.role !== 'admin') {
     return NextResponse.json({ error: 'Only administrators can delete leads.' }, { status: 403 })
   }
@@ -17,19 +17,36 @@ export async function POST(req: NextRequest) {
   const { id, action } = await req.json()
   if (!id) return NextResponse.json({ error: 'Lead ID required' }, { status: 400 })
 
+  // ── v0.6.38: the archive is a TIMESTAMP (archived_at), not a status. ──
+  // Before the split, archiving overwrote leads.status with 'archived',
+  // destroying the lead's real state. Now stage and status survive the
+  // archive intact, and restore is a clean reversal.
   if (action === 'archive') {
-    // Soft-delete: set status to 'archived'
     const { error } = await svc.from('leads').update({
-      status: 'archived',
+      archived_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Log the archive action
     await svc.from('lead_activities').insert({
       lead_id: id, created_by: user.id,
       activity_type: 'status_change',
       content: 'Lead archived by administrator.',
+    })
+    return NextResponse.json({ success: true })
+  }
+
+  if (action === 'restore') {
+    const { error } = await svc.from('leads').update({
+      archived_at: null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    await svc.from('lead_activities').insert({
+      lead_id: id, created_by: user.id,
+      activity_type: 'status_change',
+      content: 'Lead restored from the archive.',
     })
     return NextResponse.json({ success: true })
   }

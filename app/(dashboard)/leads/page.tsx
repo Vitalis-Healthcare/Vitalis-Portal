@@ -22,12 +22,15 @@ export default async function LeadsPage() {
     .from('leads')
     .select(`
       id, full_name, client_name, email, phone, source, referral_name,
-      status, relationship, care_types, condition_notes, preferred_schedule,
+      status, stage, relationship, care_types, condition_notes, preferred_schedule,
       estimated_hours_week, hourly_rate, expected_start_date, expected_close_date,
-      won_date, lost_date, lost_reason, notes, created_at, updated_at,
-      assigned_to, created_by,
+      won_date, lost_date, lost_reason, lost_reason_code,
+      standby_until, standby_reason, close_probability, legacy_status,
+      archived_at, notes, created_at, updated_at,
+      assigned_to, secondary_assigned_to, created_by,
       address, city, state, zip, date_of_birth,
       assignee:assigned_to(full_name),
+      secondary:secondary_assigned_to(full_name),
       creator:created_by(full_name)
     `)
     .order('created_at', { ascending: false })

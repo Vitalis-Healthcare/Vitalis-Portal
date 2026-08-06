@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendLeadEvent, detectEventType } from '@/lib/carematch-webhook'
+import { LEAD_STATUSES, legacyWireStatus, prettyKey } from '@/lib/leads/model'
+
+const VALID_STATUSES = LEAD_STATUSES.map(s => s.key as string)
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -15,17 +18,20 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { id, logActivity, previousStatus, ...rawFields } = body
+  const { id, ...rawFields } = body
   if (!id) return NextResponse.json({ error: 'Lead ID required' }, { status: 400 })
 
   // Strip non-column fields that come from Supabase joins (assignee, creator objects etc.)
+  // ── v0.6.38: stage/status split — stage, standby, lost-reason code,
+  // probability and the secondary owner join the allowed set. archived_at
+  // is deliberately NOT here: archiving goes through /api/leads/delete.
   const ALLOWED_COLUMNS = [
     'full_name', 'client_name', 'email', 'phone', 'source', 'referral_name',
-    'referral_source_id', 'status', 'relationship', 'care_types', 'condition_notes',
+    'referral_source_id', 'status', 'stage', 'relationship', 'care_types', 'condition_notes',
     'preferred_schedule', 'estimated_hours_week', 'hourly_rate',
     'expected_start_date', 'expected_close_date', 'won_date', 'lost_date',
-    'lost_reason', 'notes', 'assigned_to',
-    // ── v0.1.0: address + DOB for CareMatch360 hand-off ──
+    'lost_reason', 'lost_reason_code', 'standby_until', 'standby_reason',
+    'close_probability', 'notes', 'assigned_to', 'secondary_assigned_to',
     'address', 'city', 'state', 'zip', 'date_of_birth',
   ]
   const fields: Record<string, any> = {}
@@ -34,15 +40,60 @@ export async function POST(req: NextRequest) {
   }
 
   // Null-coerce empty strings — Postgres rejects '' for uuid/date columns
-  const UUID_FIELDS = ['referral_source_id', 'assigned_to']
-  const DATE_FIELDS = ['expected_close_date', 'expected_start_date', 'won_date', 'lost_date', 'date_of_birth']
+  const UUID_FIELDS = ['referral_source_id', 'assigned_to', 'secondary_assigned_to']
+  const DATE_FIELDS = ['expected_close_date', 'expected_start_date', 'won_date', 'lost_date', 'date_of_birth', 'standby_until']
   for (const f of [...UUID_FIELDS, ...DATE_FIELDS]) {
     if (fields[f] === '' || fields[f] === 'Invalid Date') fields[f] = null
   }
+  if (fields.close_probability !== undefined) {
+    if (fields.close_probability === null || fields.close_probability === '') {
+      fields.close_probability = null
+    } else {
+      const p = Math.round(Number(fields.close_probability))
+      fields.close_probability = isNaN(p) ? null : Math.min(100, Math.max(0, p))
+    }
+  }
 
-  // ── v0.2.0: load the previous state so we can detect what changed ──
-  // Need this both for the activity log AND for webhook event-type detection.
+  // Load the previous state — needed for transition guards, the activity
+  // log, AND webhook event-type detection.
   const { data: prevLead } = await svc.from('leads').select('*').eq('id', id).single()
+  if (!prevLead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+
+  // ── Status transition guards + automatic outcome dates ───────────────
+  const todayStr = new Date().toISOString().split('T')[0]
+  if (fields.status !== undefined) {
+    const next = String(fields.status || '').toLowerCase()
+    if (!VALID_STATUSES.includes(next)) {
+      return NextResponse.json({ error: `Invalid status '${fields.status}'. Allowed: ${VALID_STATUSES.join(', ')}` }, { status: 400 })
+    }
+    fields.status = next
+    const changed = next !== prevLead.status
+
+    if (changed && next === 'standby') {
+      // A pause without a wake-up date is how a lead gets forgotten.
+      const until = fields.standby_until ?? prevLead.standby_until
+      if (!until) {
+        return NextResponse.json({ error: 'Standby requires a follow-up date (standby_until).' }, { status: 400 })
+      }
+    }
+    if (changed && next === 'lost') {
+      const code = fields.lost_reason_code ?? prevLead.lost_reason_code
+      if (!code) {
+        return NextResponse.json({ error: 'Marking a lead Lost requires a reason (lost_reason_code).' }, { status: 400 })
+      }
+      if (fields.lost_date === undefined && !prevLead.lost_date) fields.lost_date = todayStr
+    }
+    if (changed && next === 'won') {
+      if (fields.won_date === undefined && !prevLead.won_date) fields.won_date = todayStr
+    }
+    if (changed && next === 'ongoing') {
+      // Reopening clears the outcome and the pause so the metrics stay honest.
+      if (fields.won_date === undefined) fields.won_date = null
+      if (fields.lost_date === undefined) fields.lost_date = null
+      if (fields.standby_until === undefined) fields.standby_until = null
+      if (fields.standby_reason === undefined) fields.standby_reason = null
+    }
+  }
 
   const { data: lead, error } = await svc.from('leads').update(fields).eq('id', id).select().single()
   if (error) {
@@ -50,26 +101,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Auto-log status change
-  if (fields.status && fields.status !== previousStatus) {
-    const labels: Record<string, string> = {
-      new: 'New', contacted: 'Contacted', assessment_scheduled: 'Assessment Scheduled',
-      proposal_sent: 'Proposal Sent', won: 'Won ✓', on_hold: 'On Hold',
-      cold: 'Cold', lost: 'Lost'
-    }
+  // ── Auto-log stage and status changes ────────────────────────────────
+  const statusLabel = (k: string) => LEAD_STATUSES.find(s => s.key === k)?.label || prettyKey(k)
+  if (fields.stage !== undefined && fields.stage !== prevLead.stage) {
     await svc.from('lead_activities').insert({
       lead_id: id, created_by: user.id,
       activity_type: 'status_change',
-      content: `Status changed: ${labels[previousStatus] || previousStatus} → ${labels[fields.status] || fields.status}`,
+      content: `Stage moved: ${prettyKey(prevLead.stage)} \u2192 ${prettyKey(fields.stage)}`,
+    })
+  }
+  if (fields.status !== undefined && fields.status !== prevLead.status) {
+    let detail = ''
+    if (fields.status === 'standby' && lead.standby_until) detail = ` (until ${lead.standby_until})`
+    if (fields.status === 'lost' && lead.lost_reason_code) detail = ` (${prettyKey(lead.lost_reason_code)})`
+    await svc.from('lead_activities').insert({
+      lead_id: id, created_by: user.id,
+      activity_type: 'status_change',
+      content: `Status changed: ${statusLabel(prevLead.status)} \u2192 ${statusLabel(fields.status)}${detail}`,
     })
   }
 
-  // ── v0.2.0: fire CareMatch360 webhook (fire-and-forget) ──
+  // ── Fire CareMatch360 webhook (fire-and-forget) ──────────────────────
   // detectEventType inspects field deltas and returns the right event name,
-  // or null if nothing CareMatch360 cares about changed.
+  // or null if nothing CareMatch360 cares about changed. The wire speaks
+  // the legacy vocabulary — see lib/leads/model.ts.
   const eventType = detectEventType(prevLead, lead)
   if (eventType) {
-    sendLeadEvent(eventType, lead, prevLead?.status).catch(err => {
+    sendLeadEvent(eventType, lead, legacyWireStatus(prevLead)).catch(err => {
       console.error('[leads/update] webhook fire-and-forget error:', err)
     })
   }

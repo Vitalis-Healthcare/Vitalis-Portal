@@ -17,20 +17,42 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { full_name, source } = body
   // Null-coerce empty strings — Postgres rejects '' for uuid/date columns
-  if (body.referral_source_id === '') body.referral_source_id = null
-  if (body.assigned_to === '') body.assigned_to = null
-  if (body.created_by === '') body.created_by = null
-  if (body.expected_close_date === '') body.expected_close_date = null
-  if (body.expected_start_date === '') body.expected_start_date = null
-  if (body.won_date === '') body.won_date = null
+  const NULLABLE = [
+    'referral_source_id', 'assigned_to', 'secondary_assigned_to', 'created_by',
+    'expected_close_date', 'expected_start_date', 'won_date', 'date_of_birth',
+    'standby_until',
+  ]
+  for (const f of NULLABLE) {
+    if (body[f] === '' || body[f] === 'Invalid Date') body[f] = null
+  }
 
   if (!full_name?.trim() || !source) {
     return NextResponse.json({ error: 'Name and source are required' }, { status: 400 })
   }
 
+  // ── v0.6.38: stage/status split ──────────────────────────────────────
+  // A new lead is always operationally ALIVE (status 'ongoing'); the form
+  // may choose its initial journey stage. Whatever the client sent for
+  // status is ignored — outcomes are set later, deliberately, on the
+  // detail page.
+  const stage = (typeof body.stage === 'string' && body.stage.trim()) ? body.stage.trim() : 'new'
+  delete body.status
+  delete body.stage
+
+  // close_probability: integer percent 0–100 or null
+  let closeProbability: number | null = null
+  if (body.close_probability !== undefined && body.close_probability !== null && body.close_probability !== '') {
+    const p = Math.round(Number(body.close_probability))
+    if (!isNaN(p)) closeProbability = Math.min(100, Math.max(0, p))
+  }
+  delete body.close_probability
+
   const { data: lead, error } = await svc.from('leads').insert({
     ...body,
     full_name: full_name.trim(),
+    stage,
+    status: 'ongoing',
+    close_probability: closeProbability,
     created_by: user.id,
     assigned_to: body.assigned_to || user.id,
   }).select().single()
@@ -42,16 +64,12 @@ export async function POST(req: NextRequest) {
 
   // Auto-log a creation activity
   await svc.from('lead_activities').insert({
-    lead_id: lead.id,
-    created_by: user.id,
+    lead_id: lead.id, created_by: user.id,
     activity_type: 'note',
     content: `Lead created — source: ${source}${body.referral_name ? ` (referred by ${body.referral_name})` : ''}`,
   })
 
-  // ── v0.2.0: fire CareMatch360 webhook (fire-and-forget) ──
-  // We don't await — the user shouldn't have their UI block on a downstream
-  // service, and we don't want a CareMatch360 outage to fail lead creation.
-  // Errors are logged inside sendLeadEvent.
+  // Fire-and-forget CareMatch360 webhook — a webhook failure never loses a lead
   sendLeadEvent('lead.created', lead).catch(err => {
     console.error('[leads/create] webhook fire-and-forget error:', err)
   })

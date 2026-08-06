@@ -2,19 +2,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Phone, Mail, MessageSquare, Calendar, DollarSign,
-         Edit3, Save, X, CheckCircle, Clock } from 'lucide-react'
-
-const STAGES = [
-  { key: 'new',                  label: 'New',                  color: '#8FA0B0', bg: '#EFF2F5' },
-  { key: 'contacted',            label: 'Contacted',            color: '#457B9D', bg: '#EBF4FF' },
-  { key: 'assessment_scheduled', label: 'Assessment Scheduled', color: '#7C3AED', bg: '#EDE9FE' },
-  { key: 'proposal_sent',        label: 'Proposal Sent',        color: '#D97706', bg: '#FEF3C7' },
-  { key: 'won',                  label: 'Won ✓',                color: '#0B6B5C', bg: '#D1FAE5' },
-  { key: 'on_hold',              label: 'On Hold',              color: '#92400E', bg: '#FDE68A' },
-  { key: 'cold',                 label: 'Cold',                 color: '#6B7280', bg: '#F3F4F6' },
-  { key: 'lost',                 label: 'Lost',                 color: '#DC2626', bg: '#FEE2E2' },
-]
+import { ArrowLeft, Phone, Mail, MessageSquare, Edit3, Save, X } from 'lucide-react'
+import {
+  LEAD_STATUSES, statusMeta, calcRevenue, effectiveProbability,
+  PROBABILITY_OPTIONS, LOST_REASONS, lostReasonLabel, prettyKey,
+} from '@/lib/leads/model'
 
 const ACTIVITY_TYPES = [
   { key: 'call',        label: 'Phone Call',   icon: '📞' },
@@ -35,11 +27,6 @@ const OUTCOMES = [
 
 const CARE_TYPES = ['Personal Care', 'Companion Care', 'Skilled Nursing', 'Respite Care', 'Overnight', 'Live-In']
 
-function calcRevenue(hours?: number | null, rate?: number | null) {
-  if (!hours || !rate) return null
-  const weekly = hours * rate
-  return { weekly, monthly: weekly * 4.33, annual: weekly * 52 }
-}
 function fmtMoney(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
@@ -55,27 +42,34 @@ const getName = (v: any) => Array.isArray(v) ? v[0]?.full_name : v?.full_name
 
 interface Lead {
   id: string; full_name: string; client_name?: string; email?: string; phone?: string
-  source: string; referral_name?: string; status: string; relationship?: string
+  source: string; referral_name?: string
+  status: string; stage?: string | null
+  standby_until?: string | null; standby_reason?: string | null
+  lost_reason_code?: string | null; close_probability?: number | null
+  legacy_status?: string | null; archived_at?: string | null
+  relationship?: string
   care_types?: string[]; condition_notes?: string; preferred_schedule?: string
   estimated_hours_week?: number; hourly_rate?: number
   expected_start_date?: string; expected_close_date?: string
   won_date?: string; lost_date?: string; lost_reason?: string; notes?: string
-  created_at: string; updated_at: string; assigned_to?: string
-  // ── v0.1.0: address + DOB for CareMatch360 hand-off ──
+  created_at: string; updated_at: string
+  assigned_to?: string; secondary_assigned_to?: string
   address?: string; city?: string; state?: string; zip?: string; date_of_birth?: string
-  assignee?: any; creator?: any
+  assignee?: any; secondary?: any; creator?: any
 }
 interface Activity {
   id: string; lead_id: string; created_at: string
   activity_type: string; content: string; outcome?: string; next_follow_up?: string
   author?: any
 }
+interface Stage { key: string; label: string; color: string; bg_color: string; order_index: number }
 interface Props {
   lead: Lead; activities: Activity[]; staff: { id: string; full_name: string }[]
-  currentUserId: string; currentUserName: string
+  stages: Stage[]
+  currentUserId: string; currentUserName: string; isAdmin: boolean
 }
 
-export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, currentUserId, currentUserName }: Props) {
+export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, stages, currentUserId, currentUserName, isAdmin }: Props) {
   const router = useRouter()
   const [lead, setLead] = useState(initialLead)
   const [activities, setActivities] = useState(initialActivities)
@@ -84,11 +78,22 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [logOpen, setLogOpen] = useState(false)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [deletingActivityId, setDeletingActivityId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ ...initialLead, estimated_hours_week: initialLead.estimated_hours_week?.toString() || '', hourly_rate: initialLead.hourly_rate?.toString() || '' })
+  const [editForm, setEditForm] = useState({
+    ...initialLead,
+    estimated_hours_week: initialLead.estimated_hours_week?.toString() || '',
+    hourly_rate: initialLead.hourly_rate?.toString() || '',
+    close_probability: initialLead.close_probability != null ? String(initialLead.close_probability) : '',
+  })
   const [actForm, setActForm] = useState({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' })
   const setE = (k: string, v: any) => setEditForm(f => ({ ...f, [k]: v }))
+  const setA = (k: string, v: any) => setActForm(f => ({ ...f, [k]: v }))
 
-  // ── v0.2.0: CareMatch360 sync state ──────────────────────────────────────
+  // ── Status prompt panels (standby needs a date; lost needs a reason) ──
+  const [statusPrompt, setStatusPrompt] = useState<'standby' | 'lost' | null>(null)
+  const [standbyForm, setStandbyForm] = useState({ standby_until: '', standby_reason: '' })
+  const [lostForm, setLostForm] = useState({ lost_reason_code: '', lost_reason: '' })
+
+  // ── CareMatch360 sync state ───────────────────────────────────────────
   const [syncing, setSyncing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string>('')
@@ -110,34 +115,101 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
       setTimeout(() => { setSyncError(''); }, 6000)
     }
   }
-  const setA = (k: string, v: any) => setActForm(f => ({ ...f, [k]: v }))
 
   const rev = calcRevenue(lead.estimated_hours_week, lead.hourly_rate)
-  const stage = STAGES.find(s => s.key === lead.status)
+  const status = statusMeta(lead.status)
+  const currentStage = stages.find(s => s.key === lead.stage)
+  const isOpen = lead.status === 'ongoing' || lead.status === 'standby'
+  const isArchived = !!lead.archived_at
 
   const inp: React.CSSProperties = { width: '100%', padding: '8px 11px', borderRadius: 7, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none', fontFamily: 'inherit', background: '#fff', boxSizing: 'border-box' }
   const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px', display: 'block', marginBottom: 4 }
 
-  const handleSave = async () => {
+  // ── Generic update helper — all writes go through /api/leads/update ──
+  const updateLead = async (fields: Record<string, any>): Promise<boolean> => {
     setSaving(true)
-    const payload = {
-      ...editForm,
-      id: lead.id,
-      previousStatus: lead.status,
-      estimated_hours_week: editForm.estimated_hours_week ? parseFloat(editForm.estimated_hours_week as string) : null,
-      hourly_rate: editForm.hourly_rate ? parseFloat(editForm.hourly_rate as string) : null,
-    }
     const res = await fetch('/api/leads/update', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ id: lead.id, ...fields }),
     })
     if (res.ok) {
       const { lead: updated } = await res.json()
-      setLead(updated); setEditing(false); router.refresh()
-    } else {
-      alert('Failed to save changes')
+      setLead(updated)
+      router.refresh()
+      setSaving(false)
+      return true
     }
+    const d = await res.json().catch(() => ({}))
+    alert(d.error || 'Failed to save changes')
     setSaving(false)
+    return false
+  }
+
+  const pushLocalActivity = (content: string) => {
+    const a: Activity = {
+      id: Date.now().toString(), lead_id: lead.id,
+      created_at: new Date().toISOString(), activity_type: 'status_change',
+      content, author: [{ full_name: currentUserName }],
+    }
+    setActivities(prev => [a, ...prev])
+  }
+
+  const handleSave = async () => {
+    const payload: Record<string, any> = {
+      ...editForm,
+      estimated_hours_week: editForm.estimated_hours_week ? parseFloat(editForm.estimated_hours_week as string) : null,
+      hourly_rate: editForm.hourly_rate ? parseFloat(editForm.hourly_rate as string) : null,
+      close_probability: editForm.close_probability !== '' ? parseInt(editForm.close_probability as string, 10) : null,
+    }
+    // Never send status through the edit form — outcomes are deliberate
+    // acts through the status buttons, with their own guards.
+    delete payload.status
+    const ok = await updateLead(payload)
+    if (ok) setEditing(false)
+  }
+
+  const handleStageChange = async (newStage: string) => {
+    if (newStage === lead.stage) return
+    const ok = await updateLead({ stage: newStage })
+    if (ok) pushLocalActivity(`Stage moved: ${prettyKey(lead.stage)} → ${prettyKey(newStage)}`)
+  }
+
+  const statusLabelOf = (k: string) => LEAD_STATUSES.find(s => s.key === k)?.label || prettyKey(k)
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === lead.status) return
+    if (newStatus === 'standby') {
+      setStandbyForm({ standby_until: lead.standby_until || '', standby_reason: lead.standby_reason || '' })
+      setStatusPrompt('standby'); return
+    }
+    if (newStatus === 'lost') {
+      setLostForm({ lost_reason_code: lead.lost_reason_code || '', lost_reason: lead.lost_reason || '' })
+      setStatusPrompt('lost'); return
+    }
+    if (newStatus === 'cancelled' && !confirm('Mark this lead as Cancelled? Use Lost if it went to another provider — Cancelled is for cases that did not proceed for other reasons.')) return
+    const prev = lead.status
+    const ok = await updateLead({ status: newStatus })
+    if (ok) pushLocalActivity(`Status changed: ${statusLabelOf(prev)} → ${statusLabelOf(newStatus)}`)
+  }
+
+  const confirmStandby = async () => {
+    if (!standbyForm.standby_until) { alert('Standby requires a follow-up date.'); return }
+    const prev = lead.status
+    const ok = await updateLead({ status: 'standby', standby_until: standbyForm.standby_until, standby_reason: standbyForm.standby_reason || null })
+    if (ok) {
+      pushLocalActivity(`Status changed: ${statusLabelOf(prev)} → Standby (until ${standbyForm.standby_until})`)
+      setStatusPrompt(null)
+    }
+  }
+
+  const confirmLost = async () => {
+    if (!lostForm.lost_reason_code) { alert('Marking a lead Lost requires a reason.'); return }
+    const prev = lead.status
+    const ok = await updateLead({ status: 'lost', lost_reason_code: lostForm.lost_reason_code, lost_reason: lostForm.lost_reason || null })
+    if (ok) {
+      pushLocalActivity(`Status changed: ${statusLabelOf(prev)} → Lost (${lostReasonLabel(lostForm.lost_reason_code)})`)
+      setStatusPrompt(null)
+    }
   }
 
   const handleLogActivity = async (e: React.FormEvent) => {
@@ -197,7 +269,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   }
 
   const handleArchive = async () => {
-    if (!confirm('Archive this lead? It will be hidden from the main pipeline but all data will be preserved. You can restore it by changing the stage.')) return
+    if (!confirm('Archive this lead? It keeps its stage and status and disappears from the working views. You can restore it any time.')) return
     setSaving(true)
     const res = await fetch('/api/leads/delete', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -207,6 +279,22 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
       router.push('/leads')
     } else {
       const d = await res.json(); alert(d.error || 'Failed to archive lead')
+    }
+    setSaving(false)
+  }
+
+  const handleRestore = async () => {
+    setSaving(true)
+    const res = await fetch('/api/leads/delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: lead.id, action: 'restore' }),
+    })
+    if (res.ok) {
+      setLead(l => ({ ...l, archived_at: null }))
+      pushLocalActivity('Lead restored from the archive.')
+      router.refresh()
+    } else {
+      const d = await res.json(); alert(d.error || 'Failed to restore lead')
     }
     setSaving(false)
   }
@@ -227,26 +315,6 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     setSaving(false)
   }
 
-  const handleStatusChange = async (newStatus: string) => {
-    setSaving(true)
-    const res = await fetch('/api/leads/update', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: lead.id, status: newStatus, previousStatus: lead.status }),
-    })
-    if (res.ok) {
-      const { lead: updated } = await res.json()
-      setLead(updated)
-      const statusActivity: Activity = {
-        id: Date.now().toString(), lead_id: lead.id,
-        created_at: new Date().toISOString(), activity_type: 'status_change',
-        content: `Status changed to ${STAGES.find(s => s.key === newStatus)?.label}`,
-        author: [{ full_name: currentUserName }]
-      }
-      setActivities(prev => [statusActivity, ...prev])
-    }
-    setSaving(false)
-  }
-
   const actIcon = (type: string) => ACTIVITY_TYPES.find(a => a.key === type)?.icon || '📝'
   const today = new Date().toISOString().split('T')[0]
 
@@ -261,18 +329,25 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
       </div>
 
       {/* Archived banner */}
-      {lead.status === 'archived' && (
-        <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      {isArchived && (
+        <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 18 }}>📦</span>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E' }}>This lead is archived</div>
-              <div style={{ fontSize: 12, color: '#B45309' }}>It is hidden from the main pipeline. Restore it by selecting an active stage below.</div>
+              <div style={{ fontSize: 12, color: '#B45309' }}>Archived {fmtDateTime(lead.archived_at!)} — hidden from the working views. Its stage and status are preserved.</div>
             </div>
           </div>
-          <button onClick={handleDelete} style={{ padding: '7px 14px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, color: '#DC2626', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
-            🗑️ Delete Permanently
-          </button>
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button onClick={handleRestore} disabled={saving} style={{ padding: '7px 14px', background: '#D1FAE5', border: '1px solid #0B6B5C', borderRadius: 8, color: '#0B6B5C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                ♻️ Restore
+              </button>
+              <button onClick={handleDelete} style={{ padding: '7px 14px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, color: '#DC2626', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                🗑️ Delete Permanently
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -281,9 +356,21 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-              <span style={{ padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: stage?.bg, color: stage?.color }}>
-                {stage?.label}
-              </span>
+              {status && (
+                <span style={{ padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: status.bg, color: status.color }}>
+                  {status.label}
+                </span>
+              )}
+              {isOpen && currentStage && (
+                <span style={{ padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: currentStage.bg_color, color: currentStage.color }}>
+                  {currentStage.label}
+                </span>
+              )}
+              {lead.close_probability != null && (
+                <span style={{ padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#EDE9FE', color: '#7C3AED' }}>
+                  {lead.close_probability}% to close
+                </span>
+              )}
               <span style={{ fontSize: 12, color: '#8FA0B0' }}>Added {fmtDate(lead.created_at)}</span>
             </div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#1A2E44', margin: '0 0 4px' }}>
@@ -336,13 +423,13 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                 <Save size={13}/> {saving ? 'Saving…' : 'Save'}
               </button>
             )}
-            {!editing && lead.status !== 'archived' && (
+            {!editing && !isArchived && isAdmin && (
               <button onClick={handleArchive} disabled={saving} title="Archive this lead"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#FEF3C7', color: '#92400E', border: '1px solid #F59E0B', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer' }}>
                 📦 Archive
               </button>
             )}
-            {!editing && (
+            {!editing && isAdmin && (
               <button onClick={handleDelete} disabled={saving} title="Permanently delete this lead"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer' }}>
                 🗑️ Delete
@@ -367,28 +454,98 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           </div>
         )}
 
-        {/* Stage pipeline stepper */}
-        <div style={{ marginTop: 20, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {STAGES.slice(0, 5).map(s => {
-            const isCurrent = lead.status === s.key
-            return (
-              <button key={s.key} onClick={() => !isCurrent && handleStatusChange(s.key)} disabled={saving}
-                style={{ padding: '6px 12px', borderRadius: 20, border: `2px solid ${isCurrent ? s.color : '#E2E8F0'}`, background: isCurrent ? s.bg : '#fff', color: isCurrent ? s.color : '#8FA0B0', fontSize: 12, fontWeight: isCurrent ? 800 : 500, cursor: isCurrent ? 'default' : 'pointer', transition: 'all 0.15s' }}>
-                {s.label}
-              </button>
-            )
-          })}
-          <div style={{ width: 1, background: '#E2E8F0', margin: '0 4px' }}/>
-          {STAGES.slice(5).map(s => {
-            const isCurrent = lead.status === s.key
-            return (
-              <button key={s.key} onClick={() => !isCurrent && handleStatusChange(s.key)} disabled={saving}
-                style={{ padding: '6px 12px', borderRadius: 20, border: `2px solid ${isCurrent ? s.color : '#E2E8F0'}`, background: isCurrent ? s.bg : '#fff', color: isCurrent ? s.color : '#8FA0B0', fontSize: 12, fontWeight: isCurrent ? 800 : 500, cursor: isCurrent ? 'default' : 'pointer' }}>
-                {s.label}
-              </button>
-            )
-          })}
+        {/* ── Journey: stage stepper (open leads only) ── */}
+        {isOpen && (
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>Journey Stage</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {stages.map(s => {
+                const isCurrent = lead.stage === s.key
+                return (
+                  <button key={s.key} onClick={() => !isCurrent && handleStageChange(s.key)} disabled={saving}
+                    style={{ padding: '6px 12px', borderRadius: 20, border: `2px solid ${isCurrent ? s.color : '#E2E8F0'}`, background: isCurrent ? s.bg_color : '#fff', color: isCurrent ? s.color : '#8FA0B0', fontSize: 12, fontWeight: isCurrent ? 800 : 500, cursor: isCurrent ? 'default' : 'pointer', transition: 'all 0.15s' }}>
+                    {s.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Outcome: status controls ── */}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>Status</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {LEAD_STATUSES.map(s => {
+              const isCurrent = lead.status === s.key
+              return (
+                <button key={s.key} onClick={() => !isCurrent && handleStatusChange(s.key)} disabled={saving}
+                  style={{ padding: '6px 12px', borderRadius: 20, border: `2px solid ${isCurrent ? s.color : '#E2E8F0'}`, background: isCurrent ? s.bg : '#fff', color: isCurrent ? s.color : '#8FA0B0', fontSize: 12, fontWeight: isCurrent ? 800 : 500, cursor: isCurrent ? 'default' : 'pointer' }}>
+                  {s.label}
+                </button>
+              )
+            })}
+            {lead.status === 'standby' && lead.standby_until && (
+              <span style={{ fontSize: 12, color: '#92400E', fontWeight: 600 }}>
+                ⏸ until {fmtDate(lead.standby_until)}{lead.standby_reason ? ` — ${lead.standby_reason}` : ''}
+              </span>
+            )}
+            {lead.status === 'lost' && lead.lost_reason_code && (
+              <span style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>
+                {lostReasonLabel(lead.lost_reason_code)}
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* ── Standby prompt ── */}
+        {statusPrompt === 'standby' && (
+          <div style={{ marginTop: 14, background: '#FFFBEB', border: '1px solid #F59E0B', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#92400E', marginBottom: 10 }}>⏸ Put this lead on Standby</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 10, alignItems: 'end' }}>
+              <div>
+                <label style={lbl}>Follow up on <span style={{ color: '#E63946' }}>*</span></label>
+                <input type="date" value={standbyForm.standby_until} min={today} onChange={e => setStandbyForm(f => ({ ...f, standby_until: e.target.value }))} style={inp}/>
+              </div>
+              <div>
+                <label style={lbl}>Why is it paused?</label>
+                <input value={standbyForm.standby_reason} onChange={e => setStandbyForm(f => ({ ...f, standby_reason: e.target.value }))} placeholder="e.g. Family deciding after hospital discharge" style={inp}/>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button onClick={confirmStandby} disabled={saving} style={{ padding: '8px 16px', background: '#92400E', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                {saving ? 'Saving…' : 'Confirm Standby'}
+              </button>
+              <button onClick={() => setStatusPrompt(null)} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#4A6070', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Lost prompt ── */}
+        {statusPrompt === 'lost' && (
+          <div style={{ marginTop: 14, background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#DC2626', marginBottom: 10 }}>Mark this lead as Lost</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 10, alignItems: 'end' }}>
+              <div>
+                <label style={lbl}>Reason <span style={{ color: '#E63946' }}>*</span></label>
+                <select value={lostForm.lost_reason_code} onChange={e => setLostForm(f => ({ ...f, lost_reason_code: e.target.value }))} style={inp}>
+                  <option value="">— Select a reason —</option>
+                  {LOST_REASONS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Explanatory note (optional)</label>
+                <input value={lostForm.lost_reason} onChange={e => setLostForm(f => ({ ...f, lost_reason: e.target.value }))} placeholder="Any detail worth remembering" style={inp}/>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button onClick={confirmLost} disabled={saving} style={{ padding: '8px 16px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                {saving ? 'Saving…' : 'Confirm Lost'}
+              </button>
+              <button onClick={() => setStatusPrompt(null)} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#4A6070', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Body: 2 columns */}
@@ -426,7 +583,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2E44' }}>
-                            {ACTIVITY_TYPES.find(t => t.key === a.activity_type)?.label || a.activity_type}
+                            {ACTIVITY_TYPES.find(t => t.key === a.activity_type)?.label || (isStatusChange ? 'Status Change' : a.activity_type)}
                           </span>
                           {a.outcome && (
                             <span style={{ fontSize: 11, color: '#8FA0B0' }}>
@@ -476,6 +633,11 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                   </div>
                 ))}
               </div>
+              {isOpen && (
+                <div style={{ marginTop: 8, fontSize: 11, color: '#065F46' }}>
+                  Weighted: <strong>{fmtMoney(rev.monthly * effectiveProbability(lead.close_probability) / 100)}/mo</strong> at {effectiveProbability(lead.close_probability)}% probability{lead.close_probability == null ? ' (default)' : ''}
+                </div>
+              )}
             </div>
           )}
 
@@ -486,7 +648,6 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               <div><label style={lbl}>Client Name</label><input value={editForm.client_name || ''} onChange={e => setE('client_name', e.target.value)} style={inp}/></div>
               <div><label style={lbl}>Phone</label><input value={editForm.phone || ''} onChange={e => setE('phone', e.target.value)} style={inp}/></div>
               <div><label style={lbl}>Email</label><input type="email" value={editForm.email || ''} onChange={e => setE('email', e.target.value)} style={inp}/></div>
-              {/* ── v0.1.0: Address + DOB for CareMatch360 hand-off ── */}
               <div style={{ marginTop: 4, paddingTop: 12, borderTop: '1px dashed #E2E8F0', fontSize: 11, fontWeight: 700, color: '#0B6B5C', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Client Home Address & DOB
               </div>
@@ -518,21 +679,50 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                 <div><label style={lbl}>Hourly Rate ($)</label><input type="number" value={editForm.hourly_rate} onChange={e => setE('hourly_rate', e.target.value)} style={inp} min="0" step="0.25"/></div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div><label style={lbl}>Close Date</label><input type="date" value={editForm.expected_close_date || ''} onChange={e => setE('expected_close_date', e.target.value)} style={inp}/></div>
+                <div><label style={lbl}>Target Close Date</label><input type="date" value={editForm.expected_close_date || ''} onChange={e => setE('expected_close_date', e.target.value)} style={inp}/></div>
                 <div><label style={lbl}>Start Date</label><input type="date" value={editForm.expected_start_date || ''} onChange={e => setE('expected_start_date', e.target.value)} style={inp}/></div>
               </div>
               <div>
-                <label style={lbl}>Assigned To</label>
+                <label style={lbl}>Probability of Closing</label>
+                <select value={editForm.close_probability} onChange={e => setE('close_probability', e.target.value)} style={inp}>
+                  <option value="">— Not rated —</option>
+                  {PROBABILITY_OPTIONS.map(p => <option key={p} value={String(p)}>{p}%</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Primary Owner</label>
                 <select value={editForm.assigned_to || ''} onChange={e => setE('assigned_to', e.target.value)} style={inp}>
                   {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
                 </select>
               </div>
+              <div>
+                <label style={lbl}>Secondary Owner</label>
+                <select value={editForm.secondary_assigned_to || ''} onChange={e => setE('secondary_assigned_to', e.target.value)} style={inp}>
+                  <option value="">— None —</option>
+                  {staff.filter(s => s.id !== editForm.assigned_to).map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                </select>
+              </div>
+              {lead.status === 'standby' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div><label style={lbl}>Standby Until</label><input type="date" value={editForm.standby_until || ''} onChange={e => setE('standby_until', e.target.value)} style={inp}/></div>
+                  <div><label style={lbl}>Standby Reason</label><input value={editForm.standby_reason || ''} onChange={e => setE('standby_reason', e.target.value)} style={inp}/></div>
+                </div>
+              )}
+              {lead.status === 'lost' && (
+                <>
+                  <div>
+                    <label style={lbl}>Lost Reason</label>
+                    <select value={editForm.lost_reason_code || ''} onChange={e => setE('lost_reason_code', e.target.value)} style={inp}>
+                      <option value="">— Select a reason —</option>
+                      {LOST_REASONS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+                    </select>
+                  </div>
+                  <div><label style={lbl}>Lost Reason Note</label><input value={editForm.lost_reason || ''} onChange={e => setE('lost_reason', e.target.value)} style={inp}/></div>
+                </>
+              )}
               <div><label style={lbl}>Condition / Situation Notes</label><textarea value={editForm.condition_notes || ''} onChange={e => setE('condition_notes', e.target.value)} rows={3} style={{ ...inp, resize: 'vertical' }}/></div>
               <div><label style={lbl}>Preferred Schedule</label><input value={editForm.preferred_schedule || ''} onChange={e => setE('preferred_schedule', e.target.value)} placeholder="e.g. Mon–Fri 8am–2pm" style={inp}/></div>
               <div><label style={lbl}>Notes</label><textarea value={editForm.notes || ''} onChange={e => setE('notes', e.target.value)} rows={3} style={{ ...inp, resize: 'vertical' }}/></div>
-              {lead.status === 'lost' && (
-                <div><label style={lbl}>Lost Reason</label><input value={editForm.lost_reason || ''} onChange={e => setE('lost_reason', e.target.value)} style={inp}/></div>
-              )}
             </div>
           ) : (
             /* Read-only details */
@@ -569,9 +759,11 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                 { label: 'Care Types', value: (lead.care_types || []).join(', ') || '—' },
                 { label: 'Hours / Week', value: lead.estimated_hours_week ? `${lead.estimated_hours_week} hrs` : '—' },
                 { label: 'Hourly Rate', value: lead.hourly_rate ? `$${lead.hourly_rate}/hr` : '—' },
-                { label: 'Expected Close', value: fmtDate(lead.expected_close_date) },
+                { label: 'Probability', value: lead.close_probability != null ? `${lead.close_probability}%` : '—' },
+                { label: 'Target Close', value: fmtDate(lead.expected_close_date) },
                 { label: 'Expected Start', value: fmtDate(lead.expected_start_date) },
-                { label: 'Assigned To', value: getName(lead.assignee) || '—' },
+                { label: 'Primary Owner', value: getName(lead.assignee) || '—' },
+                { label: 'Secondary Owner', value: getName(lead.secondary) || '—' },
                 { label: 'Schedule', value: lead.preferred_schedule || '—' },
               ].map(row => (
                 <div key={row.label}>
@@ -581,14 +773,31 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                   </div>
                 </div>
               ))}
+              {lead.status === 'standby' && (
+                <div>
+                  <div style={lbl}>Standby</div>
+                  <div style={{ fontSize: 13, color: '#92400E' }}>
+                    Until {fmtDate(lead.standby_until)}{lead.standby_reason ? ` — ${lead.standby_reason}` : ''}
+                  </div>
+                </div>
+              )}
+              {lead.won_date && (
+                <div><div style={lbl}>Won On</div><div style={{ fontSize: 13, color: '#065F46' }}>{fmtDate(lead.won_date)}</div></div>
+              )}
+              {lead.status === 'lost' && (
+                <div>
+                  <div style={lbl}>Lost</div>
+                  <div style={{ fontSize: 13, color: '#DC2626' }}>
+                    {fmtDate(lead.lost_date)}{lead.lost_reason_code ? ` — ${lostReasonLabel(lead.lost_reason_code)}` : ''}
+                  </div>
+                  {lead.lost_reason && <div style={{ fontSize: 12, color: '#B45309', marginTop: 2 }}>{lead.lost_reason}</div>}
+                </div>
+              )}
               {lead.condition_notes && (
                 <div><div style={lbl}>Situation Notes</div><div style={{ fontSize: 13, color: '#1A2E44', lineHeight: 1.6 }}>{lead.condition_notes}</div></div>
               )}
               {lead.notes && (
                 <div><div style={lbl}>General Notes</div><div style={{ fontSize: 13, color: '#1A2E44', lineHeight: 1.6 }}>{lead.notes}</div></div>
-              )}
-              {lead.lost_reason && (
-                <div><div style={lbl}>Lost Reason</div><div style={{ fontSize: 13, color: '#DC2626' }}>{lead.lost_reason}</div></div>
               )}
             </div>
           )}

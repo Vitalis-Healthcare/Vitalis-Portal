@@ -2,20 +2,21 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Phone, Mail, Globe, Users, Building2, MessageSquare,
-         TrendingUp, Calendar, DollarSign, X, ChevronRight, Search,
-         UserCheck, RefreshCw } from 'lucide-react'
+import { Plus, X, ChevronRight, Search } from 'lucide-react'
+import {
+  LEAD_STATUSES, statusMeta, calcRevenue, effectiveProbability,
+  PROBABILITY_OPTIONS, lostReasonLabel,
+} from '@/lib/leads/model'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const STAGES = [
-  { key: 'new',                  label: 'New',                 color: '#8FA0B0', bg: '#EFF2F5' },
-  { key: 'contacted',            label: 'Contacted',           color: '#457B9D', bg: '#EBF4FF' },
-  { key: 'assessment_scheduled', label: 'Assessment Scheduled',color: '#7C3AED', bg: '#EDE9FE' },
-  { key: 'proposal_sent',        label: 'Proposal Sent',       color: '#D97706', bg: '#FEF3C7' },
-  { key: 'won',                  label: 'Won ✓',               color: '#0B6B5C', bg: '#D1FAE5' },
-  { key: 'on_hold',              label: 'On Hold',             color: '#92400E', bg: '#FDE68A' },
-  { key: 'cold',                 label: 'Cold',                color: '#6B7280', bg: '#F3F4F6' },
-  { key: 'lost',                 label: 'Lost',                color: '#DC2626', bg: '#FEE2E2' },
+// Fallback ONLY — the real stage list lives in lead_stages and arrives via
+// props. This list is journey-only: outcomes (won/lost) and pauses are the
+// lead's STATUS, never a stage. (v0.6.38 stage/status split.)
+const FALLBACK_STAGES = [
+  { key: 'new',                  label: 'New',                  color: '#8FA0B0', bg: '#EFF2F5' },
+  { key: 'contacted',            label: 'Contacted',            color: '#457B9D', bg: '#EBF4FF' },
+  { key: 'assessment_scheduled', label: 'Assessment Scheduled', color: '#7C3AED', bg: '#EDE9FE' },
+  { key: 'proposal_sent',        label: 'Proposal Sent',        color: '#D97706', bg: '#FEF3C7' },
 ]
 
 const SOURCES = [
@@ -36,13 +37,6 @@ const CARE_TYPES = [
 
 const RELATIONSHIPS = ['Self', 'Family Member', 'Social Worker', 'Hospital Discharge Planner', 'Doctor Office', 'Other']
 
-// ── Revenue helpers ────────────────────────────────────────────────────────────
-function calcRevenue(hours?: number | null, rate?: number | null) {
-  if (!hours || !rate) return null
-  const weekly = hours * rate
-  return { weekly, monthly: weekly * 4.33, annual: weekly * 52 }
-}
-
 function fmtMoney(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
@@ -55,15 +49,20 @@ function fmtDate(d?: string | null) {
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Lead {
   id: string; full_name: string; client_name?: string; email?: string; phone?: string
-  source: string; referral_name?: string; status: string; relationship?: string
+  source: string; referral_name?: string
+  status: string; stage?: string | null
+  standby_until?: string | null; standby_reason?: string | null
+  lost_reason_code?: string | null; close_probability?: number | null
+  legacy_status?: string | null; archived_at?: string | null
+  relationship?: string
   care_types?: string[]; condition_notes?: string; preferred_schedule?: string
   estimated_hours_week?: number; hourly_rate?: number
   expected_start_date?: string; expected_close_date?: string
   won_date?: string; lost_date?: string; lost_reason?: string; notes?: string
-  created_at: string; updated_at: string; assigned_to?: string; created_by?: string
-  // ── v0.1.0: address + DOB for CareMatch360 hand-off ──
+  created_at: string; updated_at: string
+  assigned_to?: string; secondary_assigned_to?: string; created_by?: string
   address?: string; city?: string; state?: string; zip?: string; date_of_birth?: string
-  assignee?: any; creator?: any
+  assignee?: any; secondary?: any; creator?: any
 }
 
 interface Stage { key: string; label: string; color: string; bg_color: string; order_index: number }
@@ -77,14 +76,14 @@ interface Props {
   lastActivity: Record<string, any>; nextFollowUp: Record<string, string>
 }
 
-// ── Source icon helper ────────────────────────────────────────────────────────
+// ── Small display helpers ─────────────────────────────────────────────────────
 function SourceIcon({ source }: { source: string }) {
   const s = SOURCES.find(x => x.key === source)
   return <span title={s?.label || source}>{s?.icon || '📋'}</span>
 }
 
-function StageChip({ status }: { status: string }) {
-  const s = STAGES.find(x => x.key === status)
+function StatusChip({ status }: { status: string }) {
+  const s = statusMeta(status)
   if (!s) return null
   return (
     <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>
@@ -93,20 +92,33 @@ function StageChip({ status }: { status: string }) {
   )
 }
 
+const getName = (v: any) => Array.isArray(v) ? v[0]?.full_name : v?.full_name
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function LeadsClient({ leads, staff, stages: dbStages, serviceTypes: dbServiceTypes, referralSources, currentUserId, currentUserName, lastActivity, nextFollowUp }: Props) {
-  // Use DB stages/serviceTypes if available, fall back to constants
-  const ACTIVE_STAGES = dbStages.length > 0 ? dbStages.map(s => ({ key: s.key, label: s.label, color: s.color, bg: s.bg_color })) : STAGES.map(s => ({ key: s.key, label: s.label, color: s.color, bg: s.bg }))
+  const JOURNEY_STAGES = dbStages.length > 0
+    ? dbStages.map(s => ({ key: s.key, label: s.label, color: s.color, bg: s.bg_color }))
+    : FALLBACK_STAGES.map(s => ({ key: s.key, label: s.label, color: s.color, bg: s.bg }))
   const ACTIVE_CARE_TYPES = dbServiceTypes.length > 0 ? dbServiceTypes.map(s => s.label) : CARE_TYPES
   const router = useRouter()
   const [view, setView] = useState<'pipeline' | 'list'>('pipeline')
   const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterStage, setFilterStage] = useState('all')
+  const [filterStatus, setFilterStatus] = useState('open')
   const [filterSource, setFilterSource] = useState('all')
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [movingId, setMovingId] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
+
+  const stageChipFor = (key?: string | null) => {
+    const s = JOURNEY_STAGES.find(x => x.key === key)
+    if (!s) return null
+    return (
+      <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>
+        {s.label}
+      </span>
+    )
+  }
 
   const BLANK_FORM = {
     full_name: '', client_name: '', email: '', phone: '',
@@ -114,9 +126,9 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
     care_types: [] as string[], condition_notes: '', preferred_schedule: '',
     estimated_hours_week: '', hourly_rate: '', notes: '',
     expected_close_date: '', expected_start_date: '',
-    // ── v0.1.0: address + DOB for CareMatch360 hand-off ──
+    close_probability: '',
     address: '', city: '', state: 'MD', zip: '', date_of_birth: '',
-    assigned_to: currentUserId, status: 'new',
+    assigned_to: currentUserId, secondary_assigned_to: '', stage: 'new',
   }
   const [form, setForm] = useState(BLANK_FORM)
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
@@ -125,8 +137,12 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return leads.filter(l => {
-      if (!showArchived && l.status === 'archived') return false
-      if (filterStatus !== 'all' && l.status !== filterStatus) return false
+      if (!showArchived && l.archived_at) return false
+      if (showArchived && !l.archived_at) return false
+      if (filterStatus === 'open') {
+        if (l.status !== 'ongoing' && l.status !== 'standby') return false
+      } else if (filterStatus !== 'all' && l.status !== filterStatus) return false
+      if (filterStage !== 'all' && l.stage !== filterStage) return false
       if (filterSource !== 'all' && l.source !== filterSource) return false
       if (q) {
         const haystack = [l.full_name, l.client_name, l.phone, l.email, l.referral_name].join(' ').toLowerCase()
@@ -134,19 +150,27 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
       }
       return true
     })
-  }, [leads, search, filterStatus, filterSource])
+  }, [leads, search, filterStage, filterStatus, filterSource, showArchived])
 
   // ── Revenue summary ───────────────────────────────────────────────────────
   const revenueStats = useMemo(() => {
-    const active = leads.filter(l => !['lost', 'cold'].includes(l.status))
-    const won = leads.filter(l => l.status === 'won')
-    const pipeline = active.filter(l => l.status !== 'won')
+    const working = leads.filter(l => !l.archived_at)
+    const open = working.filter(l => l.status === 'ongoing' || l.status === 'standby')
+    const won = working.filter(l => l.status === 'won')
+    const lost = working.filter(l => l.status === 'lost')
 
     const sumRevenue = (arr: Lead[]) =>
       arr.reduce((sum, l) => {
         const r = calcRevenue(l.estimated_hours_week, l.hourly_rate)
         return sum + (r?.monthly || 0)
       }, 0)
+
+    // Probability-weighted pipeline: an unrated lead counts at even odds.
+    const weighted = open.reduce((sum, l) => {
+      const r = calcRevenue(l.estimated_hours_week, l.hourly_rate)
+      if (!r) return sum
+      return sum + r.monthly * (effectiveProbability(l.close_probability) / 100)
+    }, 0)
 
     // Monthly trajectory by close date
     const trajectory: Record<string, number> = {}
@@ -156,7 +180,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
       const key = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
       trajectory[key] = 0
     }
-    for (const l of pipeline) {
+    for (const l of open) {
       if (!l.expected_close_date) continue
       const d = new Date(l.expected_close_date)
       const key = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
@@ -166,9 +190,12 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
 
     return {
       wonMonthly: sumRevenue(won),
-      pipelineMonthly: sumRevenue(pipeline),
-      totalLeads: leads.length,
-      activeLeads: active.length,
+      pipelineMonthly: sumRevenue(open),
+      weightedMonthly: weighted,
+      totalLeads: working.length,
+      openLeads: open.length,
+      wonCount: won.length,
+      lostCount: lost.length,
       trajectory,
     }
   }, [leads])
@@ -181,12 +208,13 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
       ...form,
       estimated_hours_week: form.estimated_hours_week ? parseFloat(form.estimated_hours_week) : null,
       hourly_rate: form.hourly_rate ? parseFloat(form.hourly_rate) : null,
+      close_probability: form.close_probability !== '' ? parseInt(form.close_probability, 10) : null,
       care_types: form.care_types.length ? form.care_types : null,
       referral_name: form.source === 'referral' ? form.referral_name : null,
       client_name: form.client_name || null,
       expected_close_date: form.expected_close_date || null,
       expected_start_date: form.expected_start_date || null,
-      // ── v0.1.0: null-coerce empty address + DOB so Postgres accepts them ──
+      secondary_assigned_to: form.secondary_assigned_to || null,
       address: form.address || null,
       city: form.city || null,
       state: form.state || null,
@@ -206,21 +234,20 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
     setSaving(false)
   }
 
-  // ── Quick status move ─────────────────────────────────────────────────────
-  const moveStatus = async (lead: Lead, newStatus: string) => {
-    setMovingId(lead.id)
-    await fetch('/api/leads/update', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: lead.id, status: newStatus, previousStatus: lead.status }),
-    })
-    setMovingId(null)
-    router.refresh()
-  }
-
   // ── Styles ────────────────────────────────────────────────────────────────
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #D1D9E0', fontSize: 13, outline: 'none', fontFamily: 'inherit', background: '#fff', boxSizing: 'border-box' }
   const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#4A6070', display: 'block', marginBottom: 5 }
   const today = new Date().toISOString().split('T')[0]
+
+  // Board: open leads grouped by stage; leads whose stage is empty (e.g.
+  // migrated standby rows) get an honest "Unstaged" column instead of
+  // silently vanishing.
+  const boardLeads = filtered.filter(l => l.status === 'ongoing' || l.status === 'standby')
+  const unstaged = boardLeads.filter(l => !l.stage || !JOURNEY_STAGES.some(s => s.key === l.stage))
+  const boardColumns = [
+    ...JOURNEY_STAGES,
+    ...(unstaged.length > 0 ? [{ key: '__unstaged', label: 'Unstaged', color: '#B45309', bg: '#FEF3C7' }] : []),
+  ]
 
   // ── Revenue bar chart (simple CSS) ────────────────────────────────────────
   const trajEntries = Object.entries(revenueStats.trajectory)
@@ -234,7 +261,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1A2E44', margin: '0 0 4px' }}>Leads & Pipeline</h1>
           <p style={{ fontSize: 13, color: '#8FA0B0', margin: 0 }}>
-            {revenueStats.activeLeads} active leads · {fmtMoney(revenueStats.pipelineMonthly)}/mo pipeline
+            {revenueStats.openLeads} open leads · {fmtMoney(revenueStats.pipelineMonthly)}/mo pipeline · {fmtMoney(revenueStats.weightedMonthly)}/mo weighted
           </p>
         </div>
         <button
@@ -251,10 +278,10 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
       {/* ── Revenue summary cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
         {[
-          { label: 'Won — Monthly Revenue', value: fmtMoney(revenueStats.wonMonthly), sub: `${fmtMoney(revenueStats.wonMonthly * 12)}/yr`, color: '#0B6B5C', bg: '#D1FAE5' },
-          { label: 'Pipeline Monthly Value', value: fmtMoney(revenueStats.pipelineMonthly), sub: 'potential revenue', color: '#7C3AED', bg: '#EDE9FE' },
-          { label: 'Total Leads', value: revenueStats.totalLeads, sub: `${revenueStats.activeLeads} active`, color: '#1A2E44', bg: '#EFF2F5' },
-          { label: 'Won Leads', value: leads.filter(l => l.status === 'won').length, sub: `${leads.filter(l => l.status === 'lost').length} lost`, color: '#D97706', bg: '#FEF3C7' },
+          { label: 'Won — Monthly Revenue', value: fmtMoney(revenueStats.wonMonthly), sub: `${fmtMoney(revenueStats.wonMonthly * 12)}/yr`, color: '#0B6B5C' },
+          { label: 'Pipeline Monthly Value', value: fmtMoney(revenueStats.pipelineMonthly), sub: `${fmtMoney(revenueStats.weightedMonthly)}/mo probability-weighted`, color: '#7C3AED' },
+          { label: 'Total Leads', value: revenueStats.totalLeads, sub: `${revenueStats.openLeads} open`, color: '#1A2E44' },
+          { label: 'Won Leads', value: revenueStats.wonCount, sub: `${revenueStats.lostCount} lost`, color: '#D97706' },
         ].map((s, i) => (
           <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', borderTop: `3px solid ${s.color}` }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>{s.label}</div>
@@ -268,7 +295,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
       {trajEntries.some(([,v]) => v > 0) && (
         <div style={{ background: '#fff', borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#1A2E44', marginBottom: 14 }}>
-            📈 Pipeline Revenue Trajectory — next 6 months (by expected close date)
+            📈 Pipeline Revenue Trajectory — next 6 months (by target close date)
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', height: 80 }}>
             {trajEntries.map(([month, value]) => (
@@ -289,15 +316,20 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search leads…" style={{ border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', flex: 1 }}/>
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inp, width: 'auto', padding: '8px 12px' }}>
+          <option value="open">Open (Ongoing + Standby)</option>
+          {LEAD_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          <option value="all">All Statuses</option>
+        </select>
+        <select value={filterStage} onChange={e => setFilterStage(e.target.value)} style={{ ...inp, width: 'auto', padding: '8px 12px' }}>
           <option value="all">All Stages</option>
-          {ACTIVE_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          {JOURNEY_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
         </select>
         <select value={filterSource} onChange={e => setFilterSource(e.target.value)} style={{ ...inp, width: 'auto', padding: '8px 12px' }}>
           <option value="all">All Sources</option>
           {SOURCES.map(s => <option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
         </select>
         <button onClick={() => setShowArchived(a => !a)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: showArchived ? '#FEF3C7' : '#F8FAFB', border: showArchived ? '1px solid #F59E0B' : '1px solid #E2E8F0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: showArchived ? '#92400E' : '#8FA0B0', cursor: 'pointer' }}>
-          📦 {showArchived ? 'Hide Archived' : 'Show Archived'}
+          📦 {showArchived ? 'Viewing Archived' : 'Show Archived'}
         </button>
         <div style={{ display: 'flex', background: '#F8FAFB', borderRadius: 8, padding: 3, border: '1px solid #E2E8F0' }}>
           {(['pipeline','list'] as const).map(v => (
@@ -308,11 +340,13 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
         </div>
       </div>
 
-      {/* ── Pipeline view ── */}
+      {/* ── Pipeline view — journey stages only; outcomes live in the list ── */}
       {view === 'pipeline' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-          {ACTIVE_STAGES.map(stage => {
-            const stageLeads = filtered.filter(l => l.status === stage.key)
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(boardColumns.length, 4)},1fr)`, gap: 12 }}>
+          {boardColumns.map(stage => {
+            const stageLeads = stage.key === '__unstaged'
+              ? unstaged
+              : boardLeads.filter(l => l.stage === stage.key)
             const stageValue = stageLeads.reduce((sum, l) => {
               const r = calcRevenue(l.estimated_hours_week, l.hourly_rate)
               return sum + (r?.monthly || 0)
@@ -331,6 +365,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                     const rev = calcRevenue(lead.estimated_hours_week, lead.hourly_rate)
                     const followUp = nextFollowUp[lead.id]
                     const isOverdue = followUp && followUp < today
+                    const prob = lead.close_probability
                     return (
                       <Link key={lead.id} href={`/leads/${lead.id}`} style={{ textDecoration: 'none' }}>
                         <div style={{ background: '#fff', borderRadius: 8, padding: '10px 11px', border: `1px solid ${isOverdue ? '#FCA5A5' : '#E2E8F0'}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
@@ -346,11 +381,19 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                           {lead.client_name && (
                             <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 1 }}>via {lead.full_name}</div>
                           )}
-                          {rev && (
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#0B6B5C', marginTop: 5 }}>
-                              {fmtMoney(rev.monthly)}/mo
-                            </div>
-                          )}
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 5, flexWrap: 'wrap' }}>
+                            {rev && (
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#0B6B5C' }}>{fmtMoney(rev.monthly)}/mo</span>
+                            )}
+                            {prob !== null && prob !== undefined && (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', background: '#EDE9FE', padding: '1px 7px', borderRadius: 10 }}>{prob}%</span>
+                            )}
+                            {lead.status === 'standby' && (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: '#92400E', background: '#FDE68A', padding: '1px 7px', borderRadius: 10 }}>
+                                ⏸ Standby{lead.standby_until ? ` → ${fmtDate(lead.standby_until)}` : ''}
+                              </span>
+                            )}
+                          </div>
                           {lead.estimated_hours_week && (
                             <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 2 }}>
                               {lead.estimated_hours_week}h/wk {lead.hourly_rate ? `@ $${lead.hourly_rate}/hr` : ''}
@@ -383,53 +426,74 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#F8FAFB', borderBottom: '1px solid #EFF2F5' }}>
-                {['Contact / Client', 'Source', 'Stage', 'Hours/Rate', 'Monthly Value', 'Close Date', 'Follow Up', ''].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px', whiteSpace: 'nowrap' }}>{h}</th>
+                {['Contact / Client', 'Source', 'Stage', 'Status', 'Owner', 'Hours/Rate', 'Monthly Value', 'Prob.', 'Close Date', 'Follow Up', ''].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '11px 12px', fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#8FA0B0' }}>No leads match these filters.</td></tr>
+                <tr><td colSpan={11} style={{ padding: 40, textAlign: 'center', color: '#8FA0B0' }}>No leads match these filters.</td></tr>
               ) : filtered.map((lead, i) => {
                 const rev = calcRevenue(lead.estimated_hours_week, lead.hourly_rate)
                 const followUp = nextFollowUp[lead.id]
                 const isOverdue = followUp && followUp < today
-                const assigneeName = (Array.isArray(lead.assignee) ? lead.assignee[0] : lead.assignee)?.full_name
+                const owner = getName(lead.assignee)
+                const secondary = getName(lead.secondary)
                 return (
                   <tr key={lead.id} style={{ borderBottom: '1px solid #EFF2F5', background: i % 2 === 0 ? '#fff' : '#FAFBFC' }}>
-                    <td style={{ padding: '12px 14px' }}>
+                    <td style={{ padding: '12px 12px' }}>
                       <Link href={`/leads/${lead.id}`} style={{ textDecoration: 'none' }}>
                         <div style={{ fontWeight: 700, color: '#1A2E44' }}>{lead.client_name || lead.full_name}</div>
                         {lead.client_name && <div style={{ fontSize: 11, color: '#8FA0B0' }}>via {lead.full_name}</div>}
                         {lead.phone && <div style={{ fontSize: 11, color: '#457B9D' }}>{lead.phone}</div>}
                       </Link>
                     </td>
-                    <td style={{ padding: '12px 14px' }}>
+                    <td style={{ padding: '12px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                         <SourceIcon source={lead.source}/>
                         <span style={{ fontSize: 12, color: '#4A6070' }}>{SOURCES.find(s => s.key === lead.source)?.label || lead.source}</span>
                       </div>
                       {lead.referral_name && <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 2 }}>from {lead.referral_name}</div>}
                     </td>
-                    <td style={{ padding: '12px 14px' }}><StageChip status={lead.status}/></td>
-                    <td style={{ padding: '12px 14px', color: '#4A6070', fontSize: 12 }}>
+                    <td style={{ padding: '12px 12px' }}>
+                      {(lead.status === 'ongoing' || lead.status === 'standby')
+                        ? (stageChipFor(lead.stage) || <span style={{ color: '#B45309', fontSize: 11, fontWeight: 700 }}>Unstaged</span>)
+                        : <span style={{ color: '#CBD5E0' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '12px 12px' }}>
+                      <StatusChip status={lead.status}/>
+                      {lead.status === 'standby' && lead.standby_until && (
+                        <div style={{ fontSize: 10, color: '#92400E', marginTop: 2 }}>until {fmtDate(lead.standby_until)}</div>
+                      )}
+                      {lead.status === 'lost' && lead.lost_reason_code && (
+                        <div style={{ fontSize: 10, color: '#DC2626', marginTop: 2 }}>{lostReasonLabel(lead.lost_reason_code)}</div>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 12px', fontSize: 12, color: '#4A6070' }}>
+                      {owner || <span style={{ color: '#DC2626', fontWeight: 700 }}>Unassigned</span>}
+                      {secondary && <div style={{ fontSize: 10, color: '#8FA0B0' }}>+ {secondary}</div>}
+                    </td>
+                    <td style={{ padding: '12px 12px', color: '#4A6070', fontSize: 12 }}>
                       {lead.estimated_hours_week ? `${lead.estimated_hours_week}h/wk` : '—'}
                       {lead.hourly_rate ? <><br/><span style={{ color: '#8FA0B0' }}>${lead.hourly_rate}/hr</span></> : null}
                     </td>
-                    <td style={{ padding: '12px 14px', fontWeight: 700, color: rev ? '#0B6B5C' : '#CBD5E0' }}>
+                    <td style={{ padding: '12px 12px', fontWeight: 700, color: rev ? '#0B6B5C' : '#CBD5E0' }}>
                       {rev ? fmtMoney(rev.monthly) : '—'}
                       {rev && <div style={{ fontSize: 10, color: '#8FA0B0', fontWeight: 400 }}>{fmtMoney(rev.annual)}/yr</div>}
                     </td>
-                    <td style={{ padding: '12px 14px', fontSize: 12, color: '#8FA0B0' }}>{fmtDate(lead.expected_close_date)}</td>
-                    <td style={{ padding: '12px 14px' }}>
+                    <td style={{ padding: '12px 12px', fontSize: 12, fontWeight: 700, color: lead.close_probability != null ? '#7C3AED' : '#CBD5E0' }}>
+                      {lead.close_probability != null ? `${lead.close_probability}%` : '—'}
+                    </td>
+                    <td style={{ padding: '12px 12px', fontSize: 12, color: '#8FA0B0' }}>{fmtDate(lead.expected_close_date)}</td>
+                    <td style={{ padding: '12px 12px' }}>
                       {followUp ? (
                         <span style={{ fontSize: 11, fontWeight: 600, color: isOverdue ? '#DC2626' : '#457B9D' }}>
                           {isOverdue ? '⚠️ ' : '📅 '}{fmtDate(followUp)}
                         </span>
                       ) : <span style={{ color: '#CBD5E0' }}>—</span>}
                     </td>
-                    <td style={{ padding: '12px 14px' }}>
+                    <td style={{ padding: '12px 12px' }}>
                       <Link href={`/leads/${lead.id}`} style={{ fontSize: 12, color: '#0B6B5C', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap' }}>
                         View <ChevronRight size={13}/>
                       </Link>
@@ -488,7 +552,6 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                   <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@example.com" style={inp}/>
                 </div>
 
-                {/* ── v0.1.0: Client home address + DOB (needed for CareMatch360 hand-off) ── */}
                 <div style={{ gridColumn: '1/-1', marginTop: 4, paddingTop: 14, borderTop: '1px dashed #E2E8F0' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#0B6B5C', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
                     Client Home Address & DOB
@@ -547,11 +610,19 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                   </div>
                 )}
 
-                {/* Stage */}
+                {/* Stage + probability */}
                 <div>
                   <label style={lbl}>Initial Stage</label>
-                  <select value={form.status} onChange={e => set('status', e.target.value)} style={inp}>
-                    {STAGES.slice(0,4).map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                  <select value={form.stage} onChange={e => set('stage', e.target.value)} style={inp}>
+                    {JOURNEY_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={lbl}>Probability of Closing</label>
+                  <select value={form.close_probability} onChange={e => set('close_probability', e.target.value)} style={inp}>
+                    <option value="">— Not rated —</option>
+                    {PROBABILITY_OPTIONS.map(p => <option key={p} value={p}>{p}%</option>)}
                   </select>
                 </div>
 
@@ -596,7 +667,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                 })()}
 
                 <div>
-                  <label style={lbl}>Expected Close Date</label>
+                  <label style={lbl}>Target Close Date</label>
                   <input type="date" value={form.expected_close_date} onChange={e => set('expected_close_date', e.target.value)} min={today} style={inp}/>
                 </div>
 
@@ -606,10 +677,18 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                 </div>
 
                 {/* Assign */}
-                <div style={{ gridColumn: '1/-1' }}>
-                  <label style={lbl}>Assigned To</label>
+                <div>
+                  <label style={lbl}>Primary Owner</label>
                   <select value={form.assigned_to} onChange={e => set('assigned_to', e.target.value)} style={inp}>
                     {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}{s.id === currentUserId ? ' (me)' : ''}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={lbl}>Secondary Owner</label>
+                  <select value={form.secondary_assigned_to} onChange={e => set('secondary_assigned_to', e.target.value)} style={inp}>
+                    <option value="">— None —</option>
+                    {staff.filter(s => s.id !== form.assigned_to).map(s => <option key={s.id} value={s.id}>{s.full_name}{s.id === currentUserId ? ' (me)' : ''}</option>)}
                   </select>
                 </div>
 

@@ -415,7 +415,8 @@ export async function buildLeadsContext(svc: any): Promise<string> {
     const { data: leads } = await svc
       .from('leads')
       .select(`
-        id, full_name, client_name, source, referral_name, status,
+        id, full_name, client_name, source, referral_name, status, stage,
+        standby_until, lost_reason_code, close_probability, archived_at,
         care_types, estimated_hours_week, hourly_rate,
         expected_close_date, expected_start_date,
         won_date, lost_reason, notes, created_at, updated_at,
@@ -431,38 +432,45 @@ export async function buildLeadsContext(svc: any): Promise<string> {
     const calcMonthly = (h?: number, r?: number) => (h && r) ? h * r * 4.33 : 0
     const fmtMoney = (n: number) => '$' + Math.round(n).toLocaleString()
 
-    // Group by status
-    const STAGES = ['new','contacted','assessment_scheduled','proposal_sent','won','on_hold','cold','lost']
-    const STAGE_LABELS: Record<string,string> = {
-      new: 'New', contacted: 'Contacted', assessment_scheduled: 'Assessment Scheduled',
-      proposal_sent: 'Proposal Sent', won: 'Won', on_hold: 'On Hold', cold: 'Cold', lost: 'Lost'
-    }
-
-    const byStatus: Record<string, typeof leads> = {}
-    for (const s of STAGES) byStatus[s] = []
-    for (const l of leads) {
-      if (byStatus[l.status]) byStatus[l.status].push(l)
-    }
-
-    const activePipeline = leads.filter((l: any) => !['lost','cold'].includes(l.status))
-    const wonLeads = leads.filter((l: any) => l.status === 'won')
-    const pipelineMonthly = activePipeline.filter((l: any) => l.status !== 'won')
+    // ── v0.6.38: stage/status split ─────────────────────────────────────
+    // `status` is the five-value operational vocabulary (ongoing/standby/
+    // won/lost/cancelled); the journey lives in `stage`; archived leads
+    // carry archived_at and stay out of the working picture. Open leads
+    // are grouped by STAGE; closed leads are grouped by outcome.
+    const working = leads.filter((l: any) => !l.archived_at)
+    const openLeads = working.filter((l: any) => l.status === 'ongoing' || l.status === 'standby')
+    const wonLeads = working.filter((l: any) => l.status === 'won')
+    const lostLeads = working.filter((l: any) => l.status === 'lost' || l.status === 'cancelled')
+    const pipelineMonthly = openLeads
       .reduce((sum: number, l: any) => sum + calcMonthly(l.estimated_hours_week, l.hourly_rate), 0)
     const wonMonthly = wonLeads
       .reduce((sum: number, l: any) => sum + calcMonthly(l.estimated_hours_week, l.hourly_rate), 0)
 
+    const groupKeys: string[] = []
+    const byGroup: Record<string, any[]> = {}
+    const put = (key: string, l: any) => {
+      if (!byGroup[key]) { byGroup[key] = []; groupKeys.push(key) }
+      byGroup[key].push(l)
+    }
+    for (const l of openLeads) {
+      const stageLabel = (l.stage || 'unstaged').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+      put(l.status === 'standby' ? `${stageLabel} — On Standby` : stageLabel, l)
+    }
+    for (const l of wonLeads) put('Won', l)
+    for (const l of lostLeads) put(l.status === 'cancelled' ? 'Cancelled' : 'Lost', l)
+
     const lines: string[] = ['LEADS & PIPELINE CONTEXT:']
-    lines.push(`Total leads: ${leads.length} | Active: ${activePipeline.length} | Won: ${wonLeads.length} | Lost/Cold: ${leads.length - activePipeline.length}`)
+    lines.push(`Total leads: ${working.length} | Open: ${openLeads.length} | Won: ${wonLeads.length} | Lost/Cancelled: ${lostLeads.length}`)
     lines.push(`Won monthly revenue: ${fmtMoney(wonMonthly)}/mo (${fmtMoney(wonMonthly * 12)}/yr)`)
-    lines.push(`Pipeline potential: ${fmtMoney(pipelineMonthly)}/mo (if all active leads convert)`)
+    lines.push(`Pipeline potential: ${fmtMoney(pipelineMonthly)}/mo (if all open leads convert)`)
 
     // Stage breakdown
     lines.push('\nPIPELINE BREAKDOWN:')
-    for (const s of STAGES) {
-      const group = byStatus[s] || []
+    for (const s of groupKeys) {
+      const group = byGroup[s] || []
       if (group.length === 0) continue
       const groupRevenue = group.reduce((sum: number, l: any) => sum + calcMonthly(l.estimated_hours_week, l.hourly_rate), 0)
-      lines.push(`\n${STAGE_LABELS[s]} (${group.length}):${groupRevenue > 0 ? ' ' + fmtMoney(groupRevenue) + '/mo potential' : ''}`)
+      lines.push(`\n${s} (${group.length}):${groupRevenue > 0 ? ' ' + fmtMoney(groupRevenue) + '/mo potential' : ''}`)
       for (const l of group) {
         const name = l.client_name || l.full_name
         const rev = calcMonthly(l.estimated_hours_week, l.hourly_rate)
@@ -489,7 +497,7 @@ export async function buildLeadsContext(svc: any): Promise<string> {
       const key = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
       trajectory[key] = 0
     }
-    for (const l of activePipeline.filter((l: any) => l.status !== 'won')) {
+    for (const l of openLeads) {
       if (!l.expected_close_date) continue
       const d = new Date(l.expected_close_date)
       const key = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
@@ -528,7 +536,7 @@ export async function buildLeadsContext(svc: any): Promise<string> {
 
       // Enrich each lead line with last activity content
       lines.push('\nLEAD ACTIVITY DETAILS (most recent interactions):')
-      for (const l of leads.filter((l: any) => !['lost','cold'].includes(l.status))) {
+      for (const l of openLeads) {
         const name = l.client_name || l.full_name
         const acts = actsByLead[l.id] || []
         if (acts.length === 0) {

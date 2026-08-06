@@ -111,8 +111,14 @@ export async function collectLeads(
   for (let i = 0; i < res.rows.length; i++) {
     const r = res.rows[i]
     const id = str(r, 'id') || ''
-    const status = (str(r, 'status') || 'new').toLowerCase()
-    const closed = status === 'won' || status === 'lost'
+    // ── v0.6.38: stage/status split. `status` is now the five-value
+    // operational vocabulary; archived leads carry `archived_at` and are
+    // out of the Brief entirely (before the split they wrongly counted as
+    // open). Pre-migration values degrade safely: anything not in the
+    // closed set reads as open, exactly as before.
+    if (str(r, 'archived_at')) continue
+    const status = (str(r, 'status') || 'ongoing').toLowerCase()
+    const closed = status === 'won' || status === 'lost' || status === 'cancelled'
     const label = nameOf(r, 'Unnamed lead')
     const href = '/leads'
     const loggedBy = names[str(r, 'created_by') || ''] || null
