@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendAssignmentEmail } from '@/lib/assessments/email'
+import { prettyKey } from '@/lib/leads/model'
 
 const VALID_CADENCES = [30, 60, 90, 120, 365]
 const OPEN_ASSESSMENT_STATUSES = ['scheduled', 'overdue']
@@ -190,6 +191,44 @@ export async function POST(req: NextRequest) {
       console.error('[leads/assessment] assignment email failed (non-fatal):', emailErr)
     }
 
+    // ── 3b. Stage auto-move (v0.6.50, Ship 5d) ───────────────────────────
+    // Scheduling an assessment IS the journey moving. Advance the stage to
+    // assessment_scheduled — but ONLY forward. Stages are configurable and
+    // ordered by lead_stages.order_index, so compare real positions rather
+    // than assuming a hardcoded list. Never touches status, and never moves
+    // a lead backward from a later stage like Proposal Sent.
+    let stageMoved: { from: string; to: string } | null = null
+    try {
+      const { data: stageRows } = await svc
+        .from('lead_stages')
+        .select('key, order_index')
+        .eq('is_active', true)
+      const orderOf = (key: string | null | undefined) =>
+        stageRows?.find(s => s.key === key)?.order_index ?? null
+      const targetOrder = orderOf('assessment_scheduled')
+      const currentOrder = orderOf(lead.stage)
+      // Move when the target exists AND (no current stage, unknown current
+      // stage, or the current stage sits earlier in the journey).
+      if (targetOrder !== null && lead.stage !== 'assessment_scheduled' &&
+          (currentOrder === null || currentOrder < targetOrder)) {
+        const { error: stageErr } = await svc
+          .from('leads')
+          .update({ stage: 'assessment_scheduled', updated_at: new Date().toISOString() })
+          .eq('id', lead.id)
+        if (!stageErr) {
+          stageMoved = { from: lead.stage || 'new', to: 'assessment_scheduled' }
+          await svc.from('lead_activities').insert({
+            lead_id: lead.id, created_by: user.id,
+            activity_type: 'status_change',
+            content: `Stage moved: ${prettyKey(lead.stage || 'new')} \u2192 ${prettyKey('assessment_scheduled')}`,
+          })
+        }
+      }
+    } catch (stageErr) {
+      // A stage that didn't advance must never fail a booked assessment.
+      console.error('[leads/assessment] stage auto-move failed (non-fatal):', stageErr)
+    }
+
     // ── 4. Timeline log on the lead ──────────────────────────────────────
     const suffix = clientCreated ? ' — client record created'
                  : clientLinked  ? ' — linked to existing client record'
@@ -207,6 +246,7 @@ export async function POST(req: NextRequest) {
         completed_date: assessment.completed_date, is_initial: assessment.is_initial,
         nurse_name: nurse.full_name || null,
       },
+      stage_moved: stageMoved,
     })
   } catch (err) {
     console.error('[leads/assessment POST]', err)
