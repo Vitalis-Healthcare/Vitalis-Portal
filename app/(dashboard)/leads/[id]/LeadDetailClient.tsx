@@ -35,6 +35,8 @@ import {
   MIN_HOURS_WEEK, MIN_WEEKLY_REVENUE, isBelowFloor,
   NEXT_ACTION_TYPES, nextActionLabel,
   CONSENT_STATUSES, consentMeta,
+  LEAD_SOURCES as SOURCES, LEAD_RELATIONSHIPS as RELATIONSHIPS,
+  FALLBACK_CARE_TYPES as CARE_TYPES,
 } from '@/lib/leads/model'
 import { LEAD_EMAIL_TEMPLATES, templateByKey } from '@/lib/leads/email-templates'
 import { PAYER_TYPES } from '@/lib/payers'
@@ -64,22 +66,10 @@ const TIMELINE_FILTERS = [
   { key: 'changes', label: '🔄 Changes' },
 ]
 
-const CARE_TYPES = ['Personal Care', 'Companion Care', 'Skilled Nursing', 'Respite Care', 'Overnight', 'Live-In']
-
-// v0.6.44 — mirror the Add New Lead vocabulary (LeadsClient). Consolidating
-// these into lib/leads/model.ts is queued with the payer-harmonization ship.
-const SOURCES = [
-  { key: 'phone',         label: 'Phone Call',       icon: '📞' },
-  { key: 'email',         label: 'Email',             icon: '✉️' },
-  { key: 'website',       label: 'Website Form',      icon: '🌐' },
-  { key: 'referral',      label: 'Referral',          icon: '🤝' },
-  { key: 'hospital',      label: 'Hospital/Facility', icon: '🏥' },
-  { key: 'doctor_office', label: 'Doctor Office',     icon: '👨‍⚕️' },
-  { key: 'word_of_mouth', label: 'Word of Mouth',     icon: '💬' },
-  { key: 'social_media',  label: 'Social Media',      icon: '📱' },
-  { key: 'other',         label: 'Other',             icon: '📋' },
-]
-const RELATIONSHIPS = ['Self', 'Family Member', 'Social Worker', 'Hospital Discharge Planner', 'Doctor Office', 'Other']
+// CARE_TYPES (the fallback), SOURCES and RELATIONSHIPS moved to
+// lib/leads/model.ts in v0.6.51 and are imported above under the same
+// local names — the Add New Lead form and this Edit form now read one
+// list, so they cannot disagree.
 
 // v0.6.42 — cadence options mirror the assessments module.
 const CADENCE_OPTIONS = [
@@ -1705,7 +1695,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                   </button>
                 ))}
               </div>
-              <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 5 }}>Picking a template replaces the subject and message below. The Service Agreement email arrives with the consent module.</div>
+              <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 5 }}>Picking a template replaces the subject and message below. The Service Agreement is sent from the Consent milestone above, not from here.</div>
             </div>
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>To</label>

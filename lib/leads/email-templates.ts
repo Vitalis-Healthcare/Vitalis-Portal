@@ -16,9 +16,11 @@
 // the conversion RPC and the assessment modal use). Design signed off
 // 6 Aug 2026 (mockups reviewed).
 //
-// Template 3 (the Service Agreement / Consent Form signing link) ships
-// with the consent module in v0.6.46 — it needs a live signing link to
-// carry, and a placeholder email would be worse than none.
+// The Service Agreement / Consent Form email is deliberately NOT a
+// template here. It shipped in v0.6.46 and is sent from the Consent
+// milestone on the lead workspace, because it must carry a live signing
+// link bound to a prepared agreement row — a composer template could
+// only ever fake that. (Comment corrected in v0.6.51.)
 // ═════════════════════════════════════════════════════════════════════════
 
 export interface TemplateLeadFields {
