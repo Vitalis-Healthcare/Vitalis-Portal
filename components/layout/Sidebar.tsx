@@ -61,6 +61,7 @@ const adminNav: NavSection[] = [
     type: 'group', id: 'leads', label: 'Leads & Pipeline', emoji: '🎯',
     items: [
       { href: '/leads',                  label: 'Leads & Pipeline',  icon: Target },
+      { href: '/leads/reports',          label: 'Reports & Insights', icon: BarChart3 },
       { href: '/leads/referral-sources', label: 'Referral Sources',  icon: Handshake },
       { href: '/leads/settings',         label: 'Pipeline Settings', icon: SlidersHorizontal },
     ],
