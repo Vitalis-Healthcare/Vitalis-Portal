@@ -216,7 +216,10 @@ export default function CandidateDetailClient({
 
   const canBeginReview = status === 'application_submitted'
   const canRequestDocs = status === 'application_submitted' || status === 'in_review'
-  const canPushAxiscare = !axiscareId && (status === 'application_submitted' || status === 'in_review')
+  // Same signal the route enforces (v0.6.59): AxisCare comes AFTER conversion.
+  // If page and route disagreed here, staff would see a live button and be
+  // refused by the server.
+  const canPushAxiscare = !axiscareId && status === 'converted'
   const canEdit = !!application && (status === 'application_submitted' || status === 'in_review')
   // An admin converts directly; everyone else raises a request for an admin to
   // decide. Both run the same gate, so neither is a shortcut past credentialing.
@@ -365,14 +368,23 @@ export default function CandidateDetailClient({
   }
 
   async function pushAxisCare() {
-    setBusy(true); setBanner(null)
+    setBusy(true); setBanner(null); setBlockers([])
     try {
       const res = await fetch(`/api/onboarding/candidates/${candidate.id}/axiscare`, { method: 'POST' })
       const data = await res.json()
-      if (!res.ok) { setBanner({ kind: 'warn', text: data.error || 'Could not push to AxisCare.' }); return }
+      if (!res.ok) {
+        // The route now refuses an unconverted candidate with the same
+        // { error, blockers:[…] } shape the convert route uses. Render them.
+        const list: Blocker[] = Array.isArray(data.blockers) ? data.blockers : []
+        setBlockers(list)
+        setBanner({ kind: 'warn', text: data.error || 'Could not push to AxisCare.' })
+        return
+      }
       const newId = data.axiscare_applicant_id as number
       setAxiscareId(newId)
-      setStatus('axiscare_created')
+      // No status write here. The candidate is already 'converted' — that is
+      // the only status this route accepts — and setting 'axiscare_created'
+      // would show a caregiver as having moved backward.
       const base = data.already ? `Already in AxisCare (applicant #${newId}).` : `Pushed to AxisCare — applicant #${newId} created.`
       if (!data.already && data.note_posted === false) {
         setBanner({ kind: 'warn', text: `${base} Note: the "Pushed from Vita" details note could not be added in AxisCare — you may need to add it manually.` })
@@ -785,7 +797,7 @@ export default function CandidateDetailClient({
           </span>
         ) : (
           <button onClick={pushAxisCare} disabled={!canPushAxiscare || busy}
-            title={canPushAxiscare ? 'Create this applicant in AxisCare' : 'Available once the application is submitted or in review'}
+            title={canPushAxiscare ? 'Create this applicant in AxisCare' : 'Available after this candidate is converted to a caregiver'}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
               background: '#fff', border: `1px solid ${C.border}`, color: C.navy,
