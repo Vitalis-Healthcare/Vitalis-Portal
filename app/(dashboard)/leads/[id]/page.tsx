@@ -27,6 +27,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     .eq('lead_id', id)
     .order('created_at', { ascending: false })
 
+  // ── v0.6.45: outbound emails for this lead (timeline badges) ─────────
+  const { data: leadEmails } = await svc
+    .from('lead_emails')
+    .select('id, activity_id, to_email, subject, template_key, status, failure_reason, delivered_at, bounced_at, opened_at, created_at')
+    .eq('lead_id', id)
+    .order('created_at', { ascending: false })
+
   const { data: staff } = await svc
     .from('profiles').select('id, full_name')
     .in('role', ['admin', 'supervisor']).eq('status', 'active').order('full_name')
@@ -126,6 +133,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       referralSources={referralSources || []}
       currentUserId={user.id}
       currentUserName={profile?.full_name || ''}
+      currentUserEmail={user.email || ''}
+      leadEmails={leadEmails || []}
       isAdmin={profile?.role === 'admin'}
       assessmentClient={assessmentClient}
       assessment={assessment}

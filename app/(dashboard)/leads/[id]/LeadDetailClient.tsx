@@ -18,13 +18,17 @@
 //   Body        — timeline (day-grouped, filterable, slim status lines)
 //                 beside a three-card rail (Numbers / People / Details).
 //
+// v0.6.45 (Ship 5a) adds outbound email: a Send Email primary button,
+// the composer modal (templates from lib/leads/email-templates.ts,
+// self/other variants), timeline entries with delivery-status badges.
+//
 // Behavior from Ships 1–4a is preserved verbatim: same routes, same guards,
 // same handlers. This ship adds the conversion slot; it moves nothing else.
 // ═════════════════════════════════════════════════════════════════════════
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Phone, Mail, MessageSquare, Edit3, Save, X, MoreHorizontal } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, MessageSquare, Edit3, Save, X, MoreHorizontal, Send } from 'lucide-react'
 import {
   LEAD_STATUSES, statusMeta, calcRevenue, effectiveProbability,
   PROBABILITY_OPTIONS, LOST_REASONS, lostReasonLabel, prettyKey,
@@ -32,6 +36,7 @@ import {
   NEXT_ACTION_TYPES, nextActionLabel,
   CONSENT_STATUSES, consentMeta,
 } from '@/lib/leads/model'
+import { LEAD_EMAIL_TEMPLATES, templateByKey } from '@/lib/leads/email-templates'
 import { PAYER_TYPES } from '@/lib/payers'
 
 const ACTIVITY_TYPES = [
@@ -152,19 +157,29 @@ interface AssessmentRow {
   completed_date: string | null; is_initial: boolean; nurse_name: string | null
 }
 
+// v0.6.45 — outbound email rows for timeline badges.
+interface LeadEmail {
+  id: string; activity_id?: string | null
+  to_email: string; subject: string; template_key?: string | null
+  status: string; failure_reason?: string | null
+  delivered_at?: string | null; bounced_at?: string | null; opened_at?: string | null
+  created_at: string
+}
+
 interface Props {
   lead: Lead; activities: Activity[]; staff: { id: string; full_name: string }[]
   stages: Stage[]
   serviceTypes: { label: string }[]
   referralSources: { id: string; name: string; organization?: string | null }[]
-  currentUserId: string; currentUserName: string; isAdmin: boolean
+  currentUserId: string; currentUserName: string; currentUserEmail: string; isAdmin: boolean
+  leadEmails: LeadEmail[]
   assessmentClient: AssessmentClientInfo | null
   assessment: AssessmentRow | null
   nurses: { id: string; full_name: string }[]
   linkableClients: { id: string; full_name: string }[]
 }
 
-export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, stages, serviceTypes, referralSources, currentUserId, currentUserName, isAdmin, assessmentClient, assessment, nurses, linkableClients }: Props) {
+export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, stages, serviceTypes, referralSources, currentUserId, currentUserName, currentUserEmail, isAdmin, assessmentClient, assessment, nurses, linkableClients, leadEmails: initialLeadEmails }: Props) {
   const ACTIVE_CARE_TYPES = serviceTypes.length > 0 ? serviceTypes.map(s => s.label) : CARE_TYPES
   const router = useRouter()
   const [lead, setLead] = useState(initialLead)
@@ -173,6 +188,12 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [saving, setSaving] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  // ── v0.6.45: outbound email composer ──
+  const [leadEmails, setLeadEmails] = useState(initialLeadEmails)
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [emailForm, setEmailForm] = useState({ template_key: '', to: '', subject: '', body: '', follow_up: '' })
   const [timelineFilter, setTimelineFilter] = useState('all')
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [deletingActivityId, setDeletingActivityId] = useState<string | null>(null)
@@ -536,9 +557,64 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const actIcon = (type: string) => ACTIVITY_TYPES.find(a => a.key === type)?.icon || '📝'
   const today = new Date().toISOString().split('T')[0]
 
+  // ── v0.6.45: outbound email handlers ──────────────────────────────────
+  function openEmailComposer() {
+    setEmailError(null)
+    setEmailForm({ template_key: '', to: lead.email || '', subject: '', body: '', follow_up: '' })
+    setEmailOpen(true)
+  }
+  function applyTemplate(key: string) {
+    const t = templateByKey(key)
+    if (!t) { setEmailForm(f => ({ ...f, template_key: '' })); return }
+    const draft = t.build(lead, currentUserName.split(' ')[0] || currentUserName)
+    setEmailForm(f => ({ ...f, template_key: key, subject: draft.subject, body: draft.body }))
+  }
+  async function handleSendEmail() {
+    setEmailSending(true); setEmailError(null)
+    try {
+      const res = await fetch('/api/leads/emails', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: lead.id, to: emailForm.to, subject: emailForm.subject,
+          body: emailForm.body, template_key: emailForm.template_key || null,
+          follow_up: emailForm.follow_up || null,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setEmailError(data.error || `Send failed (HTTP ${res.status})`); return }
+      if (data.email) setLeadEmails(prev => [data.email, ...prev])
+      if (data.activity_id) {
+        setActivities(prev => [{
+          id: data.activity_id, lead_id: lead.id, created_at: new Date().toISOString(),
+          activity_type: 'email', content: `Email sent: ${emailForm.subject}`,
+          next_follow_up: emailForm.follow_up || undefined,
+          author: { full_name: currentUserName },
+        }, ...prev])
+      }
+      if (emailForm.follow_up) {
+        setLead(prev => ({ ...prev, next_action_type: 'follow_up', next_action_due: emailForm.follow_up, next_action_note: undefined }))
+      }
+      setEmailOpen(false)
+    } finally {
+      setEmailSending(false)
+    }
+  }
+  function emailBadgeFor(activityId: string) {
+    const e = leadEmails.find(x => x.activity_id === activityId)
+    if (!e) return null
+    if (e.status === 'bounced') return { label: 'Bounced', color: '#DC2626', bg: '#FEE2E2', title: e.failure_reason || 'The receiving server rejected this email' }
+    if (e.status === 'complained') return { label: 'Marked spam', color: '#DC2626', bg: '#FEE2E2', title: 'The recipient reported this email as spam' }
+    if (e.status === 'delivered' || e.delivered_at) {
+      if (e.opened_at) return { label: 'Opened', color: '#065F46', bg: '#A7F3D0', title: 'Open reported \u2014 best-effort signal; many mail apps block or fake opens' }
+      return { label: 'Delivered', color: '#0B6B5C', bg: '#D1FAE5', title: 'The receiving server accepted this email' }
+    }
+    return { label: 'Sent', color: '#4A6070', bg: '#EFF2F5', title: 'Handed to Resend \u2014 delivery status arrives via webhook (Ship 5c)' }
+  }
+
   // ── Timeline: filter, then group by day ──────────────────────────────
   const visibleActivities = activities.filter(a => {
     if (timelineFilter === 'all') return true
+
     if (timelineFilter === 'changes') return a.activity_type === 'status_change'
     if (timelineFilter === 'note') return a.activity_type === 'note'
     return a.activity_type === timelineFilter
@@ -685,6 +761,9 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
 
           {/* Two primary buttons + More */}
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'flex-start', position: 'relative' }}>
+            <button onClick={openEmailComposer} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              <Send size={13}/> Send Email
+            </button>
             <button onClick={() => setLogOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: '#457B9D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               <MessageSquare size={13}/> Log Activity
             </button>
@@ -1055,6 +1134,12 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                               <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2E44' }}>
                                 {ACTIVITY_TYPES.find(t => t.key === a.activity_type)?.label || a.activity_type}
                               </span>
+                              {a.activity_type === 'email' && (() => {
+                                const b = emailBadgeFor(a.id)
+                                return b ? (
+                                  <span title={b.title} style={{ fontSize: 10, fontWeight: 800, color: b.color, background: b.bg, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.4px', cursor: 'default' }}>{b.label}</span>
+                                ) : null
+                              })()}
                               {a.outcome && (
                                 <span style={{ fontSize: 11, color: '#8FA0B0' }}>
                                   {OUTCOMES.find(o => o.key === a.outcome)?.label || a.outcome}
@@ -1319,6 +1404,66 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           )}
         </div>
       </div>
+
+      {/* ── Send Email Modal (v0.6.45) ── */}
+      {emailOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,46,68,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 620, maxHeight: '92vh', overflowY: 'auto', padding: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2E44', margin: 0 }}>Send Email</h3>
+              <button onClick={() => setEmailOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
+            </div>
+            <div style={{ fontSize: 12, color: '#4A6070', background: '#EFF6F4', border: '1px solid #D1E7E2', borderRadius: 8, padding: '8px 12px', marginBottom: 14 }}>
+              Sends as <strong>{currentUserName}</strong> ({currentUserEmail}). Replies go to you and team@vitalishealthcare.com; team@ is BCC'd. Replies land in your inbox — they do not appear on this timeline.
+            </div>
+            {emailError && (
+              <div style={{ fontSize: 12.5, color: '#B91C1C', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '9px 12px', marginBottom: 12, fontWeight: 600 }}>
+                {emailError}
+              </div>
+            )}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Template</label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {LEAD_EMAIL_TEMPLATES.map(t => (
+                  <button key={t.key} type="button" onClick={() => applyTemplate(t.key)}
+                    style={{ padding: '6px 12px', borderRadius: 20, border: `1.5px solid ${emailForm.template_key === t.key ? '#0B6B5C' : '#E2E8F0'}`, background: emailForm.template_key === t.key ? '#EFF6F4' : '#fff', color: emailForm.template_key === t.key ? '#0B6B5C' : '#4A6070', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 5 }}>Picking a template replaces the subject and message below. The Service Agreement email arrives with the consent module.</div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>To</label>
+              <input type="email" value={emailForm.to} onChange={e => setEmailForm(f => ({ ...f, to: e.target.value }))} placeholder="recipient@example.com"
+                style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Subject</label>
+              <input value={emailForm.subject} onChange={e => setEmailForm(f => ({ ...f, subject: e.target.value }))}
+                style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}/>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Message</label>
+              <textarea value={emailForm.body} onChange={e => setEmailForm(f => ({ ...f, body: e.target.value }))} rows={12} placeholder="Pick a template above, or write your own message. It sends in the Vitalis letterhead with your signature added automatically."
+                style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, lineHeight: 1.55, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}/>
+              <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 5 }}>Sends in the Vitalis letterhead. Your signature block ("Warm regards, {currentUserName}") is added automatically — no need to type it.</div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Follow up on (optional — becomes this lead's next action)</label>
+              <input type="date" value={emailForm.follow_up} onChange={e => setEmailForm(f => ({ ...f, follow_up: e.target.value }))}
+                style={{ padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13 }}/>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setEmailOpen(false)} style={{ padding: '9px 16px', background: '#EFF2F5', color: '#4A6070', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleSendEmail} disabled={emailSending || !emailForm.to || !emailForm.subject.trim() || !emailForm.body.trim()}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: emailSending ? 'wait' : 'pointer', opacity: emailSending || !emailForm.to || !emailForm.subject.trim() || !emailForm.body.trim() ? 0.6 : 1 }}>
+                <Send size={13}/> {emailSending ? 'Sending…' : 'Send Email'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Log Activity Modal ── */}
       {logOpen && (
