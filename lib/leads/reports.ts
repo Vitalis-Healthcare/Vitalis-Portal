@@ -254,10 +254,26 @@ export interface SourceRow {
   lost: number
   winRate: number | null
   weeklyRevenueWon: number
+  weeklyRevenueLost: number
 }
 
 export interface LossRow {
   code: string
+  label: string
+  count: number
+  share: number | null
+}
+
+export interface MonthRow {
+  key: string        // YYYY-MM
+  label: string      // 'Jul 2026'
+  won: number
+  lost: number
+  revenueWon: number
+  revenueLost: number
+}
+
+export interface BucketRow {
   label: string
   count: number
   share: number | null
@@ -280,6 +296,7 @@ export interface LeadReportFacts {
     lost: number
     winRate: number | null              // won ÷ (won + lost)
     weeklyRevenueWon: number
+    weeklyRevenueLost: number
     medianDaysToWin: number | null
     timedWins: number                   // wins that had a real won_date
     undatedExcluded: number             // undated closures kept OUT of this window
@@ -315,6 +332,8 @@ export interface LeadReportFacts {
     signRate: number | null
     medianHoursToSign: number | null
   }
+  months: MonthRow[]
+  responseBuckets: BucketRow[]
   hygiene: {
     wonTotal: number
     withClientRecord: number
@@ -400,6 +419,7 @@ export function buildLeadReport(input: ReportInput): LeadReportFacts {
       lost: lo.length,
       winRate: pct(w.length, cl.length),
       weeklyRevenueWon: w.reduce((sum, l) => sum + weeklyRevenue(l), 0),
+      weeklyRevenueLost: lo.reduce((sum, l) => sum + weeklyRevenue(l), 0),
     }
   }).sort((a, b) => (b.won - a.won) || (b.created - a.created))
 
@@ -453,6 +473,43 @@ export function buildLeadReport(input: ReportInput): LeadReportFacts {
   const allWon = live.filter(l => (l.status || '') === 'won')
   const withRecord = allWon.filter(l => !!l.assessment_client_id)
 
+  // ── Closures by month — the shape of the window, not just its total ────
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const monthMap: Record<string, MonthRow> = {}
+  const touchMonth = (day: string | null): MonthRow | null => {
+    if (!day) return null
+    const key = day.slice(0, 7)
+    if (!monthMap[key]) {
+      const mi = parseInt(key.slice(5, 7), 10) - 1
+      monthMap[key] = {
+        key,
+        label: `${MONTH_NAMES[mi] || key.slice(5, 7)} ${key.slice(0, 4)}`,
+        won: 0, lost: 0, revenueWon: 0, revenueLost: 0,
+      }
+    }
+    return monthMap[key]
+  }
+  for (const l of closedCohort) {
+    const m = touchMonth(outcomeDay(l))
+    if (!m) continue   // undated closures (All time only) have no month to sit in
+    if ((l.status || '') === 'won') { m.won++; m.revenueWon += weeklyRevenue(l) }
+    else { m.lost++; m.revenueLost += weeklyRevenue(l) }
+  }
+  const months = Object.keys(monthMap).sort().map(k => monthMap[k])
+
+  // ── Response-time distribution ─────────────────────────────────────────
+  const bucketDefs: { label: string; test: (h: number) => boolean }[] = [
+    { label: 'Under 1 hour',  test: h => h < 1 },
+    { label: '1–4 hours',     test: h => h >= 1 && h < 4 },
+    { label: '4–24 hours',    test: h => h >= 4 && h < 24 },
+    { label: '1–3 days',      test: h => h >= 24 && h < 72 },
+    { label: 'Over 3 days',   test: h => h >= 72 },
+  ]
+  const responseBuckets: BucketRow[] = bucketDefs.map(b => {
+    const n = responseHours.filter(b.test).length
+    return { label: b.label, count: n, share: pct(n, responseHours.length) }
+  })
+
   const medianResponse = median(responseHours)
   const withinDay = responseHours.length > 0
     ? pct(responseHours.filter(h => h <= 24).length, responseHours.length)
@@ -468,6 +525,7 @@ export function buildLeadReport(input: ReportInput): LeadReportFacts {
       lost: lost.length,
       winRate: pct(won.length, closedCohort.length),
       weeklyRevenueWon: won.reduce((s, l) => s + weeklyRevenue(l), 0),
+      weeklyRevenueLost: lost.reduce((s, l) => s + weeklyRevenue(l), 0),
       medianDaysToWin: median(daysToWin),
       timedWins: daysToWin.length,
       undatedExcluded: isAllTime ? 0 : undatedAll.length,
@@ -506,6 +564,8 @@ export function buildLeadReport(input: ReportInput): LeadReportFacts {
         return m === null ? null : Math.round(m * 10) / 10
       })(),
     },
+    months,
+    responseBuckets,
     hygiene: {
       wonTotal: allWon.length,
       withClientRecord: withRecord.length,
