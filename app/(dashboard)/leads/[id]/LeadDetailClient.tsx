@@ -249,6 +249,11 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   // Local copies win over props after a successful schedule, because
   // useState(initialProp) does not re-seed on router.refresh().
   const [acLocal, setAcLocal] = useState<AssessmentClientInfo | null>(assessmentClient)
+  // ── v0.6.50 (Ship 5d): link an existing client record, nothing else ──
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkClientId, setLinkClientId] = useState('')
+  const [linkSaving, setLinkSaving] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
   const [asmtLocal, setAsmtLocal] = useState<AssessmentRow | null>(assessment)
   const [schedOpen, setSchedOpen] = useState(false)
   const [schedForm, setSchedForm] = useState({
@@ -683,6 +688,27 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
       setConsentOpen(false)
     } finally {
       setConsentSending(false)
+    }
+  }
+
+  // ── v0.6.50: link-only client attach (no schedule, no nurse, no email) ──
+  async function handleLinkClient() {
+    if (!linkClientId) { setLinkError('Choose the client record to link.'); return }
+    setLinkSaving(true); setLinkError(null)
+    try {
+      const res = await fetch('/api/leads/link-client', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_id: lead.id, client_id: linkClientId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setLinkError(data.error || `Link failed (HTTP ${res.status})`); return }
+      setAcLocal({ id: data.client.id, full_name: data.client.full_name, status: 'active' } as AssessmentClientInfo)
+      setLead(l => ({ ...l, assessment_client_id: data.client.id }))
+      pushLocalActivity(`Linked to client record: ${data.client.full_name}`)
+      setLinkOpen(false)
+      setLinkClientId('')
+    } finally {
+      setLinkSaving(false)
     }
   }
 
@@ -1127,12 +1153,23 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                   📋 {asmtLocal ? 'Schedule Next Assessment' : 'Schedule Assessment'}
                 </button>
               )}
+              {!acLocal && !isArchived && linkableClients.length > 0 && (
+                <button onClick={() => { setLinkError(null); setLinkClientId(''); setLinkOpen(true) }} disabled={saving}
+                  style={{ padding: '6px 12px', background: '#fff', color: '#457B9D', border: '1.5px solid #457B9D', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: saving ? 'default' : 'pointer' }}>
+                  🔗 Link client record
+                </button>
+              )}
               {acLocal && (
                 <Link href={`/assessments/clients/${acLocal.id}`} style={{ fontSize: 12, fontWeight: 700, color: '#457B9D', textDecoration: 'none' }}>
                   View in Assessments →
                 </Link>
               )}
             </div>
+            {!acLocal && !isArchived && linkableClients.length > 0 && (
+              <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 6, lineHeight: 1.5 }}>
+                Care already started? Link the existing client record without booking anything.
+              </div>
+            )}
           </div>
 
           {/* Conversion — LIVE (v0.6.43) */}
@@ -1504,6 +1541,37 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           )}
         </div>
       </div>
+
+      {/* ── Link client record modal (v0.6.50, Ship 5d) ── */}
+      {linkOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,46,68,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, padding: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2E44', margin: 0 }}>Link an existing client record</h3>
+              <button onClick={() => setLinkOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
+            </div>
+            <div style={{ fontSize: 12, color: '#4A6070', background: '#EBF4FF', border: '1px solid #C7DCF0', borderRadius: 8, padding: '9px 12px', marginBottom: 14, lineHeight: 1.55 }}>
+              This only connects <strong>{lead.client_name || lead.full_name}</strong> to an existing client record. It does not schedule an assessment, assign a nurse, or send anyone an email — use it when care is already underway.
+            </div>
+            {linkError && (
+              <div style={{ fontSize: 12.5, color: '#B91C1C', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '9px 12px', marginBottom: 12, fontWeight: 600 }}>{linkError}</div>
+            )}
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4A6070', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Client record</label>
+            <select value={linkClientId} onChange={e => setLinkClientId(e.target.value)}
+              style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', background: '#fff' }}>
+              <option value="">— Choose an existing client record —</option>
+              {linkableClients.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+            </select>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+              <button onClick={() => setLinkOpen(false)} style={{ padding: '9px 16px', background: '#EFF2F5', color: '#4A6070', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleLinkClient} disabled={linkSaving || !linkClientId}
+                style={{ padding: '9px 18px', background: '#457B9D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: linkSaving ? 'wait' : 'pointer', opacity: linkSaving || !linkClientId ? 0.6 : 1 }}>
+                {linkSaving ? 'Linking…' : 'Link record'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Prepare & Send Agreement Modal (v0.6.46) ── */}
       {consentOpen && (
