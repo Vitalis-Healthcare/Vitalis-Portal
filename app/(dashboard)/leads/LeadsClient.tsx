@@ -8,6 +8,8 @@ import {
   PROBABILITY_OPTIONS, lostReasonLabel,
   MIN_HOURS_WEEK, MIN_HOURLY_RATE, MIN_WEEKLY_REVENUE, isBelowFloor,
   NEXT_ACTION_TYPES, nextActionLabel, attentionDate,
+  LEAD_SOURCES as SOURCES, LEAD_RELATIONSHIPS as RELATIONSHIPS,
+  FALLBACK_CARE_TYPES as CARE_TYPES,
 } from '@/lib/leads/model'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -21,23 +23,9 @@ const FALLBACK_STAGES = [
   { key: 'proposal_sent',        label: 'Proposal Sent',        color: '#D97706', bg: '#FEF3C7' },
 ]
 
-const SOURCES = [
-  { key: 'phone',         label: 'Phone Call',       icon: '📞' },
-  { key: 'email',         label: 'Email',             icon: '✉️' },
-  { key: 'website',       label: 'Website Form',      icon: '🌐' },
-  { key: 'referral',      label: 'Referral',          icon: '🤝' },
-  { key: 'hospital',      label: 'Hospital/Facility', icon: '🏥' },
-  { key: 'doctor_office', label: 'Doctor Office',     icon: '👨‍⚕️' },
-  { key: 'word_of_mouth', label: 'Word of Mouth',     icon: '💬' },
-  { key: 'social_media',  label: 'Social Media',      icon: '📱' },
-  { key: 'other',         label: 'Other',             icon: '📋' },
-]
-
-const CARE_TYPES = [
-  'Personal Care', 'Companion Care', 'Skilled Nursing', 'Respite Care', 'Overnight', 'Live-In'
-]
-
-const RELATIONSHIPS = ['Self', 'Family Member', 'Social Worker', 'Hospital Discharge Planner', 'Doctor Office', 'Other']
+// SOURCES, CARE_TYPES (the fallback) and RELATIONSHIPS moved to
+// lib/leads/model.ts in v0.6.51 and are imported above under the same
+// local names. FALLBACK_STAGES stays here on purpose — see model.ts.
 
 function fmtMoney(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)

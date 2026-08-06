@@ -174,3 +174,60 @@ export function prettyKey(key: string | null | undefined): string {
   if (!key) return '\u2014'
   return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
+
+// ── Intake vocabularies (v0.6.51) ───────────────────────────────────
+// SOURCES, RELATIONSHIPS and the care-type fallback were declared TWICE —
+// once in LeadsClient.tsx (Add New Lead) and once in LeadDetailClient.tsx
+// (Edit). Adding a source meant editing two files, and forgetting one meant
+// the two forms quietly disagreed about what a lead can be. They live here
+// now, with the rest of the leads vocabulary. The reports page reads
+// LEAD_SOURCES as well — a third copy would have been the point of no
+// return.
+//
+// NOT moved, on purpose: FALLBACK_STAGES in LeadsClient.tsx. That is the
+// documented exception — an empty-database stand-in for lead_stages,
+// journey-only, and deliberately not authoritative about anything.
+
+export const LEAD_SOURCES = [
+  { key: 'phone',         label: 'Phone Call',       icon: '📞' },
+  { key: 'email',         label: 'Email',             icon: '✉️' },
+  { key: 'website',       label: 'Website Form',      icon: '🌐' },
+  { key: 'referral',      label: 'Referral',          icon: '🤝' },
+  { key: 'hospital',      label: 'Hospital/Facility', icon: '🏥' },
+  { key: 'doctor_office', label: 'Doctor Office',     icon: '👨‍⚕️' },
+  { key: 'word_of_mouth', label: 'Word of Mouth',     icon: '💬' },
+  { key: 'social_media',  label: 'Social Media',      icon: '📱' },
+  { key: 'other',         label: 'Other',             icon: '📋' },
+]
+
+export function sourceMeta(key: string | null | undefined) {
+  if (!key) return null
+  return LEAD_SOURCES.find(s => s.key === key) || null
+}
+
+/** Human label for a source key; falls back to the raw key so an unknown
+ *  legacy value is still readable rather than blank. */
+export function sourceLabel(key: string | null | undefined): string {
+  if (!key) return '\u2014'
+  const s = sourceMeta(key)
+  return s ? s.label : prettyKey(key)
+}
+
+export const LEAD_RELATIONSHIPS: string[] = [
+  'Self', 'Family Member', 'Social Worker', 'Hospital Discharge Planner',
+  'Doctor Office', 'Other',
+]
+
+/** The stored value for a relationship label ('Family Member' →
+ *  'family_member'). Both lead forms already did this inline; it is written
+ *  down once so the two can never drift apart. */
+export function relationshipValue(label: string): string {
+  return label.toLowerCase().replace(/ /g, '_')
+}
+
+/** Care types shown when lead_service_types is empty. The LIVE list is
+ *  DB-driven and always wins — this is the empty-table stand-in only. */
+export const FALLBACK_CARE_TYPES: string[] = [
+  'Personal Care', 'Companion Care', 'Skilled Nursing', 'Respite Care',
+  'Overnight', 'Live-In',
+]
