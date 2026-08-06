@@ -26,6 +26,7 @@ export default async function LeadsPage() {
       estimated_hours_week, hourly_rate, expected_start_date, expected_close_date,
       won_date, lost_date, lost_reason, lost_reason_code,
       standby_until, standby_reason, close_probability, legacy_status,
+      next_action_type, next_action_due, next_action_note,
       archived_at, notes, created_at, updated_at,
       assigned_to, secondary_assigned_to, created_by,
       address, city, state, zip, date_of_birth,

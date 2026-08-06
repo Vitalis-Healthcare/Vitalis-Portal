@@ -6,6 +6,8 @@ import { Plus, X, ChevronRight, Search } from 'lucide-react'
 import {
   LEAD_STATUSES, statusMeta, calcRevenue, effectiveProbability,
   PROBABILITY_OPTIONS, lostReasonLabel,
+  MIN_HOURS_WEEK, MIN_HOURLY_RATE, isBelowFloor,
+  NEXT_ACTION_TYPES, nextActionLabel, attentionDate,
 } from '@/lib/leads/model'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -53,6 +55,7 @@ interface Lead {
   status: string; stage?: string | null
   standby_until?: string | null; standby_reason?: string | null
   lost_reason_code?: string | null; close_probability?: number | null
+  next_action_type?: string | null; next_action_due?: string | null; next_action_note?: string | null
   legacy_status?: string | null; archived_at?: string | null
   relationship?: string
   care_types?: string[]; condition_notes?: string; preferred_schedule?: string
@@ -109,6 +112,18 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  // ── v0.6.39: attention queues ──
+  const [queue, setQueue] = useState<'all' | 'overdue' | 'due_today' | 'no_action' | 'waking'>('all')
+
+  // Closed statuses have no board columns — viewing them switches to List
+  // so the filter never appears to "empty" the screen.
+  const pickStatusFilter = (v: string) => {
+    setFilterStatus(v)
+    if (v === 'won' || v === 'lost' || v === 'cancelled') setView('list')
+  }
+  const jumpToStatus = (v: string) => { setQueue('all'); setShowArchived(false); pickStatusFilter(v) }
+
+  const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0] })()
 
   const stageChipFor = (key?: string | null) => {
     const s = JOURNEY_STAGES.find(x => x.key === key)
@@ -124,9 +139,12 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
     full_name: '', client_name: '', email: '', phone: '',
     source: 'phone', referral_name: '', relationship: 'family_member',
     care_types: [] as string[], condition_notes: '', preferred_schedule: '',
-    estimated_hours_week: '', hourly_rate: '', notes: '',
+    // The floor is the default: 12h/week at $32.50. Edit upward freely;
+    // below the floor demands confirmation.
+    estimated_hours_week: String(MIN_HOURS_WEEK), hourly_rate: MIN_HOURLY_RATE.toFixed(2), notes: '',
     expected_close_date: '', expected_start_date: '',
     close_probability: '',
+    next_action_type: 'call', next_action_due: tomorrow, next_action_note: '',
     address: '', city: '', state: 'MD', zip: '', date_of_birth: '',
     assigned_to: currentUserId, secondary_assigned_to: '', stage: 'new',
   }
@@ -134,11 +152,39 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
 
   // ── Filtered leads ────────────────────────────────────────────────────────
+  const todayStr = new Date().toISOString().split('T')[0]
+  const weekOut = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0] })()
+
+  const inQueue = (l: Lead, q: typeof queue): boolean => {
+    if (q === 'all') return true
+    const open = l.status === 'ongoing' || l.status === 'standby'
+    if (!open || l.archived_at) return false
+    const due = attentionDate(l)
+    if (q === 'overdue') return !!due && due < todayStr
+    if (q === 'due_today') return due === todayStr
+    if (q === 'no_action') return !due
+    if (q === 'waking') return l.status === 'standby' && !!l.standby_until && l.standby_until >= todayStr && l.standby_until <= weekOut
+    return true
+  }
+
+  const queueCounts = useMemo(() => {
+    const counts = { overdue: 0, due_today: 0, no_action: 0, waking: 0 }
+    for (const l of leads) {
+      if (inQueue(l, 'overdue')) counts.overdue++
+      if (inQueue(l, 'due_today')) counts.due_today++
+      if (inQueue(l, 'no_action')) counts.no_action++
+      if (inQueue(l, 'waking')) counts.waking++
+    }
+    return counts
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leads])
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return leads.filter(l => {
       if (!showArchived && l.archived_at) return false
       if (showArchived && !l.archived_at) return false
+      if (!inQueue(l, queue)) return false
       if (filterStatus === 'open') {
         if (l.status !== 'ongoing' && l.status !== 'standby') return false
       } else if (filterStatus !== 'all' && l.status !== filterStatus) return false
@@ -150,7 +196,8 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
       }
       return true
     })
-  }, [leads, search, filterStage, filterStatus, filterSource, showArchived])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leads, search, filterStage, filterStatus, filterSource, showArchived, queue])
 
   // ── Revenue summary ───────────────────────────────────────────────────────
   const revenueStats = useMemo(() => {
@@ -203,6 +250,17 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
   // ── Add lead ─────────────────────────────────────────────────────────────
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
+    // At least one way to reach them.
+    if (!form.phone.trim() && !form.email.trim()) {
+      alert('A phone number or an email is required — at least one way to reach them.')
+      return
+    }
+    // Below the floor demands a deliberate yes.
+    const h = parseFloat(form.estimated_hours_week)
+    const r = parseFloat(form.hourly_rate)
+    if (isBelowFloor(h, r)) {
+      if (!confirm(`This is below the Vitalis minimum (${MIN_HOURS_WEEK}h/week at $${MIN_HOURLY_RATE.toFixed(2)}/hr). The lead will be flagged as below-minimum. Continue anyway?`)) return
+    }
     setSaving(true)
     const payload = {
       ...form,
@@ -215,6 +273,9 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
       expected_close_date: form.expected_close_date || null,
       expected_start_date: form.expected_start_date || null,
       secondary_assigned_to: form.secondary_assigned_to || null,
+      next_action_type: form.next_action_type,
+      next_action_due: form.next_action_due || null,
+      next_action_note: form.next_action_note || null,
       address: form.address || null,
       city: form.city || null,
       state: form.state || null,
@@ -278,15 +339,25 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
       {/* ── Revenue summary cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
         {[
-          { label: 'Won — Monthly Revenue', value: fmtMoney(revenueStats.wonMonthly), sub: `${fmtMoney(revenueStats.wonMonthly * 12)}/yr`, color: '#0B6B5C' },
-          { label: 'Pipeline Monthly Value', value: fmtMoney(revenueStats.pipelineMonthly), sub: `${fmtMoney(revenueStats.weightedMonthly)}/mo probability-weighted`, color: '#7C3AED' },
-          { label: 'Total Leads', value: revenueStats.totalLeads, sub: `${revenueStats.openLeads} open`, color: '#1A2E44' },
-          { label: 'Won Leads', value: revenueStats.wonCount, sub: `${revenueStats.lostCount} lost`, color: '#D97706' },
-        ].map((s, i) => (
-          <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', borderTop: `3px solid ${s.color}` }}>
+          { label: 'Won — Monthly Revenue', value: fmtMoney(revenueStats.wonMonthly), sub: `${fmtMoney(revenueStats.wonMonthly * 12)}/yr`, color: '#0B6B5C', jump: 'won' },
+          { label: 'Pipeline Monthly Value', value: fmtMoney(revenueStats.pipelineMonthly), sub: `${fmtMoney(revenueStats.weightedMonthly)}/mo probability-weighted`, color: '#7C3AED', jump: null },
+          { label: 'Total Leads', value: revenueStats.totalLeads, sub: `${revenueStats.openLeads} open`, color: '#1A2E44', jump: null },
+          { label: 'Won Leads', value: revenueStats.wonCount, sub: `${revenueStats.lostCount} lost — view`, color: '#D97706', jump: 'won', subJump: 'lost' },
+        ].map((s: any, i) => (
+          <div key={i}
+            onClick={() => s.jump && jumpToStatus(s.jump)}
+            title={s.jump ? 'Click to view these leads' : undefined}
+            style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', borderTop: `3px solid ${s.color}`, cursor: s.jump ? 'pointer' : 'default' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>{s.label}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: '#1A2E44' }}>{s.value}</div>
-            <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 2 }}>{s.sub}</div>
+            {s.subJump ? (
+              <div style={{ fontSize: 11, color: '#DC2626', marginTop: 2, fontWeight: 600 }}
+                onClick={e => { e.stopPropagation(); jumpToStatus(s.subJump) }}>
+                {s.sub}
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 2 }}>{s.sub}</div>
+            )}
           </div>
         ))}
       </div>
@@ -309,13 +380,38 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
         </div>
       )}
 
+      {/* ── Attention queues ── */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Needs attention:</span>
+        {([
+          { key: 'overdue',   label: '⚠️ Overdue',        count: queueCounts.overdue,   color: '#DC2626', bg: '#FEE2E2' },
+          { key: 'due_today', label: '📅 Due Today',      count: queueCounts.due_today, color: '#457B9D', bg: '#EBF4FF' },
+          { key: 'no_action', label: '🚫 No Next Action', count: queueCounts.no_action, color: '#92400E', bg: '#FDE68A' },
+          { key: 'waking',    label: '⏰ Waking Up',      count: queueCounts.waking,    color: '#7C3AED', bg: '#EDE9FE' },
+        ] as const).map(c => {
+          const active = queue === c.key
+          return (
+            <button key={c.key} onClick={() => setQueue(active ? 'all' : c.key)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, border: `2px solid ${active ? c.color : '#E2E8F0'}`, background: active ? c.bg : '#fff', color: c.count > 0 ? c.color : '#8FA0B0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              {c.label}
+              <span style={{ background: c.count > 0 ? c.color : '#EFF2F5', color: c.count > 0 ? '#fff' : '#8FA0B0', borderRadius: 10, padding: '1px 7px', fontSize: 11 }}>{c.count}</span>
+            </button>
+          )
+        })}
+        {queue !== 'all' && (
+          <button onClick={() => setQueue('all')} style={{ padding: '6px 12px', borderRadius: 20, border: 'none', background: 'transparent', color: '#457B9D', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            Clear ×
+          </button>
+        )}
+      </div>
+
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#fff', border: '1.5px solid #D1D9E0', borderRadius: 8 }}>
           <Search size={14} color="#8FA0B0"/>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search leads…" style={{ border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', flex: 1 }}/>
         </div>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inp, width: 'auto', padding: '8px 12px' }}>
+        <select value={filterStatus} onChange={e => pickStatusFilter(e.target.value)} style={{ ...inp, width: 'auto', padding: '8px 12px' }}>
           <option value="open">Open (Ongoing + Standby)</option>
           {LEAD_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
           <option value="all">All Statuses</option>
@@ -363,9 +459,10 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {stageLeads.map(lead => {
                     const rev = calcRevenue(lead.estimated_hours_week, lead.hourly_rate)
-                    const followUp = nextFollowUp[lead.id]
+                    const followUp = attentionDate(lead)
                     const isOverdue = followUp && followUp < today
                     const prob = lead.close_probability
+                    const belowFloor = isBelowFloor(lead.estimated_hours_week, lead.hourly_rate)
                     return (
                       <Link key={lead.id} href={`/leads/${lead.id}`} style={{ textDecoration: 'none' }}>
                         <div style={{ background: '#fff', borderRadius: 8, padding: '10px 11px', border: `1px solid ${isOverdue ? '#FCA5A5' : '#E2E8F0'}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
@@ -393,15 +490,24 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                                 ⏸ Standby{lead.standby_until ? ` → ${fmtDate(lead.standby_until)}` : ''}
                               </span>
                             )}
+                            {belowFloor && (
+                              <span title={`Below the Vitalis minimum (${MIN_HOURS_WEEK}h @ $${MIN_HOURLY_RATE.toFixed(2)})`} style={{ fontSize: 10, fontWeight: 700, color: '#B45309', background: '#FEF3C7', padding: '1px 7px', borderRadius: 10 }}>
+                                ⬇ Below min
+                              </span>
+                            )}
                           </div>
                           {lead.estimated_hours_week && (
                             <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 2 }}>
                               {lead.estimated_hours_week}h/wk {lead.hourly_rate ? `@ $${lead.hourly_rate}/hr` : ''}
                             </div>
                           )}
-                          {followUp && (
+                          {followUp ? (
                             <div style={{ fontSize: 10, marginTop: 5, fontWeight: 600, color: isOverdue ? '#DC2626' : '#457B9D' }}>
-                              {isOverdue ? '⚠️ Follow-up overdue' : `📅 Follow up ${fmtDate(followUp)}`}
+                              {isOverdue ? '⚠️ Overdue: ' : '📅 '}{nextActionLabel(lead.status === 'standby' ? 'follow_up' : lead.next_action_type)} · {fmtDate(followUp)}
+                            </div>
+                          ) : lead.status === 'ongoing' && (
+                            <div style={{ fontSize: 10, marginTop: 5, fontWeight: 700, color: '#92400E' }}>
+                              🚫 No next action
                             </div>
                           )}
                           {lead.expected_close_date && (
@@ -426,7 +532,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#F8FAFB', borderBottom: '1px solid #EFF2F5' }}>
-                {['Contact / Client', 'Source', 'Stage', 'Status', 'Owner', 'Hours/Rate', 'Monthly Value', 'Prob.', 'Close Date', 'Follow Up', ''].map(h => (
+                {['Contact / Client', 'Source', 'Stage', 'Status', 'Owner', 'Hours/Rate', 'Monthly Value', 'Prob.', 'Close Date', 'Next Action', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '11px 12px', fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -436,8 +542,9 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                 <tr><td colSpan={11} style={{ padding: 40, textAlign: 'center', color: '#8FA0B0' }}>No leads match these filters.</td></tr>
               ) : filtered.map((lead, i) => {
                 const rev = calcRevenue(lead.estimated_hours_week, lead.hourly_rate)
-                const followUp = nextFollowUp[lead.id]
+                const followUp = attentionDate(lead)
                 const isOverdue = followUp && followUp < today
+                const belowFloor = isBelowFloor(lead.estimated_hours_week, lead.hourly_rate)
                 const owner = getName(lead.assignee)
                 const secondary = getName(lead.secondary)
                 return (
@@ -477,6 +584,7 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                     <td style={{ padding: '12px 12px', color: '#4A6070', fontSize: 12 }}>
                       {lead.estimated_hours_week ? `${lead.estimated_hours_week}h/wk` : '—'}
                       {lead.hourly_rate ? <><br/><span style={{ color: '#8FA0B0' }}>${lead.hourly_rate}/hr</span></> : null}
+                      {belowFloor && <div style={{ fontSize: 10, color: '#B45309', fontWeight: 700 }}>⬇ Below min</div>}
                     </td>
                     <td style={{ padding: '12px 12px', fontWeight: 700, color: rev ? '#0B6B5C' : '#CBD5E0' }}>
                       {rev ? fmtMoney(rev.monthly) : '—'}
@@ -489,8 +597,10 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                     <td style={{ padding: '12px 12px' }}>
                       {followUp ? (
                         <span style={{ fontSize: 11, fontWeight: 600, color: isOverdue ? '#DC2626' : '#457B9D' }}>
-                          {isOverdue ? '⚠️ ' : '📅 '}{fmtDate(followUp)}
+                          {isOverdue ? '⚠️ ' : '📅 '}{nextActionLabel(lead.status === 'standby' ? 'follow_up' : lead.next_action_type)}<br/>{fmtDate(followUp)}
                         </span>
+                      ) : lead.status === 'ongoing' ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#92400E' }}>🚫 None</span>
                       ) : <span style={{ color: '#CBD5E0' }}>—</span>}
                     </td>
                     <td style={{ padding: '12px 12px' }}>
@@ -543,13 +653,14 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                 </div>
 
                 <div>
-                  <label style={lbl}>Phone</label>
+                  <label style={lbl}>Phone <span style={{ color: '#E63946' }}>*</span></label>
                   <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="(xxx) xxx-xxxx" style={inp}/>
                 </div>
 
                 <div>
-                  <label style={lbl}>Email</label>
+                  <label style={lbl}>Email <span style={{ color: '#E63946' }}>*</span></label>
                   <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@example.com" style={inp}/>
+                  <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 3 }}>* phone or email — at least one</div>
                 </div>
 
                 <div style={{ gridColumn: '1/-1', marginTop: 4, paddingTop: 14, borderTop: '1px dashed #E2E8F0' }}>
@@ -643,15 +754,17 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                   </div>
                 </div>
 
-                {/* Financials */}
+                {/* Financials — prefilled at the Vitalis floor */}
                 <div>
-                  <label style={lbl}>Est. Hours / Week</label>
-                  <input type="number" value={form.estimated_hours_week} onChange={e => set('estimated_hours_week', e.target.value)} placeholder="e.g. 20" min="1" max="168" step="0.5" style={inp}/>
+                  <label style={lbl}>Est. Hours / Week <span style={{ color: '#E63946' }}>*</span></label>
+                  <input type="number" value={form.estimated_hours_week} onChange={e => set('estimated_hours_week', e.target.value)} required min="1" max="168" step="0.5" style={inp}/>
+                  <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 3 }}>floor: {MIN_HOURS_WEEK}h/week (4h shifts × 3)</div>
                 </div>
 
                 <div>
-                  <label style={lbl}>Hourly Rate Quoted ($)</label>
-                  <input type="number" value={form.hourly_rate} onChange={e => set('hourly_rate', e.target.value)} placeholder="e.g. 28.00" min="1" step="0.25" style={inp}/>
+                  <label style={lbl}>Hourly Rate ($) <span style={{ color: '#E63946' }}>*</span></label>
+                  <input type="number" value={form.hourly_rate} onChange={e => set('hourly_rate', e.target.value)} required min="1" step="0.25" style={inp}/>
+                  <div style={{ fontSize: 10, color: '#8FA0B0', marginTop: 3 }}>floor: ${MIN_HOURLY_RATE.toFixed(2)}/hr</div>
                 </div>
 
                 {/* Revenue preview */}
@@ -667,13 +780,37 @@ export default function LeadsClient({ leads, staff, stages: dbStages, serviceTyp
                 })()}
 
                 <div>
-                  <label style={lbl}>Target Close Date</label>
-                  <input type="date" value={form.expected_close_date} onChange={e => set('expected_close_date', e.target.value)} min={today} style={inp}/>
+                  <label style={lbl}>Target Close Date <span style={{ color: '#E63946' }}>*</span></label>
+                  <input type="date" value={form.expected_close_date} onChange={e => set('expected_close_date', e.target.value)} required min={today} style={inp}/>
                 </div>
 
                 <div>
                   <label style={lbl}>Expected Start Date</label>
                   <input type="date" value={form.expected_start_date} onChange={e => set('expected_start_date', e.target.value)} min={today} style={inp}/>
+                </div>
+
+                {/* First next action — no open lead without one */}
+                <div style={{ gridColumn: '1/-1', marginTop: 4, paddingTop: 14, borderTop: '1px dashed #E2E8F0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#0B6B5C', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
+                    First Next Action
+                  </div>
+                </div>
+
+                <div>
+                  <label style={lbl}>Action <span style={{ color: '#E63946' }}>*</span></label>
+                  <select value={form.next_action_type} onChange={e => set('next_action_type', e.target.value)} required style={inp}>
+                    {NEXT_ACTION_TYPES.map(t => <option key={t.key} value={t.key}>{t.icon} {t.label}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={lbl}>Due <span style={{ color: '#E63946' }}>*</span></label>
+                  <input type="date" value={form.next_action_due} onChange={e => set('next_action_due', e.target.value)} required min={today} style={inp}/>
+                </div>
+
+                <div style={{ gridColumn: '1/-1' }}>
+                  <label style={lbl}>Action Note</label>
+                  <input value={form.next_action_note} onChange={e => set('next_action_note', e.target.value)} placeholder="e.g. Call back after they speak with the discharge planner" style={inp}/>
                 </div>
 
                 {/* Assign */}

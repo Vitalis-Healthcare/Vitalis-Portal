@@ -99,6 +99,53 @@ export function legacyWireStatus(lead: { status?: string | null; stage?: string 
   return (lead.stage || 'new').toLowerCase()
 }
 
+// ── Minimum viable engagement (business floor, v0.6.39) ──────────────────
+// Vitalis does not bid below 4-hour shifts × 3/week at $32.50/hr. New leads
+// START at the floor; edits below it demand explicit confirmation and the
+// lead is flagged below-minimum in the UI. Derived, never stored — a flag
+// column could go stale, arithmetic cannot.
+
+export const MIN_HOURS_WEEK = 12
+export const MIN_HOURLY_RATE = 32.5
+
+export function isBelowFloor(hours?: number | null, rate?: number | null): boolean {
+  if (hours != null && hours > 0 && hours < MIN_HOURS_WEEK) return true
+  if (rate != null && rate > 0 && rate < MIN_HOURLY_RATE) return true
+  return false
+}
+
+// ── Next actions (v0.6.39) ───────────────────────────────────────────────
+// The rule: no open lead without a next action. The action lives ON the
+// lead (type + due date + note); logging an activity with a follow-up date
+// replaces it. For Standby leads the wake-up date IS the next action.
+
+export const NEXT_ACTION_TYPES = [
+  { key: 'call',                label: 'Call',                     icon: '📞' },
+  { key: 'email',               label: 'Email',                    icon: '✉️' },
+  { key: 'text',                label: 'Text message',             icon: '💬' },
+  { key: 'send_consent',        label: 'Send consent / contract',  icon: '📄' },
+  { key: 'follow_up_consent',   label: 'Follow up on consent',     icon: '🔁' },
+  { key: 'schedule_assessment', label: 'Schedule assessment',      icon: '📋' },
+  { key: 'verify_staffing',     label: 'Verify staffing',          icon: '👥' },
+  { key: 'contact_referrer',    label: 'Contact referral source',  icon: '🤝' },
+  { key: 'internal_review',     label: 'Internal review',          icon: '🗂️' },
+  { key: 'follow_up',           label: 'Follow up',                icon: '🔔' },
+  { key: 'other',               label: 'Other',                    icon: '📝' },
+] as const
+
+export function nextActionLabel(key: string | null | undefined): string {
+  if (!key) return 'Next action'
+  const t = NEXT_ACTION_TYPES.find(x => x.key === key)
+  return t ? t.label : prettyKey(key)
+}
+
+/** The date a lead is due for attention: the next action for Ongoing,
+ *  the wake-up date for Standby. Null means it sits in No Next Action. */
+export function attentionDate(lead: { status?: string | null; next_action_due?: string | null; standby_until?: string | null }): string | null {
+  if ((lead.status || '') === 'standby') return lead.standby_until || lead.next_action_due || null
+  return lead.next_action_due || null
+}
+
 // ── Display helpers ──────────────────────────────────────────────────────
 
 export function prettyKey(key: string | null | undefined): string {
