@@ -1102,6 +1102,14 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                   : `${latestConsent.email_to || 'The recipient'} marked the agreement email as spam — speak to them before re-sending.`}
               </div>
             )}
+            {latestConsent && latestConsent.status === 'signed' && (
+              <a href={`/api/leads/consent/${latestConsent.id}/document`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '7px 13px',
+                  borderRadius: 8, border: '1.5px solid #0B6B5C', background: '#EFF6F4', color: '#0B6B5C',
+                  fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                🖨️ View / print signed agreement
+              </a>
+            )}
             <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 6 }}>
               {latestConsent
                 ? latestConsent.status === 'signed'

@@ -65,7 +65,6 @@ function buildHtml(f: LeadReportFacts, agencyDate: string): string {
   const r = f.response
   const a = f.agreements
   const h = f.hygiene
-  const net = o.weeklyRevenueWon - o.weeklyRevenueLost
 
   const cohortNote = f.range.key === 'all'
     ? 'Every won or lost lead on the books, including closures with no recorded date. Cancelled leads are administrative and are not counted as an outcome.'
@@ -189,9 +188,10 @@ function buildHtml(f: LeadReportFacts, agencyDate: string): string {
   <p class="note">${esc(cohortNote)}</p>
   <div class="stats">
     ${statBlock(rate(o.winRate), 'Win rate', `${o.won} won of ${o.closed} closed`, GREEN_DARK)}
-    ${statBlock(String(o.won), 'Won', money(o.weeklyRevenueWon) + ' per week', WON)}
-    ${statBlock(String(o.lost), 'Lost', money(o.weeklyRevenueLost) + ' per week', LOST)}
-    ${statBlock(money(net), 'Net weekly revenue', 'Won minus lost', net >= 0 ? WON : LOST)}
+    ${statBlock(String(o.won), 'Won', undefined, WON)}
+    ${statBlock(String(o.lost), 'Lost', undefined, LOST)}
+    ${statBlock(money(o.weeklyRevenueWon), 'Weekly revenue won', 'Hours \u00D7 rate on won leads', WON)}
+    ${statBlock(money(o.weeklyRevenueLost), 'Weekly revenue lost', 'Hours \u00D7 rate on lost leads', LOST)}
     ${statBlock(o.medianDaysToWin === null ? '—' : `${o.medianDaysToWin} days`, 'Median time to win',
       o.timedWins > 0 ? `From ${o.timedWins} dated win${o.timedWins === 1 ? '' : 's'}` : 'No dated wins')}
     ${statBlock(String(f.created.total), 'New leads created', 'In this window')}
