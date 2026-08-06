@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendLeadEvent, detectEventType } from '@/lib/carematch-webhook'
-import { LEAD_STATUSES, legacyWireStatus, prettyKey } from '@/lib/leads/model'
+import { LEAD_STATUSES, CONSENT_STATUSES, legacyWireStatus, prettyKey } from '@/lib/leads/model'
 
 const VALID_STATUSES = LEAD_STATUSES.map(s => s.key as string)
+const VALID_CONSENT = CONSENT_STATUSES.map(s => s.key as string)
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     'expected_start_date', 'expected_close_date', 'won_date', 'lost_date',
     'lost_reason', 'lost_reason_code', 'standby_until', 'standby_reason',
     'close_probability', 'notes', 'assigned_to', 'secondary_assigned_to',
-    'next_action_type', 'next_action_due', 'next_action_note',
+    'next_action_type', 'next_action_due', 'next_action_note', 'consent_status',
     'address', 'city', 'state', 'zip', 'date_of_birth',
   ]
   const fields: Record<string, any> = {}
@@ -110,6 +111,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'An ongoing lead needs a next action. Set a new one, or move the lead to Standby / an outcome.' }, { status: 400 })
   }
 
+  // ── v0.6.41: consent milestone validation ────────────────────────────
+  if (fields.consent_status !== undefined) {
+    const c = String(fields.consent_status || '').toLowerCase()
+    if (!VALID_CONSENT.includes(c)) {
+      return NextResponse.json({ error: `Invalid consent_status '${fields.consent_status}'. Allowed: ${VALID_CONSENT.join(', ')}` }, { status: 400 })
+    }
+    fields.consent_status = c
+  }
+
   const { data: lead, error } = await svc.from('leads').update(fields).eq('id', id).select().single()
   if (error) {
     console.error('leads/update error:', error.message, '| fields:', JSON.stringify(fields))
@@ -133,6 +143,14 @@ export async function POST(req: NextRequest) {
       lead_id: id, created_by: user.id,
       activity_type: 'status_change',
       content: `Status changed: ${statusLabel(prevLead.status)} \u2192 ${statusLabel(fields.status)}${detail}`,
+    })
+  }
+
+  if (fields.consent_status !== undefined && fields.consent_status !== (prevLead.consent_status || 'not_started')) {
+    await svc.from('lead_activities').insert({
+      lead_id: id, created_by: user.id,
+      activity_type: 'status_change',
+      content: `Consent milestone: ${prettyKey(prevLead.consent_status || 'not_started')} \u2192 ${prettyKey(fields.consent_status)}`,
     })
   }
 
