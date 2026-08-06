@@ -11,7 +11,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { buildLeadReport, buildLeadRows, resolveRange } from '@/lib/leads/reports'
+import { buildLeadReport, buildLeadRows, buildUndatedClosures, resolveRange } from '@/lib/leads/reports'
 import type { ReportInput } from '@/lib/leads/reports'
 
 function csvCell(value: unknown): string {
@@ -88,6 +88,13 @@ export async function GET(request: Request) {
       ['Reason', 'Reason code', 'Count', 'Share of losses %'],
       facts.losses.map(l => [l.label, l.code, l.count, l.share ?? '']),
     )
+  } else if (section === 'undated') {
+    name = 'undated-closures'
+    const rows = buildUndatedClosures((leads || []) as any)
+    csv = toCsv(
+      ['Lead', 'Status', 'Source', 'Owner', 'Created', 'Weekly revenue', 'Client record linked'],
+      rows.map(r => [r.name, r.status, r.source, r.owner, r.created_day, Math.round(r.weekly_revenue), r.client_record_linked]),
+    )
   } else if (section === 'response') {
     name = 'response-times'
     const rows = buildLeadRows(input)
@@ -106,14 +113,14 @@ export async function GET(request: Request) {
         'Created', 'Outcome date', 'Lost reason code', 'Lost reason note',
         'Hours per week', 'Hourly rate', 'Weekly revenue', 'Below minimum',
         'Close probability %', 'Consent status', 'Client record linked',
-        'First response (hours)', 'Counted as',
+        'First response (hours)', 'Counted as', 'Outcome date recorded',
       ],
       rows.map(r => [
         r.name, r.care_recipient, r.source, r.status, r.stage, r.owner,
         r.created_day, r.outcome_day, r.lost_reason_code, r.lost_reason,
         r.hours_week ?? '', r.hourly_rate ?? '', Math.round(r.weekly_revenue), r.below_minimum,
         r.close_probability ?? '', r.consent_status, r.client_record_linked,
-        r.first_response_hours ?? '', r.counted_as,
+        r.first_response_hours ?? '', r.counted_as, r.outcome_date_recorded,
       ]),
     )
   }

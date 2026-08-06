@@ -161,22 +161,65 @@ export default function LeadReportsClient({ facts }: { facts: LeadReportFacts })
       {/* Outcomes */}
       <Card
         title="Outcomes — leads that closed in this window"
-        note="The cohort is leads whose outcome landed inside the window, not leads created in it. A lead created in June and won in August counts here in August. Cancelled leads have no date column of their own, so their last-updated date stands in."
+        note={
+          facts.range.key === 'all'
+            ? 'Every won or lost lead on the books. All time has no boundary to fail, so closures with no recorded date are included here — they are excluded from every other window. Cancelled leads are not counted as an outcome; they have no date and are administrative.'
+            : 'The cohort is leads whose recorded outcome date — won_date or lost_date — falls inside the window. Those dates are written when a lead is moved through the status buttons, so leads closed by the July migration have none and sit outside every window. Cancelled leads are not counted as an outcome.'
+        }
       >
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           <Stat value={rate(o.winRate)} label="Win rate" sub={`${o.won} won of ${o.closed} closed`} tone={TEAL} />
-          <Stat value={rate(o.winRateExCancelled)} label="Win rate, excluding cancelled" sub={`${o.won} of ${o.won + o.lost}`} />
-          <Stat value={String(o.lost)} label="Lost" sub={`${o.cancelled} cancelled`} />
+          <Stat value={String(o.won)} label="Won" />
+          <Stat value={String(o.lost)} label="Lost" />
           <Stat value={money(o.weeklyRevenueWon)} label="Weekly revenue won" sub="Sum of hours × rate on won leads" />
-          <Stat value={o.medianDaysToWin === null ? '—' : `${o.medianDaysToWin} days`} label="Median time to win" sub="Created to won date" />
+          <Stat
+            value={o.medianDaysToWin === null ? '—' : `${o.medianDaysToWin} days`}
+            label="Median time to win"
+            sub={o.timedWins > 0 ? `From ${o.timedWins} dated win${o.timedWins === 1 ? '' : 's'}` : 'No dated wins in this window'}
+          />
           <Stat value={String(facts.created.total)} label="New leads created" sub="In this window" />
         </div>
       </Card>
 
+      {/* Undated closures — visible, never silently dropped */}
+      {(o.undatedExcluded > 0 || (o.undatedIncluded && h.wonTotal > 0)) && (
+        <Card
+          title="Closures with no recorded outcome date"
+          note="These leads were marked won or lost by the July migration, which set the status directly in the database. The columns that record WHEN a lead closed are only written when a lead is moved through the status buttons, so these carry no date at all. They are counted here rather than dated by guesswork."
+        >
+          {o.undatedIncluded ? (
+            <div style={{ fontSize: 13, color: BODY, lineHeight: 1.6 }}>
+              You are viewing <strong>All time</strong>, so these closures are
+              <strong> included</strong> in the figures above. Switch to any bounded
+              window and they drop out, because a 30-day window cannot honestly claim
+              a lead it cannot date.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Stat
+                value={String(o.undatedExcluded)}
+                label="Excluded from this window"
+                sub="Included only in the All time view"
+                tone="#D97706"
+              />
+              <div style={{ flex: '1 1 260px', minWidth: 200 }}>
+                <CsvButton href={csv('undated')} label="Export the undated closures" />
+              </div>
+            </div>
+          )}
+          {o.cancelledAllTime > 0 && (
+            <div style={{ fontSize: 11, color: MUTED, marginTop: 12 }}>
+              Separately, {o.cancelledAllTime} lead{o.cancelledAllTime === 1 ? ' is' : 's are'} cancelled.
+              Cancelled is an administrative close with no date column, so it never enters the win rate.
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Losses */}
-      <Card title="Why we lost" note={`Leads lost in this window, grouped by the recorded reason code. ${facts.losses.length === 0 ? '' : 'The free-text note sits on each lead.'}`}>
+      <Card title="Why we lost" note="Leads lost in this window, grouped by the recorded reason code. Losses carried over from the July migration have neither a date nor a reason, so they appear only in the All time view and under No reason recorded.">
         {facts.losses.length === 0 ? (
-          <div style={{ fontSize: 13, color: MUTED }}>No losses recorded in this window.</div>
+          <div style={{ fontSize: 13, color: MUTED }}>No dated losses in this window.</div>
         ) : (
           <>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
