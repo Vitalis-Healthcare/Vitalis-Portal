@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const NULLABLE = [
     'referral_source_id', 'assigned_to', 'secondary_assigned_to', 'created_by',
     'expected_close_date', 'expected_start_date', 'won_date', 'date_of_birth',
-    'standby_until',
+    'standby_until', 'next_action_due',
   ]
   for (const f of NULLABLE) {
     if (body[f] === '' || body[f] === 'Invalid Date') body[f] = null
@@ -28,6 +28,27 @@ export async function POST(req: NextRequest) {
 
   if (!full_name?.trim() || !source) {
     return NextResponse.json({ error: 'Name and source are required' }, { status: 400 })
+  }
+
+  // ── v0.6.39: a lead you cannot reach, size, or schedule is a rumor, ──
+  // not a lead. Server-side enforcement mirrors the form.
+  if (!body.phone?.trim() && !body.email?.trim()) {
+    return NextResponse.json({ error: 'A phone number or an email is required — at least one way to reach them.' }, { status: 400 })
+  }
+  const hoursNum = Number(body.estimated_hours_week)
+  const rateNum = Number(body.hourly_rate)
+  if (!hoursNum || hoursNum <= 0) {
+    return NextResponse.json({ error: 'Estimated weekly hours are required (start at the 12h/week floor if unsure).' }, { status: 400 })
+  }
+  if (!rateNum || rateNum <= 0) {
+    return NextResponse.json({ error: 'An hourly rate is required (start at the $32.50 floor if unsure).' }, { status: 400 })
+  }
+  if (!body.expected_close_date) {
+    return NextResponse.json({ error: 'A target close date is required.' }, { status: 400 })
+  }
+  // No open lead without a next action — from birth.
+  if (!body.next_action_due || !body.next_action_type) {
+    return NextResponse.json({ error: 'A first next action (type and due date) is required.' }, { status: 400 })
   }
 
   // ── v0.6.38: stage/status split ──────────────────────────────────────

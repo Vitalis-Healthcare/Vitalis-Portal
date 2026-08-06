@@ -6,6 +6,8 @@ import { ArrowLeft, Phone, Mail, MessageSquare, Edit3, Save, X } from 'lucide-re
 import {
   LEAD_STATUSES, statusMeta, calcRevenue, effectiveProbability,
   PROBABILITY_OPTIONS, LOST_REASONS, lostReasonLabel, prettyKey,
+  MIN_HOURS_WEEK, MIN_HOURLY_RATE, isBelowFloor,
+  NEXT_ACTION_TYPES, nextActionLabel,
 } from '@/lib/leads/model'
 
 const ACTIVITY_TYPES = [
@@ -46,6 +48,7 @@ interface Lead {
   status: string; stage?: string | null
   standby_until?: string | null; standby_reason?: string | null
   lost_reason_code?: string | null; close_probability?: number | null
+  next_action_type?: string | null; next_action_due?: string | null; next_action_note?: string | null
   legacy_status?: string | null; archived_at?: string | null
   relationship?: string
   care_types?: string[]; condition_notes?: string; preferred_schedule?: string
@@ -92,6 +95,18 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [statusPrompt, setStatusPrompt] = useState<'standby' | 'lost' | null>(null)
   const [standbyForm, setStandbyForm] = useState({ standby_until: '', standby_reason: '' })
   const [lostForm, setLostForm] = useState({ lost_reason_code: '', lost_reason: '' })
+
+  // ── v0.6.39: next action ──
+  const [actionEdit, setActionEdit] = useState(false)
+  const [actionForm, setActionForm] = useState({
+    next_action_type: initialLead.next_action_type || 'call',
+    next_action_due: initialLead.next_action_due || '',
+    next_action_note: initialLead.next_action_note || '',
+  })
+  // markDone mode: the Log Activity modal was opened from "Mark done" —
+  // the follow-up date becomes required (schedule the next step, or go
+  // change the status instead).
+  const [markDone, setMarkDone] = useState(false)
 
   // ── CareMatch360 sync state ───────────────────────────────────────────
   const [syncing, setSyncing] = useState(false)
@@ -155,10 +170,16 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   }
 
   const handleSave = async () => {
+    // Below the floor demands a deliberate yes.
+    const h = editForm.estimated_hours_week ? parseFloat(editForm.estimated_hours_week as string) : null
+    const r = editForm.hourly_rate ? parseFloat(editForm.hourly_rate as string) : null
+    if (isBelowFloor(h, r)) {
+      if (!confirm(`This is below the Vitalis minimum (${MIN_HOURS_WEEK}h/week at $${MIN_HOURLY_RATE.toFixed(2)}/hr). The lead will be flagged as below-minimum. Continue anyway?`)) return
+    }
     const payload: Record<string, any> = {
       ...editForm,
-      estimated_hours_week: editForm.estimated_hours_week ? parseFloat(editForm.estimated_hours_week as string) : null,
-      hourly_rate: editForm.hourly_rate ? parseFloat(editForm.hourly_rate as string) : null,
+      estimated_hours_week: h,
+      hourly_rate: r,
       close_probability: editForm.close_probability !== '' ? parseInt(editForm.close_probability as string, 10) : null,
     }
     // Never send status through the edit form — outcomes are deliberate
@@ -166,6 +187,27 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     delete payload.status
     const ok = await updateLead(payload)
     if (ok) setEditing(false)
+  }
+
+  const saveNextAction = async () => {
+    if (!actionForm.next_action_due) { alert('A due date is required.') ; return }
+    const ok = await updateLead({
+      next_action_type: actionForm.next_action_type,
+      next_action_due: actionForm.next_action_due,
+      next_action_note: actionForm.next_action_note || null,
+    })
+    if (ok) setActionEdit(false)
+  }
+
+  const openMarkDone = () => {
+    setMarkDone(true)
+    setEditingActivity(null)
+    setActForm({
+      activity_type: lead.next_action_type === 'call' ? 'call' : lead.next_action_type === 'email' ? 'email' : 'follow_up',
+      content: lead.next_action_note ? `Done: ${nextActionLabel(lead.next_action_type)} — ${lead.next_action_note}` : `Done: ${nextActionLabel(lead.next_action_type)}`,
+      outcome: '', next_follow_up: '',
+    })
+    setLogOpen(true)
   }
 
   const handleStageChange = async (newStage: string) => {
@@ -215,6 +257,12 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const handleLogActivity = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!actForm.content.trim()) return
+    // Completing an action means immediately scheduling the next one —
+    // or going to the status buttons to close/pause the lead instead.
+    if (markDone && !actForm.next_follow_up && lead.status === 'ongoing') {
+      alert('Schedule the next follow-up date — or close/pause the lead through the Status buttons instead.')
+      return
+    }
     setSaving(true)
     const res = await fetch('/api/leads/activity', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -224,8 +272,15 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
       const { activity } = await res.json()
       const enriched = { ...activity, author: [{ full_name: currentUserName }] }
       setActivities(prev => [enriched, ...prev])
+      // The activity route mirrored the follow-up onto the lead.
+      if (actForm.next_follow_up) {
+        setLead(l => ({ ...l, next_action_type: 'follow_up', next_action_due: actForm.next_follow_up, next_action_note: null }))
+        setActionForm({ next_action_type: 'follow_up', next_action_due: actForm.next_follow_up, next_action_note: '' })
+      }
       setActForm({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' })
       setLogOpen(false)
+      setMarkDone(false)
+      router.refresh()
     } else {
       alert('Failed to log activity')
     }
@@ -369,6 +424,11 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               {lead.close_probability != null && (
                 <span style={{ padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#EDE9FE', color: '#7C3AED' }}>
                   {lead.close_probability}% to close
+                </span>
+              )}
+              {isBelowFloor(lead.estimated_hours_week, lead.hourly_rate) && (
+                <span title={`Below the Vitalis minimum (${MIN_HOURS_WEEK}h/week at $${MIN_HOURLY_RATE.toFixed(2)}/hr)`} style={{ padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#FEF3C7', color: '#B45309' }}>
+                  ⬇ Below minimum
                 </span>
               )}
               <span style={{ fontSize: 12, color: '#8FA0B0' }}>Added {fmtDate(lead.created_at)}</span>
@@ -544,6 +604,64 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               </button>
               <button onClick={() => setStatusPrompt(null)} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#4A6070', cursor: 'pointer' }}>Cancel</button>
             </div>
+          </div>
+        )}
+
+        {/* ── Next Action (the heart of Ship 2: no open lead without one) ── */}
+        {lead.status === 'ongoing' && (
+          <div style={{ marginTop: 14, background: lead.next_action_due ? (lead.next_action_due < today ? '#FEF2F2' : '#F0FDF9') : '#FFFBEB', border: `1px solid ${lead.next_action_due ? (lead.next_action_due < today ? '#FCA5A5' : '#0B6B5C') : '#F59E0B'}`, borderRadius: 10, padding: '12px 16px' }}>
+            {!actionEdit ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 3 }}>Next Action</div>
+                  {lead.next_action_due ? (
+                    <div style={{ fontSize: 14, fontWeight: 800, color: lead.next_action_due < today ? '#DC2626' : '#0B6B5C' }}>
+                      {lead.next_action_due < today ? '⚠️ ' : ''}{nextActionLabel(lead.next_action_type)} · {fmtDate(lead.next_action_due)}
+                      {lead.next_action_note && <span style={{ fontSize: 12, fontWeight: 500, color: '#4A6070' }}> — {lead.next_action_note}</span>}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#B45309' }}>🚫 No next action — this lead will be forgotten. Set one now.</div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  {lead.next_action_due && (
+                    <button onClick={openMarkDone} disabled={saving} style={{ padding: '7px 14px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      ✓ Mark Done & Log
+                    </button>
+                  )}
+                  <button onClick={() => { setActionForm({ next_action_type: lead.next_action_type || 'call', next_action_due: lead.next_action_due || '', next_action_note: lead.next_action_note || '' }); setActionEdit(true) }} disabled={saving}
+                    style={{ padding: '7px 14px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#4A6070', cursor: 'pointer' }}>
+                    {lead.next_action_due ? 'Edit' : '+ Set Next Action'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>Set Next Action</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '200px 160px 1fr', gap: 10, alignItems: 'end' }}>
+                  <div>
+                    <label style={lbl}>Action <span style={{ color: '#E63946' }}>*</span></label>
+                    <select value={actionForm.next_action_type} onChange={e => setActionForm(f => ({ ...f, next_action_type: e.target.value }))} style={inp}>
+                      {NEXT_ACTION_TYPES.map(t => <option key={t.key} value={t.key}>{t.icon} {t.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={lbl}>Due <span style={{ color: '#E63946' }}>*</span></label>
+                    <input type="date" value={actionForm.next_action_due} min={today} onChange={e => setActionForm(f => ({ ...f, next_action_due: e.target.value }))} style={inp}/>
+                  </div>
+                  <div>
+                    <label style={lbl}>Note</label>
+                    <input value={actionForm.next_action_note} onChange={e => setActionForm(f => ({ ...f, next_action_note: e.target.value }))} placeholder="What exactly, and why" style={inp}/>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button onClick={saveNextAction} disabled={saving} style={{ padding: '8px 16px', background: '#0B6B5C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                    {saving ? 'Saving…' : 'Save Next Action'}
+                  </button>
+                  <button onClick={() => setActionEdit(false)} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#4A6070', cursor: 'pointer' }}>Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -811,7 +929,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <div style={{ padding: '18px 24px', borderBottom: '1px solid #EFF2F5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1A2E44', margin: 0 }}>{editingActivity ? 'Edit Activity' : 'Log Activity'}</h3>
-              <button onClick={() => { setLogOpen(false); setEditingActivity(null); setActForm({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' }) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
+              <button onClick={() => { setLogOpen(false); setMarkDone(false); setEditingActivity(null); setActForm({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' }) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8FA0B0' }}><X size={18}/></button>
             </div>
             <form onSubmit={editingActivity ? handleEditActivity : handleLogActivity} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
@@ -837,14 +955,19 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                 </select>
               </div>
               <div>
-                <label style={lbl}>Next Follow-Up Date</label>
-                <input type="date" value={actForm.next_follow_up} onChange={e => setA('next_follow_up', e.target.value)} min={today} style={inp}/>
+                <label style={lbl}>Next Follow-Up Date {markDone && lead.status === 'ongoing' ? <span style={{ color: '#E63946' }}>*</span> : null}</label>
+                <input type="date" value={actForm.next_follow_up} onChange={e => setA('next_follow_up', e.target.value)} min={today} required={markDone && lead.status === 'ongoing'} style={inp}/>
+                {markDone && lead.status === 'ongoing' && (
+                  <div style={{ fontSize: 11, color: '#92400E', marginTop: 4 }}>
+                    Completing an action means scheduling the next one — or close/pause the lead through the Status buttons instead.
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="submit" disabled={saving} style={{ flex: 1, padding: '11px', background: '#457B9D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1 }}>
                   {saving ? 'Saving…' : editingActivity ? '💾 Save Changes' : '📝 Log Activity'}
                 </button>
-                <button type="button" onClick={() => { setLogOpen(false); setEditingActivity(null); setActForm({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' }) }} style={{ padding: '11px 18px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
+                <button type="button" onClick={() => { setLogOpen(false); setMarkDone(false); setEditingActivity(null); setActForm({ activity_type: 'call', content: '', outcome: '', next_follow_up: '' }) }} style={{ padding: '11px 18px', background: '#F8FAFB', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#4A6070' }}>Cancel</button>
               </div>
             </form>
           </div>

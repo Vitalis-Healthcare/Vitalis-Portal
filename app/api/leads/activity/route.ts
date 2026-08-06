@@ -28,9 +28,16 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // If follow-up date set, update lead's updated_at to surface it
+  // ── v0.6.39: no double entry. A follow-up date on an activity BECOMES
+  // the lead's next action — the note is cleared so a stale instruction
+  // from the previous action cannot outlive it.
   if (next_follow_up) {
-    await svc.from('leads').update({ updated_at: new Date().toISOString() }).eq('id', lead_id)
+    await svc.from('leads').update({
+      next_action_type: 'follow_up',
+      next_action_due: next_follow_up,
+      next_action_note: null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', lead_id)
   }
 
   return NextResponse.json({ activity })

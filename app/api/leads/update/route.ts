@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     'expected_start_date', 'expected_close_date', 'won_date', 'lost_date',
     'lost_reason', 'lost_reason_code', 'standby_until', 'standby_reason',
     'close_probability', 'notes', 'assigned_to', 'secondary_assigned_to',
+    'next_action_type', 'next_action_due', 'next_action_note',
     'address', 'city', 'state', 'zip', 'date_of_birth',
   ]
   const fields: Record<string, any> = {}
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   // Null-coerce empty strings — Postgres rejects '' for uuid/date columns
   const UUID_FIELDS = ['referral_source_id', 'assigned_to', 'secondary_assigned_to']
-  const DATE_FIELDS = ['expected_close_date', 'expected_start_date', 'won_date', 'lost_date', 'date_of_birth', 'standby_until']
+  const DATE_FIELDS = ['expected_close_date', 'expected_start_date', 'won_date', 'lost_date', 'date_of_birth', 'standby_until', 'next_action_due']
   for (const f of [...UUID_FIELDS, ...DATE_FIELDS]) {
     if (fields[f] === '' || fields[f] === 'Invalid Date') fields[f] = null
   }
@@ -92,7 +93,21 @@ export async function POST(req: NextRequest) {
       if (fields.lost_date === undefined) fields.lost_date = null
       if (fields.standby_until === undefined) fields.standby_until = null
       if (fields.standby_reason === undefined) fields.standby_reason = null
+      // ── v0.6.39: a reopened lead needs a next step or it will be
+      // forgotten all over again.
+      const due = fields.next_action_due ?? prevLead.next_action_due
+      if (!due) {
+        return NextResponse.json({ error: 'Reopening a lead requires a next action (next_action_type + next_action_due).' }, { status: 400 })
+      }
     }
+  }
+
+  // ── v0.6.39: no open lead without a next action. An Ongoing lead's
+  // next action can be REPLACED, never merely erased — clearing it means
+  // either scheduling the next step or changing the status.
+  const resultingStatus = (fields.status !== undefined ? fields.status : prevLead.status)
+  if (resultingStatus === 'ongoing' && 'next_action_due' in fields && !fields.next_action_due) {
+    return NextResponse.json({ error: 'An ongoing lead needs a next action. Set a new one, or move the lead to Standby / an outcome.' }, { status: 400 })
   }
 
   const { data: lead, error } = await svc.from('leads').update(fields).eq('id', id).select().single()
