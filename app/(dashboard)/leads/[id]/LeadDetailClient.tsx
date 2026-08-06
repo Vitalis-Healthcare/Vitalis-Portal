@@ -1,6 +1,9 @@
 'use client'
 // ═════════════════════════════════════════════════════════════════════════
-// Lead Workspace (v0.6.43) — Ship 4b: the Conversion milestone goes live.
+// Lead Workspace (v0.6.44) — Ship 4c: floor fix + full edit palette.
+// The below-min floor is now hours-based with a revenue buy-out (see
+// lib/leads/model.ts); the Edit form gains Source, Referral, Relationship,
+// and the LIVE service-type chips; the header date renders correctly.
 //
 // Layout, top to bottom:
 //   Header      — identity + chips, contact links, TWO primary buttons
@@ -25,7 +28,7 @@ import { ArrowLeft, Phone, Mail, MessageSquare, Edit3, Save, X, MoreHorizontal }
 import {
   LEAD_STATUSES, statusMeta, calcRevenue, effectiveProbability,
   PROBABILITY_OPTIONS, LOST_REASONS, lostReasonLabel, prettyKey,
-  MIN_HOURS_WEEK, MIN_HOURLY_RATE, isBelowFloor,
+  MIN_HOURS_WEEK, MIN_WEEKLY_REVENUE, isBelowFloor,
   NEXT_ACTION_TYPES, nextActionLabel,
   CONSENT_STATUSES, consentMeta,
 } from '@/lib/leads/model'
@@ -58,6 +61,21 @@ const TIMELINE_FILTERS = [
 
 const CARE_TYPES = ['Personal Care', 'Companion Care', 'Skilled Nursing', 'Respite Care', 'Overnight', 'Live-In']
 
+// v0.6.44 — mirror the Add New Lead vocabulary (LeadsClient). Consolidating
+// these into lib/leads/model.ts is queued with the payer-harmonization ship.
+const SOURCES = [
+  { key: 'phone',         label: 'Phone Call',       icon: '📞' },
+  { key: 'email',         label: 'Email',             icon: '✉️' },
+  { key: 'website',       label: 'Website Form',      icon: '🌐' },
+  { key: 'referral',      label: 'Referral',          icon: '🤝' },
+  { key: 'hospital',      label: 'Hospital/Facility', icon: '🏥' },
+  { key: 'doctor_office', label: 'Doctor Office',     icon: '👨‍⚕️' },
+  { key: 'word_of_mouth', label: 'Word of Mouth',     icon: '💬' },
+  { key: 'social_media',  label: 'Social Media',      icon: '📱' },
+  { key: 'other',         label: 'Other',             icon: '📋' },
+]
+const RELATIONSHIPS = ['Self', 'Family Member', 'Social Worker', 'Hospital Discharge Planner', 'Doctor Office', 'Other']
+
 // v0.6.42 — cadence options mirror the assessments module.
 const CADENCE_OPTIONS = [
   { value: '120', label: '120 days (standard)' },
@@ -76,6 +94,13 @@ function fmtDate(d?: string | null) {
 }
 function fmtTime(d: string) {
   return new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+}
+// v0.6.44 — for full timestamps (created_at). fmtDate appends T12:00:00 for
+// date-only values and produces Invalid Date when fed a real timestamp.
+function fmtStamp(d?: string | null) {
+  if (!d) return '—'
+  const dt = new Date(d)
+  return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 function fmtDateTime(d: string) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -102,6 +127,7 @@ interface Lead {
   consent_status?: string | null
   legacy_status?: string | null; archived_at?: string | null
   assessment_client_id?: string | null
+  referral_source_id?: string | null
   relationship?: string
   care_types?: string[]; condition_notes?: string; preferred_schedule?: string
   estimated_hours_week?: number; hourly_rate?: number
@@ -129,6 +155,8 @@ interface AssessmentRow {
 interface Props {
   lead: Lead; activities: Activity[]; staff: { id: string; full_name: string }[]
   stages: Stage[]
+  serviceTypes: { label: string }[]
+  referralSources: { id: string; name: string; organization?: string | null }[]
   currentUserId: string; currentUserName: string; isAdmin: boolean
   assessmentClient: AssessmentClientInfo | null
   assessment: AssessmentRow | null
@@ -136,7 +164,8 @@ interface Props {
   linkableClients: { id: string; full_name: string }[]
 }
 
-export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, stages, currentUserId, currentUserName, isAdmin, assessmentClient, assessment, nurses, linkableClients }: Props) {
+export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, staff, stages, serviceTypes, referralSources, currentUserId, currentUserName, isAdmin, assessmentClient, assessment, nurses, linkableClients }: Props) {
+  const ACTIVE_CARE_TYPES = serviceTypes.length > 0 ? serviceTypes.map(s => s.label) : CARE_TYPES
   const router = useRouter()
   const [lead, setLead] = useState(initialLead)
   const [activities, setActivities] = useState(initialActivities)
@@ -260,7 +289,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     const h = editForm.estimated_hours_week ? parseFloat(editForm.estimated_hours_week as string) : null
     const r = editForm.hourly_rate ? parseFloat(editForm.hourly_rate as string) : null
     if (isBelowFloor(h, r)) {
-      if (!confirm(`This is below the Vitalis minimum (${MIN_HOURS_WEEK}h/week at $${MIN_HOURLY_RATE.toFixed(2)}/hr). The lead will be flagged as below-minimum. Continue anyway?`)) return
+      if (!confirm(`This is below the Vitalis minimum (${MIN_HOURS_WEEK}h/week, or $${MIN_WEEKLY_REVENUE}/week in revenue). The lead will be flagged as below-minimum. Continue anyway?`)) return
     }
     const payload: Record<string, any> = {
       ...editForm,
@@ -629,7 +658,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                 </span>
               )}
               {isBelowFloor(lead.estimated_hours_week, lead.hourly_rate) && (
-                <span title={`Below the Vitalis minimum (${MIN_HOURS_WEEK}h/week at $${MIN_HOURLY_RATE.toFixed(2)}/hr)`} style={{ padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#FEF3C7', color: '#B45309' }}>
+                <span title={`Below the Vitalis minimum (${MIN_HOURS_WEEK}h/week or $${MIN_WEEKLY_REVENUE}/week)`} style={{ padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#FEF3C7', color: '#B45309' }}>
                   ⬇ Below min
                 </span>
               )}
@@ -638,7 +667,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               {lead.client_name || lead.full_name}
             </h1>
             <div style={{ fontSize: 12.5, color: '#8FA0B0' }}>
-              {lead.client_name ? `Enquired by ${lead.full_name} · ` : ''}Added {fmtDate(lead.created_at)}
+              {lead.client_name ? `Enquired by ${lead.full_name} · ` : ''}Added {fmtStamp(lead.created_at)}
             </div>
             <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
               {lead.phone && (
@@ -1068,6 +1097,13 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               <div style={{ fontSize: 11, fontWeight: 700, color: '#8FA0B0', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Edit Lead</div>
               <div><label style={lbl}>Full Name</label><input value={editForm.full_name} onChange={e => setE('full_name', e.target.value)} style={inp}/></div>
               <div><label style={lbl}>Client Name</label><input value={editForm.client_name || ''} onChange={e => setE('client_name', e.target.value)} style={inp}/></div>
+              <div>
+                <label style={lbl}>Relationship to Client</label>
+                <select value={editForm.relationship || ''} onChange={e => setE('relationship', e.target.value)} style={inp}>
+                  <option value="">— Not set —</option>
+                  {RELATIONSHIPS.map(r => <option key={r} value={r.toLowerCase().replace(/ /g, '_')}>{r}</option>)}
+                </select>
+              </div>
               <div><label style={lbl}>Phone</label><input value={editForm.phone || ''} onChange={e => setE('phone', e.target.value)} style={inp}/></div>
               <div><label style={lbl}>Email</label><input type="email" value={editForm.email || ''} onChange={e => setE('email', e.target.value)} style={inp}/></div>
               <div style={{ marginTop: 4, paddingTop: 12, borderTop: '1px dashed #E2E8F0', fontSize: 11, fontWeight: 700, color: '#0B6B5C', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -1082,9 +1118,28 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               <div><label style={lbl}>Date of Birth</label><input type="date" value={editForm.date_of_birth || ''} onChange={e => setE('date_of_birth', e.target.value)} style={{ ...inp, maxWidth: 220 }}/></div>
               <div style={{ paddingBottom: 4, borderBottom: '1px dashed #E2E8F0' }} />
               <div>
+                <label style={lbl}>Lead Source</label>
+                <select value={editForm.source} onChange={e => setE('source', e.target.value)} style={inp}>
+                  {SOURCES.map(s => <option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
+                </select>
+              </div>
+              {editForm.source === 'referral' && (
+                <div><label style={lbl}>Referred By (free text)</label><input value={editForm.referral_name || ''} onChange={e => setE('referral_name', e.target.value)} placeholder="Referrer name / organisation" style={inp}/></div>
+              )}
+              {referralSources.length > 0 && (
+                <div>
+                  <label style={lbl}>Link to Referral Source</label>
+                  <select value={editForm.referral_source_id || ''} onChange={e => setE('referral_source_id', e.target.value || null)} style={inp}>
+                    <option value="">— None —</option>
+                    {referralSources.map(rs => <option key={rs.id} value={rs.id}>{rs.name}{rs.organization ? ` · ${rs.organization}` : ''}</option>)}
+                  </select>
+                </div>
+              )}
+              <div style={{ paddingBottom: 4, borderBottom: '1px dashed #E2E8F0' }} />
+              <div>
                 <label style={lbl}>Care Types</label>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {CARE_TYPES.map(ct => {
+                  {ACTIVE_CARE_TYPES.map((ct: string) => {
                     const active = (editForm.care_types || []).includes(ct)
                     return (
                       <button key={ct} type="button"

@@ -99,19 +99,23 @@ export function legacyWireStatus(lead: { status?: string | null; stage?: string 
   return (lead.stage || 'new').toLowerCase()
 }
 
-// ── Minimum viable engagement (business floor, v0.6.39) ──────────────────
-// Vitalis does not bid below 4-hour shifts × 3/week at $32.50/hr. New leads
-// START at the floor; edits below it demand explicit confirmation and the
-// lead is flagged below-minimum in the UI. Derived, never stored — a flag
-// column could go stale, arithmetic cannot.
+// ── Minimum viable engagement (business floor, v0.6.44) ──────────────────
+// The floor is HOURS-based with a REVENUE buy-out: an engagement passes if
+// it reaches 12h/week, OR if hours × rate reaches $390/week (so 10h at $40
+// = $400 passes). Rate alone never trips the flag — Medicaid/BCHD
+// reimbursement sits near $25-26/hr by design and is not negotiable.
+// $32.50 remains the DEFAULT rate prefill for new leads, not a floor.
+// Derived, never stored — a flag column could go stale, arithmetic cannot.
 
 export const MIN_HOURS_WEEK = 12
-export const MIN_HOURLY_RATE = 32.5
+export const MIN_HOURLY_RATE = 32.5   // default prefill only (v0.6.44)
+export const MIN_WEEKLY_REVENUE = 390 // 12h × $32.50 — the revenue buy-out
 
 export function isBelowFloor(hours?: number | null, rate?: number | null): boolean {
-  if (hours != null && hours > 0 && hours < MIN_HOURS_WEEK) return true
-  if (rate != null && rate > 0 && rate < MIN_HOURLY_RATE) return true
-  return false
+  if (hours == null || hours <= 0) return false
+  if (hours >= MIN_HOURS_WEEK) return false
+  if (rate != null && rate > 0 && hours * rate >= MIN_WEEKLY_REVENUE) return false
+  return true
 }
 
 // ── Next actions (v0.6.39) ───────────────────────────────────────────────
