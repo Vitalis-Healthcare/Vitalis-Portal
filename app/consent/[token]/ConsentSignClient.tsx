@@ -122,7 +122,7 @@ export default function ConsentSignClient({ token, prefill: p, repName, repSigne
         <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 26, fontWeight: 600, color: '#2D5A1B', marginBottom: 10 }}>Thank you — you&rsquo;re all set.</div>
         <p style={{ fontSize: 14.5, color: '#55554E', lineHeight: 1.65 }}>
           The agreement is signed, and a copy is on its way to your email for your records.
-          We&rsquo;re looking forward to caring for {details.client_name.trim() || p.client_name}.
+          We&rsquo;re looking forward to caring for {details.client_name.trim() || p.client_name || 'your loved one'}.
         </p>
         <p style={{ fontSize: 13, color: '#8A8A80', marginTop: 14 }}>Questions any time: {AGENCY.phoneDisplay}</p>
       </div>
@@ -140,7 +140,7 @@ export default function ConsentSignClient({ token, prefill: p, repName, repSigne
       <div style={{ padding: '26px 24px 40px' }}>
         {/* Title */}
         <div style={{ textAlign: 'center', marginBottom: 6 }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: '#A8863F', fontWeight: 700 }}>For {details.client_name.trim() || p.client_name}</div>
+          <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: '#A8863F', fontWeight: 700 }}>{(details.client_name.trim() || p.client_name) ? `For ${details.client_name.trim() || p.client_name}` : 'Prepared for you by Vitalis'}</div>
           <h1 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 29, fontWeight: 600, color: '#2D5A1B', margin: '8px 0 8px', lineHeight: 1.2 }}>Home Care Service Agreement<br />&amp; Consent Form</h1>
           <p style={{ color: '#55554E', fontSize: 14, margin: '0 auto', maxWidth: 540, lineHeight: 1.6 }}>Please review this agreement carefully. It describes the services Vitalis will provide, your rights and responsibilities, and how billing works. Signing takes about five minutes.</p>
         </div>
@@ -149,7 +149,9 @@ export default function ConsentSignClient({ token, prefill: p, repName, repSigne
         <div style={{ background: '#F6F8F2', border: '1px solid #DCE5D2', borderRadius: 8, padding: '18px 20px', margin: '18px 0 22px' }}>
           <div style={{ fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: '#2D5A1B', fontWeight: 700, marginBottom: 4 }}>Client information</div>
           <div style={{ fontSize: 13, color: '#55554E', lineHeight: 1.6, marginBottom: 14 }}>
-            Please check these details and fill in anything that&rsquo;s missing — what you enter here is what appears on your signed agreement.
+            {p.client_name
+              ? 'Please check these details and fill in anything that’s missing — what you enter here is what appears on your signed agreement.'
+              : 'Please enter the client’s details below — what you enter here is what appears on your signed agreement.'}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
             <div style={{ flex: '1 1 100%' }}>
