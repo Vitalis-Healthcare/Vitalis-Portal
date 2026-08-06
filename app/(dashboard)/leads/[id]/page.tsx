@@ -30,11 +30,28 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   // ── v0.6.46: the latest consent record (milestone status + resend) ───
   const { data: consentRows } = await svc
     .from('lead_consents')
-    .select('id, status, agreement_version, created_at, viewed_at, signed_at, signer_name, rep_name')
+    .select('id, status, agreement_version, created_at, viewed_at, signed_at, signer_name, rep_name, email_id')
     .eq('lead_id', id)
     .order('created_at', { ascending: false })
     .limit(1)
-  const latestConsent = consentRows?.[0] || null
+  const latestConsentRow = consentRows?.[0] || null
+
+  // v0.6.49: did the agreement email actually land? A bounced signing link
+  // is a silently stalled intake, so the milestone says so outright.
+  let consentEmailStatus: string | null = null
+  let consentEmailTo: string | null = null
+  if (latestConsentRow?.email_id) {
+    const { data: consentEmail } = await svc
+      .from('lead_emails')
+      .select('status, to_email')
+      .eq('id', latestConsentRow.email_id)
+      .maybeSingle()
+    consentEmailStatus = consentEmail?.status || null
+    consentEmailTo = consentEmail?.to_email || null
+  }
+  const latestConsent = latestConsentRow
+    ? { ...latestConsentRow, email_status: consentEmailStatus, email_to: consentEmailTo }
+    : null
 
   // ── v0.6.45: outbound emails for this lead (timeline badges) ─────────
   const { data: leadEmails } = await svc

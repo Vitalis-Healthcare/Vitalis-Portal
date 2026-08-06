@@ -171,6 +171,7 @@ interface ConsentInfo {
   id: string; status: string; agreement_version: string
   created_at: string; viewed_at?: string | null; signed_at?: string | null
   signer_name?: string | null; rep_name?: string | null
+  email_status?: string | null; email_to?: string | null
 }
 
 interface Props {
@@ -626,7 +627,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
       if (e.opened_at) return { label: 'Opened', color: '#065F46', bg: '#A7F3D0', title: 'Open reported \u2014 best-effort signal; many mail apps block or fake opens' }
       return { label: 'Delivered', color: '#0B6B5C', bg: '#D1FAE5', title: 'The receiving server accepted this email' }
     }
-    return { label: 'Sent', color: '#4A6070', bg: '#EFF2F5', title: 'Handed to Resend \u2014 delivery status arrives via webhook (Ship 5c)' }
+    return { label: 'Sent', color: '#4A6070', bg: '#EFF2F5', title: 'Handed to Resend \u2014 the delivery result lands here within a minute or two' }
   }
 
   // ── v0.6.46: consent handlers ──
@@ -1076,6 +1077,15 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                 <Send size={12}/> {latestConsent && (latestConsent.status === 'sent' || latestConsent.status === 'viewed') ? 'Re-send Agreement' : 'Prepare & Send Agreement'}
               </button>
             )}
+            {/* v0.6.49: a bounced agreement email means they never got the link. */}
+            {latestConsent && latestConsent.status !== 'signed' &&
+             (latestConsent.email_status === 'bounced' || latestConsent.email_status === 'complained') && (
+              <div style={{ fontSize: 11.5, color: '#B91C1C', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '8px 11px', marginTop: 8, fontWeight: 600, lineHeight: 1.5 }}>
+                {latestConsent.email_status === 'bounced'
+                  ? `The agreement email bounced — ${latestConsent.email_to || 'the recipient'} never got the signing link. Check the address, then re-send.`
+                  : `${latestConsent.email_to || 'The recipient'} marked the agreement email as spam — speak to them before re-sending.`}
+              </div>
+            )}
             <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 6 }}>
               {latestConsent
                 ? latestConsent.status === 'signed'
@@ -1083,7 +1093,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                   : latestConsent.status === 'viewed'
                     ? `Sent ${fmtStamp(latestConsent.created_at)} · viewed by the recipient ${fmtStamp(latestConsent.viewed_at)}. Re-sending replaces the link.`
                     : latestConsent.status === 'sent'
-                      ? `Sent ${fmtStamp(latestConsent.created_at)} — not opened yet. Re-sending replaces the link.`
+                      ? `Sent ${fmtStamp(latestConsent.created_at)}${latestConsent.email_status === 'delivered' ? ' · delivered' : ''} — not opened yet. Re-sending replaces the link.`
                       : 'The previous link was replaced.'
                 : 'Sends the Service Agreement for e-signature — the milestone advances by itself as the client opens and signs.'}
             </div>
