@@ -146,6 +146,24 @@ export function attentionDate(lead: { status?: string | null; next_action_due?: 
   return lead.next_action_due || null
 }
 
+// ── Consent milestone (v0.6.41) ──────────────────────────────────────────
+// Manually tracked in Ship 3 (the panel exists; the automated sender is a
+// future design). Every change is logged to the lead's timeline. 'signed'
+// will become a conversion-readiness input in Ship 4.
+
+export const CONSENT_STATUSES = [
+  { key: 'not_started', label: 'Not started', color: '#8FA0B0', bg: '#EFF2F5' },
+  { key: 'preparing',   label: 'Preparing',   color: '#457B9D', bg: '#EBF4FF' },
+  { key: 'sent',        label: 'Sent',        color: '#D97706', bg: '#FEF3C7' },
+  { key: 'signed',      label: 'Signed \u2713', color: '#065F46', bg: '#A7F3D0' },
+  { key: 'declined',    label: 'Declined',    color: '#DC2626', bg: '#FEE2E2' },
+] as const
+
+export function consentMeta(status: string | null | undefined) {
+  const s = (status || 'not_started').toLowerCase()
+  return CONSENT_STATUSES.find(x => x.key === s) || CONSENT_STATUSES[0]
+}
+
 // ── Display helpers ──────────────────────────────────────────────────────
 
 export function prettyKey(key: string | null | undefined): string {

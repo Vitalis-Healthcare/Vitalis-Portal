@@ -8,14 +8,14 @@
 // open leads with no next action at all. Owners with nothing to act on
 // get no email — an empty digest trains people to delete digests.
 //
-// CRON_SECRET: if the env var is set, the Authorization: Bearer header is
-// enforced. If not set the route allows through (safe to deploy before
-// the secret is configured in Vercel).
+// AUTH (v0.6.41): dual, via lib/brief/auth.ts — CRON_SECRET bearer for
+// the scheduler, or a signed-in admin/supervisor session for a browser.
 // LEADS_EMAILS_PAUSED: handled inside lib/leads/email.ts.
 // ?dry_run=1 — compute and report everything, send nothing.
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { authorizeBriefRequest } from '@/lib/brief/auth'
 import { sendLeadsDigestEmail } from '@/lib/leads/email'
 import type { DigestLead } from '@/lib/leads/email'
 import { nextActionLabel } from '@/lib/leads/model'
@@ -35,14 +35,13 @@ function fmtDue(d: string | null): string | null {
   })
 }
 
-async function handler(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
+async function handler(request: NextRequest) {
+  // ── v0.6.41: dual auth, borrowed from the Brief. The scheduler carries
+  // the CRON_SECRET bearer; a signed-in admin/supervisor in a browser
+  // carries a session. Either is accepted — rehearsing with ?dry_run=1
+  // no longer requires pasting secrets into curl.
+  const auth = await authorizeBriefRequest(request)
+  if (!auth.caller) return auth.response!
 
   const dryRun = new URL(request.url).searchParams.get('dry_run') === '1'
 
