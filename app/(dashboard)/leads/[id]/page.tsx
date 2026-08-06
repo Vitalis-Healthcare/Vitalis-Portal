@@ -15,7 +15,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
 
   const { data: lead } = await svc
     .from('leads')
-    .select(`*, assignee:assigned_to(full_name), creator:created_by(full_name)`)
+    .select(`*, assignee:assigned_to(full_name), secondary:secondary_assigned_to(full_name), creator:created_by(full_name)`)
     .eq('id', id)
     .single()
 
@@ -31,13 +31,24 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     .from('profiles').select('id, full_name')
     .in('role', ['admin', 'supervisor']).eq('status', 'active').order('full_name')
 
+  // ── v0.6.38: the detail page finally reads lead_stages from the DB.
+  // Before the split it carried its own hardcoded stage list, so custom
+  // stages added in Settings were invisible here.
+  const { data: stages } = await svc
+    .from('lead_stages')
+    .select('key, label, color, bg_color, order_index')
+    .eq('is_active', true)
+    .order('order_index')
+
   return (
     <LeadDetailClient
       lead={lead}
       activities={activities || []}
       staff={staff || []}
+      stages={stages || []}
       currentUserId={user.id}
       currentUserName={profile?.full_name || ''}
+      isAdmin={profile?.role === 'admin'}
     />
   )
 }
