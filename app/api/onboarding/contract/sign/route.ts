@@ -29,11 +29,13 @@ const RESEND_KEY = process.env.RESEND_API_KEY
 export async function POST(req: NextRequest) {
   let rawToken = ''
   let signatureName = ''
+  let signatureImage = ''
   let agreed = false
   try {
     const body = await req.json()
     rawToken = String(body.token ?? '').trim()
     signatureName = String(body.signature_name ?? '').trim().replace(/\s+/g, ' ')
+    signatureImage = typeof body.signature_image === 'string' ? body.signature_image : ''
     agreed = body.agreed === true
   } catch {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 })
@@ -47,6 +49,25 @@ export async function POST(req: NextRequest) {
   if (signatureName.length > 120) {
     return NextResponse.json({ error: 'That name is too long.' }, { status: 400 })
   }
+
+  // ── The drawn signature (v0.6.65) ─────────────────────────────────────────
+  // Optional by design: a person with a tremor, or on a desktop with only a
+  // mouse, must still be able to finish onboarding. A typed name with a
+  // timestamp and an IP remains a valid electronic signature.
+  //
+  // But a MALFORMED one is refused rather than quietly dropped. Someone who
+  // drew their signature and was then told "signed" would reasonably believe
+  // their mark is on the document, and it would not be.
+  const MAX_SIGNATURE_BYTES = 400 * 1024
+  if (signatureImage) {
+    if (!signatureImage.startsWith('data:image/png;base64,')) {
+      return NextResponse.json({ error: 'That signature could not be read. Clear it and draw it again.' }, { status: 400 })
+    }
+    if (signatureImage.length > MAX_SIGNATURE_BYTES) {
+      return NextResponse.json({ error: 'That signature image is too large. Clear it and draw it again.' }, { status: 413 })
+    }
+  }
+  const signatureMethod = signatureImage ? 'drawn+typed' : 'typed'
 
   const contract = await findContractByRawToken(rawToken)
   // Do not distinguish "unknown token" from "expired" to anyone unauthenticated.
@@ -78,6 +99,7 @@ export async function POST(req: NextRequest) {
     payRate: contract.pay_rate,
     issuedDate: documentDate(signedAtIso),
     signed: { signedAt: documentDate(signedAtIso), ip },
+    signatureImage: signatureImage || null,
   })
 
   // Conditional update: `.is('signed_at', null)` makes a double submit a no-op
@@ -89,6 +111,8 @@ export async function POST(req: NextRequest) {
         signed_at: signedAtIso,
         signature_name: signatureName,
         signature_ip: ip,
+        signature_image: signatureImage || null,
+        signature_method: signatureMethod,
         rendered_html: renderedHtml,
       })
       .eq('id', contract.id)
