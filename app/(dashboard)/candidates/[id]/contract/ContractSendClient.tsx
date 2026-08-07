@@ -292,18 +292,16 @@ export default function ContractSendClient({
                       >
                         {c.signed_at ? 'View signed copy ↗' : 'Preview ↗'}
                       </a>
-                      {/* Only a signed agreement has a filing copy. An unsigned
-                          one has nothing worth putting in a personnel file. */}
+                      {/* Server-side PDF generation was tried in v0.6.66 and
+                          v0.6.68 and removed in v0.6.69: headless Chromium
+                          would not start in the serverless function. The signed
+                          copy opens as a page and prints correctly — including
+                          the drawn signature — so Print, then Save as PDF, is
+                          the filing route. */}
                       {c.signed_at && (
-                        <>
-                          <span style={{ color: '#CBD5E1', margin: '0 8px' }}>·</span>
-                          <a
-                            href={`/api/onboarding/contract/${c.id}/pdf`}
-                            style={{ fontSize: 12, color: TEAL, textDecoration: 'none', fontWeight: 600 }}
-                          >
-                            PDF ↓
-                          </a>
-                        </>
+                        <div style={{ fontSize: 11, color: '#8FA0B0', marginTop: 4 }}>
+                          Print → Save as PDF to file it
+                        </div>
                       )}
                     </td>
                   </tr>
