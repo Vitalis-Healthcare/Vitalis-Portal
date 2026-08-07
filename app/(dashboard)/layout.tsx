@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import LayoutShell from '@/components/layout/LayoutShell'
 import { Profile } from '@/types'
+import CjisOverdueBanner from '@/components/onboarding/CjisOverdueBanner'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -21,6 +22,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <LayoutShell profile={profile as Profile} role={role}>
+      {/* Renders nothing until a CJIS result is 8 days past its expected
+          date. From then it is unavoidable, on every page, for every member
+          of staff who could resolve it. */}
+      <CjisOverdueBanner role={role} />
       {children}
     </LayoutShell>
   )
