@@ -457,19 +457,37 @@ export default function CredentialGateClient({
                   <span style={{
                     display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 11,
                     fontWeight: 700, letterSpacing: '.03em',
-                    background: satisfied ? '#F0FDF4' : '#FEF2F2',
-                    color: satisfied ? '#15803D' : '#B91C1C',
+                    background: satisfied
+                      ? '#F0FDF4'
+                      : (t.key === CJIS_DOC_TYPE && fpStatus.state === 'pending') ? '#FFFBEB' : '#FEF2F2',
+                    color: satisfied
+                      ? '#15803D'
+                      : (t.key === CJIS_DOC_TYPE && fpStatus.state === 'pending') ? '#92400E' : '#B91C1C',
                   }}>
-                    {satisfied ? 'ON FILE' : 'REQUIRED'}
+                    {satisfied
+                      ? 'ON FILE'
+                      : (t.key === CJIS_DOC_TYPE && fpStatus.state === 'pending')
+                        ? 'RESULTS PENDING'
+                        : 'REQUIRED'}
                   </span>
                   {t.key === CJIS_DOC_TYPE && (
-                    <span style={{ fontSize: 11, color: '#8FA0B0' }}>cannot be waived</span>
+                    <span style={{ fontSize: 11, color: '#8FA0B0' }}>
+                      {fpStatus.state === 'pending'
+                        ? `deferred until ${liveAttestation?.expected_by}`
+                        : fpStatus.state === 'overdue'
+                          ? 'overdue — upload now'
+                          : 'cannot be waived'}
+                    </span>
                   )}
                   {onBehalf && required && (
                     <span style={{ fontSize: 11, color: '#8FA0B0' }}>candidate normally supplies this</span>
                   )}
                 </div>
-                <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.6 }}>{t.hint}</div>
+                <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.6 }}>
+                  {t.key === CJIS_DOC_TYPE && fpStatus.state === 'pending'
+                    ? 'Criminal history record from the Maryland CJIS Central Repository. Still required — the fingerprinting attestation above defers it, it does not remove it. Upload the record here the moment it arrives.'
+                    : t.hint}
+                </div>
               </div>
 
               <div style={{ flexShrink: 0 }}>
