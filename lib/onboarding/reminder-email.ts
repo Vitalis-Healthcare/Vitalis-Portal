@@ -117,6 +117,74 @@ export function renderReminderHtml(i: SendReminderInput): string {
 }
 
 /**
+ * The set-aside notice.
+ *
+ * Not requested, added on judgement: reminder 2 warns that this is coming, but
+ * without this the first a candidate knows of it is a wall reading "this
+ * application is closed" when they finally open their link. Telling someone we
+ * have stopped waiting costs one email and is the difference between a process
+ * and a snub.
+ *
+ * Deliberately NOT folded into renderReminderHtml. That function is already in
+ * production sending real mail; a shared-shell refactor to save thirty lines
+ * would put it at risk for nothing.
+ */
+export function renderSetAsideHtml(firstName: string): string {
+  const name = firstName || 'there'
+  return `<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:#F8FAFC;font-family:'DM Sans','Segoe UI',Arial,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:24px 16px;">
+    <div style="background:linear-gradient(135deg,#1A2E44 0%,#0E4A4A 100%);padding:26px 30px;border-radius:14px 14px 0 0;text-align:center;">
+      <div style="width:50px;height:50px;background:linear-gradient(135deg,#0E7C7B,#F4A261);border-radius:12px;display:inline-block;line-height:50px;font-size:19px;font-weight:900;color:#ffffff;">V+</div>
+      <h1 style="color:#ffffff;margin:10px 0 0;font-size:19px;font-weight:800;">We have set your application aside</h1>
+      <p style="color:rgba(255,255,255,0.6);font-size:12px;margin:4px 0 0;letter-spacing:0.8px;text-transform:uppercase;">Vitalis HealthCare</p>
+    </div>
+    <div style="background:#ffffff;padding:28px 30px;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 14px 14px;">
+      <p style="color:#4A6070;font-size:14px;line-height:1.7;margin:0 0 18px;">
+        ${esc(name)}, we have not heard from you for a little while, so we have set your caregiver
+        application aside and will stop emailing you about it. Nothing has been deleted, and this is
+        not a rejection &mdash; life gets busy, and we would rather step back than keep chasing.
+      </p>
+      <p style="color:#4A6070;font-size:14px;line-height:1.7;margin:0 0 18px;">
+        If you are still interested, whether that is next week or next year, just reply to this
+        email and we will pick up exactly where you left off. Thank you for the time you gave us.
+      </p>
+      <p style="color:#8FA0B0;font-size:12.5px;line-height:1.7;margin:0;">
+        Questions? Contact the Vitalis office.
+      </p>
+    </div>
+    <div style="text-align:center;padding:18px 0;font-size:11px;color:#94A3B8;line-height:1.8;">
+      Vitalis Healthcare Services, LLC &middot; 8757 Georgia Avenue, Suite 440 &middot; Silver Spring, MD 20910
+    </div>
+  </div>
+</body></html>`
+}
+
+export async function sendSetAsideNotice(to: string, firstName: string): Promise<SendResult> {
+  if (!RESEND_KEY) return { ok: false, error: 'RESEND_API_KEY is not configured.' }
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: [to],
+        bcc: [TEAM_NOTIFY],
+        subject: 'We have set your Vitalis application aside',
+        html: renderSetAsideHtml(firstName),
+      }),
+    })
+    const body = await res.json().catch(() => null)
+    if (!res.ok) return { ok: false, error: (body && body.message) || `Resend returned ${res.status}.` }
+    const id = body && typeof body.id === 'string' ? body.id : undefined
+    if (!id) return { ok: false, error: 'Resend accepted the request but returned no id.' }
+    return { ok: true, id }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Network error reaching Resend.' }
+  }
+}
+
+/**
  * Soft-fail by contract: the caller records the reminder first and treats a
  * failed send as information, never as a reason to abort. Same rule as every
  * other onboarding email.
