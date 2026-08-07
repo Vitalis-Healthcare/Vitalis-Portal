@@ -23,7 +23,7 @@ function Notice({ title, body, cta }: { title: string; body: string; cta?: { hre
       <div style={{ width: '100%', maxWidth: 520 }}>
         <div style={{ background: 'linear-gradient(135deg,#1A2E44 0%,#0E4A4A 100%)', padding: '22px 28px', borderRadius: '14px 14px 0 0', textAlign: 'center' }}>
           <div style={{ width: 46, height: 46, background: 'linear-gradient(135deg,#0E7C7B,#F4A261)', borderRadius: 11, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, color: '#fff', marginBottom: 10 }}>V+</div>
-          <h1 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>Vitalis Caregiver Documents</h1>
+          <h1 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>Vitalis Documents</h1>
         </div>
         <div style={{ background: '#fff', padding: '32px', border: '1px solid #E2E8F0', borderTop: 'none', borderRadius: '0 0 14px 14px' }}>
           <h2 style={{ fontSize: 18, color: '#1A2E44', margin: '0 0 10px' }}>{title}</h2>
@@ -76,7 +76,7 @@ export default async function OnboardingDocumentsPage({ searchParams }: { search
     return (
       <Notice
         title="Your documents are part of your application"
-        body="You can upload documents from within your Vitalis caregiver application. Use the button below to continue."
+        body="You can upload documents from within your Vitalis application. Use the button below to continue."
         cta={cta}
       />
     )

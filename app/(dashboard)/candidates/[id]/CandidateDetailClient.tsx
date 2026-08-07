@@ -1073,7 +1073,7 @@ export default function CandidateDetailClient({
               ['Languages', str(a.languages)],
             ]} />
           </Card>
-          <Card title="Previous caregiver experience">
+          <Card title="Previous care experience">
             {asArray(a.work_experience).length === 0 ? (
               <div style={{ fontSize: 14, color: C.faint }}>None provided.</div>
             ) : asArray(a.work_experience).map((e, i) => (
@@ -1136,7 +1136,7 @@ export default function CandidateDetailClient({
               ['If yes, per day', str(a.smoker_per_day)],
               ['How they heard about us', str(a.how_heard)],
               ['Recent caregiving experience', str(a.recent_experience)],
-              ['Why caregiver with us', str(a.why_caregiver)],
+              ['Why join the care team', str(a.why_caregiver)],
             ]} />
           </Card>
           <Card title="Attestation">

@@ -52,7 +52,7 @@ export default function NotInterestedClient({ token, firstName }: { token: strin
             <>
               <p style={{ color: C.gray, fontSize: 14, lineHeight: 1.7, margin: '0 0 18px' }}>
                 {firstName ? `${firstName}, ` : ''}before we do anything, we want to be sure this is what you meant.
-                Confirming below tells us you no longer want to be considered for a caregiver position
+                Confirming below tells us you no longer want to be considered for a position
                 at Vitalis, and we will stop emailing you about it.
               </p>
               <p style={{ color: C.gray, fontSize: 14, lineHeight: 1.7, margin: '0 0 22px' }}>

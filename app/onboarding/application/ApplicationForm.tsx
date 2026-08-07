@@ -33,7 +33,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div style={{ width: '100%', maxWidth: 720, margin: '0 auto' }}>
         <div style={{ background: 'linear-gradient(135deg,#1A2E44 0%,#0E4A4A 100%)', padding: '22px 28px', borderRadius: '14px 14px 0 0', textAlign: 'center' }}>
           <div style={{ width: 46, height: 46, background: 'linear-gradient(135deg,#0E7C7B,#F4A261)', borderRadius: 11, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, color: '#fff', marginBottom: 10 }}>V+</div>
-          <h1 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>Vitalis Caregiver Application</h1>
+          <h1 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>Vitalis Application</h1>
         </div>
         <div style={{ background: '#fff', padding: '28px', border: '1px solid #E2E8F0', borderTop: 'none', borderRadius: '0 0 14px 14px' }}>{children}</div>
         <div style={{ textAlign: 'center', padding: '16px 0', fontSize: 11, color: '#94A3B8', lineHeight: 1.8 }}>
@@ -329,7 +329,7 @@ export default function ApplicationForm({
         </Row>
       </Section>
 
-      <Section title="Previous caregiver experience">
+      <Section title="Previous care experience">
         {(form.work_experience || []).map((exp, i) => (
           <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 11, padding: '14px 16px', marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -472,7 +472,7 @@ export default function ApplicationForm({
           </Field>
         </Row>
         <Row>
-          <Field label="Why do you want to be a caregiver with us?" grow={3}>
+          <Field label="Why do you want to join the Vitalis care team?" grow={3}>
             <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} value={form.why_caregiver || ''} onChange={(e) => set('why_caregiver', e.target.value)} />
           </Field>
         </Row>
