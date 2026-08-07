@@ -331,7 +331,21 @@ export interface RenderContractOptions {
   issuedDate: string
   /** Present once signed — stamps the audit line onto the document face. */
   signed?: { signedAt: string; ip: string | null }
+  /**
+   * PNG data URL of a drawn signature (v0.6.65). Embedded INLINE rather than
+   * linked, because rendered_html is the legal record and must prove itself
+   * without depending on a column, a bucket or a route still being there years
+   * from now. Absent when the person signed by typed name alone, which stays a
+   * valid electronic signature and a necessary fallback.
+   */
+  signatureImage?: string | null
 }
+
+const SIGNATURE_CSS = `
+  .drawnsig {
+    display: block; max-width: 100%; max-height: 68px; width: auto;
+    margin: 0 0 2px; object-fit: contain; object-position: left bottom;
+  }`
 
 const CLINICAL_CSS = `
   .essential { color: var(--green-dark); font-weight: 700; }
@@ -452,6 +466,17 @@ export function renderContractHtml(opts: RenderContractOptions): string {
 
   // One entry point, two bodies. Every consumer keeps calling this function.
   const body = t.layout === 'clinical' ? clinicalBody(t) : aideBody(t)
+
+  // Only a PNG data URL is ever emitted here. Anything else is dropped rather
+  // than trusted: this string goes into a stored document, and a src the
+  // renderer did not recognise has no business inside a legal record.
+  const img = typeof opts.signatureImage === 'string' && opts.signatureImage.startsWith('data:image/png;base64,')
+    ? opts.signatureImage
+    : ''
+  const drawnMark = img
+    ? `\n        <img class="drawnsig" src="${img}" alt="Signature of ${name}">`
+    : ''
+  const signatureCss = img ? SIGNATURE_CSS : ''
   // Emitted only for the clinical layout, so an aide document's stored
   // snapshot carries exactly the rules it uses and not a byte more.
   const clinicalCss = t.layout === 'clinical' ? CLINICAL_CSS : ''
@@ -459,7 +484,7 @@ export function renderContractHtml(opts: RenderContractOptions): string {
   const auditLine = opts.signed
     ? `Signed electronically in the Vitalis Portal on ${esc(opts.signed.signedAt)}${
         opts.signed.ip ? ` from ${esc(opts.signed.ip)}` : ''
-      }. This copy records the typed name above and the exact template text presented at signing. &nbsp;&middot;&nbsp; Template <strong>${t.key} ${CONTRACT_TEMPLATE_VERSION}</strong>`
+      }, ${img ? 'by drawn signature and typed name' : 'by typed name'}. This copy records the signature above and the exact template text presented at signing. &nbsp;&middot;&nbsp; Template <strong>${t.key} ${CONTRACT_TEMPLATE_VERSION}</strong>`
     : `To be signed electronically in the Vitalis Portal. The signed copy records the typed name, the exact template text presented, the template version, the signing timestamp and the originating IP address. &nbsp;&middot;&nbsp; Template <strong>${t.key} ${CONTRACT_TEMPLATE_VERSION}</strong>`
 
   return `<!DOCTYPE html>
@@ -517,7 +542,7 @@ export function renderContractHtml(opts: RenderContractOptions): string {
     font-size: 10px; font-weight: 700; letter-spacing: .09em;
     text-transform: uppercase; color: #7A8875; margin-bottom: 5px;
   }
-  .term dd { margin: 0; font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.4; }${clinicalCss}
+  .term dd { margin: 0; font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.4; }${signatureCss}${clinicalCss}
   h2 {
     font-size: 11px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase;
     color: var(--green-dark); margin: 32px 0 12px; padding-bottom: 7px;
@@ -599,7 +624,7 @@ export function renderContractHtml(opts: RenderContractOptions): string {
 ${body}  <div class="ack">
     <p class="ack-statement">${t.acknowledgment}</p>
     <div class="siglines">
-      <div class="sigline">
+      <div class="sigline">${drawnMark}
         <div class="sigvalue typed">${name}</div>
         <div class="siglabel">${t.signatureLabel}</div>
       </div>

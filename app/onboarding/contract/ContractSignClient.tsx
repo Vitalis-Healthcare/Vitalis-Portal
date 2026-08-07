@@ -20,6 +20,7 @@
 // as the only one.
 
 import { useEffect, useRef, useState } from 'react'
+import SignaturePad from '@/components/onboarding/SignaturePad'
 
 const GREEN_DARK = '#2D5A1B'
 const GREEN_BRIGHT = '#7AB52A'
@@ -47,6 +48,7 @@ export default function ContractSignClient({
   signedOn: string | null
 }) {
   const [name, setName] = useState('')
+  const [signatureImage, setSignatureImage] = useState<string | null>(null)
   const [agreed, setAgreed] = useState(false)
   const [reachedEnd, setReachedEnd] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -91,7 +93,7 @@ export default function ContractSignClient({
       const res = await fetch('/api/onboarding/contract/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, signature_name: name, agreed }),
+        body: JSON.stringify({ token, signature_name: name, agreed, signature_image: signatureImage }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || 'Your signature could not be saved.')
@@ -279,8 +281,21 @@ export default function ContractSignClient({
                 }}
               />
               <div style={{ fontSize: 11.5, color: '#8A9686', marginBottom: 20, lineHeight: 1.6 }}>
-                Typing your name here is your electronic signature. We record the name,
-                the date and time, and the document exactly as shown above.
+                This is your printed name, exactly as it will appear on the agreement.
+              </div>
+
+              <label style={{
+                display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.07em',
+                textTransform: 'uppercase', color: '#7A8875', marginBottom: 7,
+              }}>
+                Draw your signature <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+              </label>
+              <SignaturePad disabled={!agreed} onChange={setSignatureImage} />
+              <div style={{ fontSize: 11.5, color: '#8A9686', margin: '8px 0 20px', lineHeight: 1.6 }}>
+                {signatureImage
+                  ? 'Your signature will appear on the agreement above your printed name. Clear it and draw again if you are not happy with it.'
+                  : 'On a phone or tablet, sign with your finger. If drawing is difficult, leave this blank — your typed name above is a valid signature on its own.'}
+                {' '}We record your name, the date and time, and the document exactly as shown above.
               </div>
 
               {error && (
