@@ -121,7 +121,7 @@ export default function DocumentsUploader({
       <div style={{ width: '100%', maxWidth: 560 }}>
         <div style={{ background: 'linear-gradient(135deg,#1A2E44 0%,#0E4A4A 100%)', padding: '26px 30px', borderRadius: '14px 14px 0 0', textAlign: 'center' }}>
           <div style={{ width: 50, height: 50, background: 'linear-gradient(135deg,#0E7C7B,#F4A261)', borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, fontWeight: 900, color: '#fff', marginBottom: 10 }}>V+</div>
-          <h1 style={{ color: '#fff', margin: 0, fontSize: 19, fontWeight: 800 }}>Your Caregiver Documents</h1>
+          <h1 style={{ color: '#fff', margin: 0, fontSize: 19, fontWeight: 800 }}>Your Documents</h1>
           <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, margin: '4px 0 0', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Vitalis HealthCare</p>
         </div>
 

@@ -26,10 +26,10 @@ export function variantForTrack(track: CandidateTrack): InviteVariant {
 function copyFor(variant: InviteVariant) {
   if (variant === 'application') {
     return {
-      subject: 'Welcome to Vitalis — complete your caregiver application',
-      tagline: 'Caregiver Application',
+      subject: 'Welcome to Vitalis — complete your application',
+      tagline: 'Your Application',
       intro:
-        'Thank you for your interest in joining the Vitalis caregiver team. The next step is to complete your <strong>caregiver application</strong>.',
+        'Thank you for your interest in joining the Vitalis care team. The next step is to complete your <strong>application</strong>.',
       button: 'Complete Your Application',
       expect:
         '<strong>What to expect:</strong> your contact details, work history, references, and document uploads (photo ID and any certifications you hold). You can save a draft and come back any time.',
@@ -38,21 +38,21 @@ function copyFor(variant: InviteVariant) {
   }
   if (variant === 'documents') {
     return {
-      subject: 'Welcome to Vitalis — add your caregiver documents',
-      tagline: 'Caregiver Documents',
+      subject: 'Welcome to Vitalis — add your supporting documents',
+      tagline: 'Your Documents',
       intro:
-        'Thank you for your interest in joining the Vitalis caregiver team. We have your application on file — the next step is to upload your <strong>supporting documents</strong>.',
+        'Thank you for your interest in joining the Vitalis care team. We have your application on file — the next step is to upload your <strong>supporting documents</strong>.',
       button: 'Upload Your Documents',
       expect:
-        '<strong>What to upload:</strong> a government-issued photo ID, plus any certifications you hold — CNA or other credentials, CPR, TB test result, and similar. Clear photos or PDFs are both fine, and you can come back to add more at any time.',
+        '<strong>What to upload:</strong> a government-issued photo ID, plus any credentials you hold — CNA, GNA, CMT, or a nursing license, along with CPR, TB test result, and similar. Clear photos or PDFs are both fine, and you can come back to add more at any time.',
       path: '/onboarding/documents',
     }
   }
   return {
-    subject: 'Welcome to Vitalis — start your caregiver competency test',
-    tagline: 'Caregiver Competency Test',
+    subject: 'Welcome to Vitalis — start your competency test',
+    tagline: 'Competency Test',
     intro:
-      'Thank you for your interest in joining the Vitalis caregiver team. The first step is a short <strong>caregiver competency test</strong>.',
+      'Thank you for your interest in joining the Vitalis care team. The first step is a short <strong>competency test</strong>.',
     button: 'Start the Competency Test',
     expect:
       '<strong>What to expect:</strong> 86 multiple-choice questions on everyday caregiving — communication, safety, infection control, documentation, and client care. Take your time; there is no time limit.',

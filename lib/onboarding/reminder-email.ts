@@ -44,14 +44,14 @@ export function reminderCopy(reminderNumber: number, firstName: string): Reminde
       subject: 'Still interested in joining Vitalis?',
       heading: `${name}, your application is still open`,
       intro:
-        'We have not heard from you in about a week, and your caregiver application is still waiting to be completed. If you are still interested, you can pick up exactly where you left off — nothing you entered has been lost.<br><br>If we do not hear from you in the next few days we will set your application aside, so that we are not chasing someone who has moved on. That is not a rejection: tell us any time and we will pick it straight back up.',
+        'We have not heard from you in about a week, and your application is still waiting to be completed. If you are still interested, you can pick up exactly where you left off — nothing you entered has been lost.<br><br>If we do not hear from you in the next few days we will set your application aside, so that we are not chasing someone who has moved on. That is not a rejection: tell us any time and we will pick it straight back up.',
     }
   }
   return {
-    subject: 'Your Vitalis caregiver application is waiting',
+    subject: 'Your Vitalis application is waiting',
     heading: `${name}, you are nearly there`,
     intro:
-      'Thank you for the time you have already put in with us. Your caregiver application has not been completed yet, and it is the last thing standing between you and our review. It takes most people about fifteen minutes, and you can save and come back if you need to.',
+      'Thank you for the time you have already put in with us. Your application has not been completed yet, and it is the last thing standing between you and our review. It takes most people about fifteen minutes, and you can save and come back if you need to.',
   }
 }
 
@@ -141,7 +141,7 @@ export function renderSetAsideHtml(firstName: string): string {
     </div>
     <div style="background:#ffffff;padding:28px 30px;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 14px 14px;">
       <p style="color:#4A6070;font-size:14px;line-height:1.7;margin:0 0 18px;">
-        ${esc(name)}, we have not heard from you for a little while, so we have set your caregiver
+        ${esc(name)}, we have not heard from you for a little while, so we have set your
         application aside and will stop emailing you about it. Nothing has been deleted, and this is
         not a rejection &mdash; life gets busy, and we would rather step back than keep chasing.
       </p>
