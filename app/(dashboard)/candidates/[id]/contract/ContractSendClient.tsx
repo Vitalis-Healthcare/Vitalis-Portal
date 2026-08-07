@@ -292,6 +292,19 @@ export default function ContractSendClient({
                       >
                         {c.signed_at ? 'View signed copy ↗' : 'Preview ↗'}
                       </a>
+                      {/* Only a signed agreement has a filing copy. An unsigned
+                          one has nothing worth putting in a personnel file. */}
+                      {c.signed_at && (
+                        <>
+                          <span style={{ color: '#CBD5E1', margin: '0 8px' }}>·</span>
+                          <a
+                            href={`/api/onboarding/contract/${c.id}/pdf`}
+                            style={{ fontSize: 12, color: TEAL, textDecoration: 'none', fontWeight: 600 }}
+                          >
+                            PDF ↓
+                          </a>
+                        </>
+                      )}
                     </td>
                   </tr>
                 )

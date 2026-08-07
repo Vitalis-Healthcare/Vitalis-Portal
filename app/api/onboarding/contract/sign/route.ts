@@ -26,6 +26,11 @@ const FROM_EMAIL = process.env.NOTIFY_FROM_EMAIL || 'Vitalis Portal <notificatio
 const TEAM_NOTIFY = 'team@vitalishealthcare.com'
 const RESEND_KEY = process.env.RESEND_API_KEY
 
+// Required for the PDF attachment below: Chromium will not start on the Edge
+// runtime, and a cold start plus render can exceed the default timeout.
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 export async function POST(req: NextRequest) {
   let rawToken = ''
   let signatureName = ''
@@ -130,6 +135,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Your signature could not be saved. Please try again.' }, { status: 500 })
   }
 
+  // ── The filing copy (soft-fail, always) ───────────────────────────────────
+  // The signature is SAVED by this point. Everything below is convenience, and
+  // none of it may change the outcome the candidate is told. If Chromium will
+  // not start, the office still gets the notification, the snapshot is still
+  // the record, and the coordinator can still download the PDF later from the
+  // candidate page — so a failure here costs an attachment, not a signature.
+  let pdfAttachment: { filename: string; content: string } | null = null
+  try {
+    const { renderContractPdf, pdfFileName } = await import('@/lib/onboarding/contract-pdf')
+    const rendered = await renderContractPdf(renderedHtml)
+    if (rendered.ok && rendered.pdf) {
+      pdfAttachment = {
+        filename: pdfFileName(signatureName, signedAtIso),
+        content: rendered.pdf.toString('base64'),
+      }
+    } else {
+      console.error('[contract/sign] pdf render failed:', rendered.error)
+    }
+  } catch (err) {
+    console.error('[contract/sign] pdf threw:', err)
+  }
+
   // ── Notify the office (soft-fail) ─────────────────────────────────────────
   if (RESEND_KEY) {
     try {
@@ -146,6 +173,7 @@ export async function POST(req: NextRequest) {
           from: FROM_EMAIL,
           to: [TEAM_NOTIFY],
           subject: `Agreement signed — ${who} (${template.docTitle})`,
+          ...(pdfAttachment ? { attachments: [pdfAttachment] } : {}),
           html: `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#F8FAFC;font-family:'Segoe UI',Arial,sans-serif;">
 <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
@@ -163,6 +191,11 @@ export async function POST(req: NextRequest) {
       Pay rate: ${contract.pay_rate}<br>
       Date: ${documentDate(signedAtIso)}
     </div>
+    <p style="color:#8FA0B0;font-size:12.5px;margin:16px 0 0;line-height:1.6;">
+      ${pdfAttachment
+        ? 'The signed agreement is attached as a PDF for the personnel file.'
+        : 'The PDF could not be produced this time. The signed agreement is still viewable and printable from the candidate page, and can be downloaded there.'}
+    </p>
   </div>
 </div>
 </body></html>`,

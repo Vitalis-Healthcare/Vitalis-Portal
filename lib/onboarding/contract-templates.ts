@@ -592,6 +592,13 @@ export function renderContractHtml(opts: RenderContractOptions): string {
     @page { size: letter portrait; margin: 0.6in; }
     body { font-size: 10.5pt; line-height: 1.5; }
     .sheet { padding: 0; max-width: none; }
+    /* A Letter page less its margins is about 700 CSS pixels, which trips the
+       720px narrow-screen rule above and collapses these two grids into a
+       single column on every printed or PDF copy. Paper is not a phone, so
+       print restores the columns explicitly. Latent since the printable
+       agreement shipped in v0.6.56; found when the PDF made it visible. */
+    .terms { grid-template-columns: repeat(3, 1fr); }
+    .siglines { grid-template-columns: 1fr 200px; }
     h2 { margin-top: 20px; break-after: avoid; }
     li { break-inside: avoid; }
     .ack, .attendance { break-inside: avoid; }
