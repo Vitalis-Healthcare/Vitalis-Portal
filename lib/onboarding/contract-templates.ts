@@ -24,13 +24,42 @@
 
 export const CONTRACT_TEMPLATE_VERSION = 'v1'
 
-export type ContractTemplateKey = 'companion-care' | 'cna-gna'
+export type ContractTemplateKey = 'companion-care' | 'cna-gna' | 'rn' | 'lpn'
 
-export interface ContractTemplate {
+/**
+ * Which body the document uses.
+ *
+ *   'aide'     — the two source documents this file was built from. They share
+ *                a fixed skeleton: a 16-item duties tail, a knowledge/skills
+ *                block, and the shift-commitment and penalty clause.
+ *   'clinical' — the RN and LPN documents (v0.6.64). Different shape entirely:
+ *                an essential-function convention, a work-environment section
+ *                split into physical and environmental elements, and a scope
+ *                disclaimer. They carry NO shift-penalty clause, because their
+ *                source documents do not contain one and terms are not invented
+ *                for a legal document (Okezie, 6 August 2026: aide only).
+ *
+ * The two bodies are separate functions rather than one parameterised body.
+ * Forcing the nurse documents through the aide skeleton would either drop the
+ * text Okezie supplied or bolt aide clauses onto a nurse, and both are worse
+ * than thirty lines of shared chrome.
+ */
+export type ContractLayout = 'aide' | 'clinical'
+
+interface BaseTemplate {
   key: ContractTemplateKey
+  layout: ContractLayout
   docTitle: string
   positionTitle: string
+  /** Per template since v0.6.64 — the nurse documents report elsewhere. */
+  reportsTo: string
   summary: string
+  acknowledgment: string
+  signatureLabel: string
+}
+
+export interface AideTemplate extends BaseTemplate {
+  layout: 'aide'
   extraQualification: string | null
   dutiesIntro: string
   dutyAdl: string
@@ -38,11 +67,59 @@ export interface ContractTemplate {
   dutyCommunicates: string
   roleNoun: string
   roleNounLeading: string
-  acknowledgment: string
-  signatureLabel: string
 }
 
+export interface ClinicalTemplate extends BaseTemplate {
+  layout: 'clinical'
+  /** Position-specific; the shared documentation block is appended. */
+  qualifications: string[]
+  /** A trailing '*' marks an essential job function. */
+  duties: string[]
+}
+
+export type ContractTemplate = AideTemplate | ClinicalTemplate
+
 const REPORTS_TO = 'DON/RN Supervisor'
+
+// ── Clinical-layout shared text (v0.6.64) ───────────────────────────────────
+// The documentation block is appended to BOTH nurse qualification lists so all
+// four agreements ask for the same health and identity evidence. Okezie,
+// 6 August 2026: the gate demands photo ID, CPR and TB of every candidate
+// regardless of position, so a nurse should be able to read that on the
+// document they sign rather than discover it at the gate.
+const QUALIFICATIONS_DOCUMENTATION = [
+  'Current First Aid and CPR',
+  'Current: Health Certificate (within the past 12 months)',
+  'MMR (immunization record or current titer level)',
+  'PPD/C chest X-ray (within the past 12 months)',
+  'Current government-issued photo identification',
+  'Criminal history record check (CJIS) obtained through the Agency',
+]
+
+const CLINICAL_DUTIES_INTRO =
+  'The person in this position must be able to perform the following essential job functions, with or without reasonable accommodation.'
+
+const CLINICAL_ENVIRONMENT_INTRO =
+  'The work environment and physical demands described here are representative of those required of an employee to perform the essential functions of this job, with or without reasonable accommodation.'
+
+const CLINICAL_PHYSICAL = [
+  'Sufficient clarity of speech and hearing or other communication capabilities, with or without reasonable accommodation, to enable the employee to communicate effectively',
+  'Sufficient vision or other powers of observation, with or without reasonable accommodation, to enable the employee to review a wide variety of materials in electronic or hard copy form',
+  'Sufficient manual dexterity, with or without reasonable accommodation, to enable the employee to operate a personal computer, telephone, and other related equipment',
+  'Sufficient personal mobility and physical reflexes, with or without reasonable accommodation, to enable the employee to safely lift, move, or maneuver whatever may be necessary to successfully perform the duties of the position',
+  'Sufficient personal mobility and physical reflexes, with or without reasonable accommodation, to enable the employee to function efficiently in a general office environment, with frequent travel to a variety of field sites',
+]
+
+const CLINICAL_ENVIRONMENTAL = [
+  'The employee works in an office environment, sometimes with moderate noise levels and controlled temperature conditions, and travels to patients&rsquo; homes where there may be direct exposure to hazardous substances. The employee may interact with upset staff and with public and private representatives in interpreting and enforcing agency policies and procedures.',
+  'The employee travels to a variety of patients&rsquo; homes and works in conditions that vary greatly depending on the client&rsquo;s home environment. Some homes are clean, neat, and maintained at a comfortable temperature. Other homes may be cluttered or dirty, or kept at an uncomfortable temperature.',
+]
+
+const CLINICAL_SCOPE =
+  'The list above reflects the essential functions and other job functions considered necessary to the job identified, and shall not be construed as a detailed description of all work requirements inherent in the job or assigned by supervisory personnel. This job description is a guide only and is not inclusive of all responsibilities and job duties.'
+
+const ACK_CLINICAL =
+  'By my signature, I acknowledge that I have read and understand this job description and its requirements, and that I am expected to complete all duties as assigned. I understand that the job functions may be altered from time to time.'
 
 const QUALIFICATIONS_TOP = [
   'High school graduate or GED equivalent',
@@ -98,6 +175,8 @@ const PHYSICAL = [
 export const CONTRACT_TEMPLATES: Record<ContractTemplateKey, ContractTemplate> = {
   'companion-care': {
     key: 'companion-care',
+    layout: 'aide',
+    reportsTo: REPORTS_TO,
     docTitle: 'Companion Care Aide',
     positionTitle: 'COMPANION CARE (Unlicensed / PRN)',
     summary:
@@ -117,6 +196,8 @@ export const CONTRACT_TEMPLATES: Record<ContractTemplateKey, ContractTemplate> =
   },
   'cna-gna': {
     key: 'cna-gna',
+    layout: 'aide',
+    reportsTo: REPORTS_TO,
     docTitle: 'CNA / CMT / GNA',
     positionTitle: 'CNA/CMT/GNA (PRN)',
     summary:
@@ -133,12 +214,100 @@ export const CONTRACT_TEMPLATES: Record<ContractTemplateKey, ContractTemplate> =
     acknowledgment: 'I have read and understand the above job description of the CNA/GNA',
     signatureLabel: 'CNA/GNA Name &amp; Signature',
   },
+
+  // ── The nurse documents (v0.6.64) ────────────────────────────────────────
+  // Transcribed from the RN and LPN job descriptions Okezie supplied on
+  // 6 August 2026, with the typographical corrections he approved: apostrophes
+  // used as plurals, a misspelled Administrator, a pluralised preposition in
+  // the RN summary, a bullet carrying a heading style, and several agreement
+  // and duplication errors. Deliberately described rather than quoted — the
+  // deploy script greps this file for the malformed forms, and a quoted
+  // example would trip its own guard (the same convention as the header).
+  // A trailing '*' on a duty marks an essential job function.
+  'rn': {
+    key: 'rn',
+    layout: 'clinical',
+    reportsTo: 'Administrator / DON',
+    docTitle: 'Registered Nurse',
+    positionTitle: 'REGISTERED NURSE (PRN)',
+    summary:
+      'Demonstrate proficient skills using assessments to admit, transfer, re-certify, and discharge home health patients in regard to physician orders. Coordinate and supervise LPNs and HHAs in the delivery of patient care. Maintain compliance with agency policy and procedures. Follow state regulations.',
+    qualifications: [
+      'Be a registered nurse (R.N.) with a current license.',
+      'Minimum of one (1) year of nursing experience as an R.N.',
+      'Work positively and favorably with patients, families, and staff.',
+    ],
+    duties: [
+      'Perform the initial home care patient visit and re-evaluate the patient&rsquo;s needs and progress on a regular basis. *',
+      'Initiate the plan of care under the physician&rsquo;s orders. *',
+      'Perform assessments for the home care patient. *',
+      'Observe, assess, and document symptoms. *',
+      'Monitor reactions and patient progress. *',
+      'Educate patients and caregivers on the disease process, medications, plan of care, and individualized treatment plans. *',
+      'Educate patients and caregivers on techniques for in-home health care. *',
+      'Coordinate patient services. *',
+      'Supervise LPNs and HHAs. *',
+      'Notify the physician and other personnel (DON, PT, Case Manager) of any change in the patient&rsquo;s condition. *',
+      'Perform the skills outlined in the agency&rsquo;s approved policy and procedure manual. *',
+      'Discharge the patient from skilled nursing services when the discharge criteria have been met. *',
+      'Case conference with clinicians providing care to ensure coordination of care. *',
+      'Update clinical records according to policy and procedures. *',
+      'Update knowledge and skills by attending in-service programs, continuing education programs, seminars, and self-study programs annually. *',
+      'Provide onsite supervision of the LPN and HHA. *',
+      'Adhere to state regulations. *',
+    ],
+    acknowledgment: ACK_CLINICAL,
+    signatureLabel: 'Registered Nurse Name &amp; Signature',
+  },
+
+  'lpn': {
+    key: 'lpn',
+    layout: 'clinical',
+    reportsTo: 'RN / Administrator',
+    docTitle: 'Licensed Practical Nurse',
+    positionTitle: 'LICENSED PRACTICAL NURSE (PRN)',
+    summary:
+      'Provide nursing care to patients in the home setting. Observe and assess the client and caregiver to enhance the quality of life. Demonstrate individualized creativity in educating the patient and caregiver. Follow nursing policy and procedure per agency standards. Follow the plan of care according to physician orders. Demonstrate understanding of state regulations.',
+    qualifications: [
+      'Be a licensed practical nurse (L.P.N.) with a current license.',
+      'Minimum of two (2) years of experience in a healthcare setting.',
+      'Excellent oral and written communication skills.',
+    ],
+    duties: [
+      'Demonstrate efficient teamwork with the staff.',
+      'Demonstrate organizational and time management skills.',
+      'Support quality improvement practices. *',
+      'Perform nursing procedures according to agency policy and procedures. *',
+      'Work under the direction of an RN.',
+      'Monitor reactions and patient progress using observation, assessment, and evaluation skills.',
+      'Educate patients and family members on the disease process, medications, treatment options, and home care procedures according to the plan of care. *',
+      'Report adverse findings to the physician and the RN. *',
+      'Follow state regulations. *',
+      'Coordinate and monitor patient care and services. *',
+      'Comply with HIPAA regulations in and out of the office. *',
+      'Follow infection control policy in and out of the office. *',
+      'Document skilled visits according to guidelines. *',
+      'Maintain patient records according to policy and procedures. *',
+      'Participate in in-services, workshops, seminars, and self-study courses annually. *',
+    ],
+    acknowledgment: ACK_CLINICAL,
+    signatureLabel: 'Licensed Practical Nurse Name &amp; Signature',
+  },
 }
 
 export const CONTRACT_TEMPLATE_CHOICES: { key: ContractTemplateKey; label: string }[] = [
   { key: 'companion-care', label: 'Companion Care Aide (Unlicensed / PRN)' },
   { key: 'cna-gna', label: 'CNA / CMT / GNA (PRN)' },
+  { key: 'lpn', label: 'Licensed Practical Nurse (PRN)' },
+  { key: 'rn', label: 'Registered Nurse (PRN)' },
 ]
+
+/** Positions that require an MBON license. A waiver can never apply to these. */
+export const LICENSED_TEMPLATE_KEYS: ContractTemplateKey[] = ['rn', 'lpn']
+
+export function isLicensedTemplate(key: string): boolean {
+  return (LICENSED_TEMPLATE_KEYS as string[]).includes(key)
+}
 
 // Escape anything that came from a person. Template copy above is trusted
 // author-controlled HTML; candidate names and pay rates are not.
@@ -164,12 +333,19 @@ export interface RenderContractOptions {
   signed?: { signedAt: string; ip: string | null }
 }
 
-export function renderContractHtml(opts: RenderContractOptions): string {
-  const t = CONTRACT_TEMPLATES[opts.templateKey]
-  const name = esc(opts.candidateName)
-  const rate = esc(opts.payRate)
-  const date = esc(opts.issuedDate)
+const CLINICAL_CSS = `
+  .essential { color: var(--green-dark); font-weight: 700; }
+  .footnote {
+    font-size: 10.5px; color: #7A8875; letter-spacing: .03em;
+    margin: 4px 0 14px; padding-left: 3px;
+  }
+  .envnote {
+    border-left: 3px solid var(--rule); background: #FAFBF9;
+    padding: 16px 22px 4px; margin: 4px 0 14px;
+  }
+  .scope { font-size: 12.5px; color: #6B7A66; }`
 
+function aideBody(t: AideTemplate): string {
   const qualifications = [
     ...QUALIFICATIONS_TOP,
     ...(t.extraQualification ? [t.extraQualification] : []),
@@ -184,6 +360,101 @@ export function renderContractHtml(opts: RenderContractOptions): string {
     t.dutyCommunicates,
     'Performs related duties as assigned',
   ]
+
+  return `  <h2>Position summary</h2>
+  <p>${t.summary}</p>
+
+  <h2>Qualifications</h2>
+  <ul>
+${li(qualifications)}
+  </ul>
+
+  <h2>Job duties</h2>
+  <p>${t.dutiesIntro}</p>
+  <ul>
+${li(duties)}
+  </ul>
+
+  <h2>Knowledge, skills and abilities</h2>
+  <ul>
+${li(KSA)}
+  </ul>
+
+  <h2>Physical requirements</h2>
+  <ul>
+${li(PHYSICAL)}
+  </ul>
+
+  <h2>Other requirements</h2>
+  <div class="attendance">
+    <ul>
+      <li>${t.roleNounLeading} must only pick up shifts that they are willing and able to be committed to both in time and work requirement.</li>
+      <li>Unless in the case of an emergency, once ${t.roleNoun} has accepted a shift, he or she must inform the office about their inability to cover any shift they have accepted <strong>48 hours</strong> before the start of the shift.</li>
+      <li>A penalty of <strong>$50</strong> shall be deducted from the paycheck of ${t.roleNoun} that gives less than 48 hours&rsquo; notice to call out of any shift. In the event of a no-call, no-show, ${t.roleNoun} shall receive a <strong>warning letter</strong> in addition to the <strong>$50 penalty</strong>.</li>
+      <li>Only the Agency Administrator can waive this penalty or warning letter.</li>
+    </ul>
+  </div>
+
+`
+}
+
+/**
+ * The RN and LPN body. A different document, not a variation on the aide one:
+ * an essential-function convention, work environment split into physical and
+ * environmental elements, and a scope disclaimer. No shift-penalty clause —
+ * their source documents do not contain one.
+ */
+function clinicalBody(t: ClinicalTemplate): string {
+  const qualifications = [...t.qualifications, ...QUALIFICATIONS_DOCUMENTATION]
+  const duties = t.duties.map((d) =>
+    d.endsWith('*') ? `${d.slice(0, -1).trim()}<span class="essential">&nbsp;*</span>` : d,
+  )
+
+  return `  <h2>Position summary</h2>
+  <p>${t.summary}</p>
+
+  <h2>Qualifications and educational requirements</h2>
+  <ul>
+${li(qualifications)}
+  </ul>
+
+  <h2>Responsibilities and essential functions</h2>
+  <p>${CLINICAL_DUTIES_INTRO}</p>
+  <ul>
+${li(duties)}
+  </ul>
+  <p class="footnote"><span class="essential">*</span> Essential job function</p>
+
+  <h2>Work environment and physical requirements</h2>
+  <p>${CLINICAL_ENVIRONMENT_INTRO}</p>
+
+  <h2>Physical elements</h2>
+  <ul>
+${li(CLINICAL_PHYSICAL)}
+  </ul>
+
+  <h2>Environmental elements</h2>
+  <div class="envnote">
+${CLINICAL_ENVIRONMENTAL.map((para) => `    <p>${para}</p>`).join('\n')}
+  </div>
+
+  <h2>Scope of this description</h2>
+  <p class="scope">${CLINICAL_SCOPE}</p>
+
+`
+}
+
+export function renderContractHtml(opts: RenderContractOptions): string {
+  const t = CONTRACT_TEMPLATES[opts.templateKey]
+  const name = esc(opts.candidateName)
+  const rate = esc(opts.payRate)
+  const date = esc(opts.issuedDate)
+
+  // One entry point, two bodies. Every consumer keeps calling this function.
+  const body = t.layout === 'clinical' ? clinicalBody(t) : aideBody(t)
+  // Emitted only for the clinical layout, so an aide document's stored
+  // snapshot carries exactly the rules it uses and not a byte more.
+  const clinicalCss = t.layout === 'clinical' ? CLINICAL_CSS : ''
 
   const auditLine = opts.signed
     ? `Signed electronically in the Vitalis Portal on ${esc(opts.signed.signedAt)}${
@@ -246,7 +517,7 @@ export function renderContractHtml(opts: RenderContractOptions): string {
     font-size: 10px; font-weight: 700; letter-spacing: .09em;
     text-transform: uppercase; color: #7A8875; margin-bottom: 5px;
   }
-  .term dd { margin: 0; font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.4; }
+  .term dd { margin: 0; font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.4; }${clinicalCss}
   h2 {
     font-size: 11px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase;
     color: var(--green-dark); margin: 32px 0 12px; padding-bottom: 7px;
@@ -321,45 +592,11 @@ export function renderContractHtml(opts: RenderContractOptions): string {
 
   <dl class="terms">
     <div class="term"><dt>Position title</dt><dd>${t.positionTitle}</dd></div>
-    <div class="term"><dt>Reports to</dt><dd>${REPORTS_TO}</dd></div>
+    <div class="term"><dt>Reports to</dt><dd>${t.reportsTo}</dd></div>
     <div class="term"><dt>Pay rate</dt><dd>${rate}</dd></div>
   </dl>
 
-  <h2>Position summary</h2>
-  <p>${t.summary}</p>
-
-  <h2>Qualifications</h2>
-  <ul>
-${li(qualifications)}
-  </ul>
-
-  <h2>Job duties</h2>
-  <p>${t.dutiesIntro}</p>
-  <ul>
-${li(duties)}
-  </ul>
-
-  <h2>Knowledge, skills and abilities</h2>
-  <ul>
-${li(KSA)}
-  </ul>
-
-  <h2>Physical requirements</h2>
-  <ul>
-${li(PHYSICAL)}
-  </ul>
-
-  <h2>Other requirements</h2>
-  <div class="attendance">
-    <ul>
-      <li>${t.roleNounLeading} must only pick up shifts that they are willing and able to be committed to both in time and work requirement.</li>
-      <li>Unless in the case of an emergency, once ${t.roleNoun} has accepted a shift, he or she must inform the office about their inability to cover any shift they have accepted <strong>48 hours</strong> before the start of the shift.</li>
-      <li>A penalty of <strong>$50</strong> shall be deducted from the paycheck of ${t.roleNoun} that gives less than 48 hours&rsquo; notice to call out of any shift. In the event of a no-call, no-show, ${t.roleNoun} shall receive a <strong>warning letter</strong> in addition to the <strong>$50 penalty</strong>.</li>
-      <li>Only the Agency Administrator can waive this penalty or warning letter.</li>
-    </ul>
-  </div>
-
-  <div class="ack">
+${body}  <div class="ack">
     <p class="ack-statement">${t.acknowledgment}</p>
     <div class="siglines">
       <div class="sigline">

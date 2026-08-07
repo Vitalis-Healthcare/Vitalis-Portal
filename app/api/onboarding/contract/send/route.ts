@@ -14,6 +14,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import {
   CONTRACT_TEMPLATES,
   CONTRACT_TEMPLATE_VERSION,
+  isLicensedTemplate,
   type ContractTemplateKey,
 } from '@/lib/onboarding/contract-templates'
 import { newRawToken, hashToken, tokenExpiry } from '@/lib/onboarding/contract'
@@ -118,6 +119,25 @@ export async function POST(req: NextRequest) {
       error: 'Credentialing is not complete for this candidate.',
       code: 'gate_blocked',
       blockers: gate.blockers,
+    }, { status: 409 })
+  }
+
+  // ── A licensed position cannot rest on a waiver ───────────────────────────
+  // v0.6.64. The waiver exists for unlicensed aides. Issuing an RN or LPN
+  // agreement to someone whose MBON verification was waived would put a
+  // clinical job description over a person we have no evidence is licensed —
+  // and the signed snapshot would say we checked.
+  if (isLicensedTemplate(template.key) && gateInput.licenseWaivedAt) {
+    return NextResponse.json({
+      error: `This is a licensed position, so the MBON license verification cannot be waived. Upload it, or choose an unlicensed position for this agreement.`,
+      code: 'gate_blocked',
+      blockers: [{
+        code: 'licensed_template_with_waiver',
+        label: `${template.docTitle} requires MBON license verification`,
+        detail: 'The license waiver on this candidate only applies to unlicensed aides. Upload the Maryland Board of Nursing verification for the credential they hold, or remove the waiver — then send this agreement.',
+        fixHref: `/candidates/${candidateId}/credentials`,
+        fixLabel: 'Upload or remove the waiver',
+      }],
     }, { status: 409 })
   }
 
